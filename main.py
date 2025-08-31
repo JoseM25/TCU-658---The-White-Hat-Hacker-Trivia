@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from juego.pantalla_menu import MenuScreen
 
-ctk.set_appearance_mode("white")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 root = ctk.CTk()

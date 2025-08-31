@@ -1,12 +1,31 @@
 import os
 from tkinter import messagebox
 import customtkinter as ctk
+from PIL import ImageTk
+from tksvg import SvgImage as TkSvgImage
 
 
 class MenuScreen:
     def __init__(self, parent):
         self.parent = parent
         self.setup_menu()
+
+    def load_svg_image(self, svg_path, width=200, height=200):
+        try:
+            # Cargar SVG y convertir a PNG
+            photo = TkSvgImage(file=svg_path, scale=1.0)
+            # Crear Imagen PIL
+            pil = ImageTk.getimage(photo).convert("RGBA")
+
+            # Convertir Imagen a CTKImage
+            ctk_image = ctk.CTkImage(
+                light_image=pil, dark_image=pil, size=(width, height)
+            )
+
+            return ctk_image
+        except Exception as e:
+            print(f"Error loading SVG image: {e}")
+            return None
 
     def setup_menu(self):
         # Limpiar Widgets Existentes
@@ -17,6 +36,9 @@ class MenuScreen:
         self.main_frame = ctk.CTkFrame(self.parent, fg_color="transparent")
         self.main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
+        # Logo
+        self.create_logo()
+
         # Titulo
         self.create_title()
 
@@ -25,6 +47,33 @@ class MenuScreen:
 
         # Pie de Pagina
         self.create_footer()
+
+    def create_logo(self):
+        # Frame Logo
+        logo_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        logo_frame.pack(pady=(0, 30))
+
+        # Cargar Imagen SVG
+        svg_path = os.path.join("recursos", "imagenes", "Hat.svg")
+        logo_image = self.load_svg_image(svg_path, width=150, height=150)
+
+        if logo_image:
+            # Crear label con Imagen
+            logo_label = ctk.CTkLabel(
+                logo_frame,
+                image=logo_image,
+                text="",  # Sin texto
+            )
+            logo_label.pack()
+        else:
+            # Manejar error al cargar imagen
+            error_label = ctk.CTkLabel(
+                logo_frame,
+                text="Error loading logo",
+                font=ctk.CTkFont(size=80),
+                text_color="red",
+            )
+            error_label.pack()
 
     def create_title(self):
         # Frame titulo
