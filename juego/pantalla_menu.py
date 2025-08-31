@@ -11,6 +11,7 @@ class MenuScreen:
         self.menu_buttons = []
         self.logo_label = None
         self.title_label = None
+        self.inner_frame = None
 
         # Crear Fuentes
         self.title_font = ctk.CTkFont(
@@ -83,7 +84,7 @@ class MenuScreen:
 
     def title_section(self):
         title_container = ctk.CTkFrame(self.main, fg_color="transparent")
-        title_container.grid(row=1, column=0, sticky="n", pady=(2, 0))
+        title_container.grid(row=1, column=0, sticky="n", pady=(2, 32))
         title_container.grid_columnconfigure(0, weight=1)
 
         self.title_label = ctk.CTkLabel(
@@ -92,30 +93,30 @@ class MenuScreen:
             font=self.title_font,
             text_color="#202632",
             anchor="center",
-        ).grid(row=0, column=0, pady=0, sticky="n")
+        )
+        self.title_label.grid(row=0, column=0, pady=0, sticky="n")
 
     def buttons_section(self):
         outer = ctk.CTkFrame(self.main, fg_color="transparent")
         outer.grid(row=2, column=0, sticky="nsew", pady=(0, 16))
-        outer.grid_columnconfigure(0, weight=1)
-        outer.grid_columnconfigure(1, weight=0)
-        outer.grid_columnconfigure(2, weight=1)
+        for c in (0, 1, 2):
+            outer.grid_columnconfigure(c, weight=1)
         outer.grid_rowconfigure(0, weight=1)
 
-        inner = ctk.CTkFrame(outer, fg_color="transparent")
-        inner.grid(row=0, column=1, sticky="ns", padx=16)
-        inner.grid_columnconfigure(0, weight=0)
+        self.inner_frame = ctk.CTkFrame(outer, fg_color="transparent")
+        self.inner_frame.grid(row=0, column=1, sticky="nsew")
+        self.inner_frame.grid_columnconfigure(0, weight=1)
 
         def add_buttons(row, text, color, hover_color, cmd):
             button = ctk.CTkButton(
-                inner,
+                self.inner_frame,
                 text=text,
                 font=self.button_font,
                 fg_color=color,
                 hover_color=hover_color,
                 command=cmd,
             )
-            button.grid(row=row, column=0, sticky="nsew", padx=0, pady=(8, 8))
+            button.grid(row=row, column=0, sticky="ew", padx=0, pady=(8, 8))
             self.menu_buttons.append(button)
 
         add_buttons(0, "Play", "#005DFF", "#003BB8", self.start_game)
@@ -125,7 +126,7 @@ class MenuScreen:
         add_buttons(4, "Exit", "#FF4F60", "#CC3F4D", self.exit_game)
 
         for row in range(5):
-            inner.grid_rowconfigure(row, weight=1, uniform="btns")
+            self.inner_frame.grid_rowconfigure(row, weight=1)
 
     def footer_section(self):
         footer_container = ctk.CTkFrame(self.main, fg_color="transparent")
@@ -149,18 +150,28 @@ class MenuScreen:
         h = max(self.parent.winfo_height(), 1)
 
         s = min(w / self.base_w, h / self.base_h)
-        s = max(0.50, min(1.00, s))
+        s = max(0.50, min(1.60, s))
 
-        self.title_font.configure(size=int(max(16, 48 * s)))
-        self.button_font.configure(size=int(max(12, 24 * s)))
+        self.title_font.configure(size=int(max(16, self.base_title_px * s)))
+        self.button_font.configure(size=int(max(12, self.base_btn_px * s)))
 
-        pad_y = int(max(4, min(10, 10 * s)))
-        btn_w = int(max(300, min(600, 500 * s)))
+        pad_y = int(max(4, min(12, 10 * s)))
+
+        if w > 1200:
+            button_padx = int(w * 0.15)
+        elif w > 800:
+            button_padx = int(w * 0.00000001)
+        else:
+            button_padx = 0
+
+        if hasattr(self, "inner_frame"):
+            self.inner_frame.grid_configure(padx=button_padx)
+
         for b in getattr(self, "menu_buttons", []):
-            b.grid_configure(pady=(pad_y, pad_y), sticky="nsew")
-            b.configure(width=btn_w)
+            b.grid_configure(pady=(pad_y, pad_y))
+            b.configure(height=int(48 * s))
 
-        desired_logo = int(max(64, min(150, 150 * s)))
+        desired_logo = int(max(64, min(200, self.base_logo_px * s)))
         if desired_logo != self._current_logo_px and hasattr(self, "logo_label"):
             img = self.load_svg_image(self.logo_svg_path, size=desired_logo)
             if img:
