@@ -19,6 +19,14 @@ class MenuScreen:
 
         self.logo_svg_path = os.path.join("recursos", "imagenes", "Hat.svg")
 
+        self.base_w, self.base_h = 1280, 720
+        self.base_title_px, self.base_btn_px = 48, 24
+        self.base_logo_px = 150
+        self._current_logo_px = 0
+        self._resize_job = None
+
+        self.parent.bind("<Configure>", self._on_resize)
+
         self.build_ui()
 
     def load_svg_image(self, svg_path, size=150):
@@ -51,6 +59,8 @@ class MenuScreen:
         self.buttons_section()
         self.footer_section()
 
+        self._apply_responsive()
+
     def logo_section(self):
         logo_container = ctk.CTkFrame(self.main, fg_color="transparent")
         logo_container.grid(row=0, column=0, sticky="n", pady=(0, 20))
@@ -58,9 +68,9 @@ class MenuScreen:
 
         img = self.load_svg_image(self.logo_svg_path, size=150)
         if img:
-            logo_img = ctk.CTkLabel(logo_container, image=img, text="")
-            logo_img.image = img
-            logo_img.grid(row=0, column=0, sticky="n")
+            self.logo_label = ctk.CTkLabel(logo_container, image=img, text="")
+            self.logo_label.image = img
+            self.logo_label.grid(row=0, column=0, sticky="n")
         else:
             ctk.CTkLabel(
                 logo_container,
@@ -74,7 +84,7 @@ class MenuScreen:
         title_container.grid(row=1, column=0, sticky="n", pady=(0, 30))
         title_container.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(
+        self.title_label = ctk.CTkLabel(
             title_container,
             text="White Hat Hacker Trivia",
             font=self.title_font,
@@ -103,7 +113,7 @@ class MenuScreen:
                 hover_color="#000000",
                 command=cmd,
             )
-            button.grid(row=row, column=0, sticky="nsew", pady=10, ipady=6)
+            button.grid(row=row, column=0, sticky="nsew", pady=10)
             self.menu_buttons.append(button)
 
         add_buttons(0, "Play", "#005DFF", self.start_game)
@@ -119,6 +129,40 @@ class MenuScreen:
         footer_container = ctk.CTkFrame(self.main, fg_color="transparent")
         footer_container.grid(row=3, column=0, sticky="ew", pady=(30, 0))
         footer_container.grid_columnconfigure(0, weight=1)
+
+    def _on_resize(self, event):
+        if event.widget is self.parent:
+            if self._resize_job:
+                self.parent.after_cancel(self._resize_job)
+            self._resize_job = self.parent.after(80, self._apply_responsive)
+
+    def _apply_responsive(self):
+        w = max(self.parent.winfo_width(), 1)
+        h = max(self.parent.winfo_height(), 1)
+
+        # scale based on limiting dimension; allow more shrink for 480p
+        s = min(w / self.base_w, h / self.base_h)
+        s = max(0.50, min(1.00, s))  # was 0.60..1.00; 0.50 helps at 480p
+
+        # fonts: CTkFont updates propagate automatically
+        self.title_font.configure(size=int(max(16, 48 * s)))
+        self.button_font.configure(size=int(max(12, 24 * s)))
+
+        # shrink vertical paddings so buttons stay visible on short heights
+        pad_y = int(max(4, min(10, 10 * s)))
+        for b in getattr(self, "menu_buttons", []):
+            b.grid_configure(
+                pady=pad_y, sticky="nsew"
+            )  # ensure nsew for vertical stretch
+
+        # logo: re-render only when pixel target changes
+        desired_logo = int(max(64, min(150, 150 * s)))
+        if desired_logo != self._current_logo_px and hasattr(self, "logo_label"):
+            img = self.load_svg_image(self.logo_svg_path, size=desired_logo)
+            if img:
+                self.logo_label.configure(image=img)
+                self.logo_label.image = img
+                self._current_logo_px = desired_logo
 
     def start_game(self):
         print("Iniciando juego...")
