@@ -98,12 +98,13 @@ class MenuScreen:
         outer = ctk.CTkFrame(self.main, fg_color="transparent")
         outer.grid(row=2, column=0, sticky="nsew", pady=(0, 16))
         outer.grid_columnconfigure(0, weight=1)
-        outer.grid_columnconfigure(1, weight=2)
+        outer.grid_columnconfigure(1, weight=0)
         outer.grid_columnconfigure(2, weight=1)
         outer.grid_rowconfigure(0, weight=1)
 
         inner = ctk.CTkFrame(outer, fg_color="transparent")
-        inner.grid(row=0, column=1, sticky="n", padx=16)
+        self.inner = inner
+        inner.grid(row=0, column=1, sticky="ns", padx=16)
         inner.grid_columnconfigure(0, weight=0)
 
         def add_buttons(row, text, color, cmd):
@@ -114,9 +115,8 @@ class MenuScreen:
                 fg_color=color,
                 hover_color="#000000",
                 command=cmd,
-                width=280,
             )
-            button.grid(row=row, column=0, sticky="n", pady=(8, 8))
+            button.grid(row=row, column=0, sticky="nsew", padx=0, pady=(8, 8))
             self.menu_buttons.append(button)
 
         add_buttons(0, "Play", "#005DFF", self.start_game)
@@ -126,7 +126,7 @@ class MenuScreen:
         add_buttons(4, "Exit", "#FF4F60", self.exit_game)
 
         for row in range(5):
-            inner.grid_rowconfigure(row, weight=0)
+            inner.grid_rowconfigure(row, weight=1, uniform="btns")
 
     def footer_section(self):
         footer_container = ctk.CTkFrame(self.main, fg_color="transparent")
@@ -156,7 +156,7 @@ class MenuScreen:
         self.button_font.configure(size=int(max(12, 24 * s)))
 
         pad_y = int(max(4, min(10, 10 * s)))
-        btn_w = int(max(180, min(320, 320 * s)))
+        btn_w = int(max(300, min(400, 340 * s)))
         for b in getattr(self, "menu_buttons", []):
             b.grid_configure(pady=(pad_y, pad_y), sticky="nsew")
             b.configure(width=btn_w)
