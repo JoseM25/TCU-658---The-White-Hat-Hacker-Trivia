@@ -203,8 +203,10 @@ class MenuScreen:
 
         if w > 1200:
             button_padx = int(w * 0.15)
+        elif w > 1000:
+            button_padx = int(w * 0.10)
         elif w > 800:
-            button_padx = int(w * 0.00000001)
+            button_padx = int(w * 0.05)
         else:
             button_padx = 0
 
