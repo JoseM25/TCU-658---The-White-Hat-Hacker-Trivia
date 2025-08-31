@@ -103,27 +103,26 @@ class MenuScreen:
         outer.grid_rowconfigure(0, weight=1)
 
         inner = ctk.CTkFrame(outer, fg_color="transparent")
-        self.inner = inner
         inner.grid(row=0, column=1, sticky="ns", padx=16)
         inner.grid_columnconfigure(0, weight=0)
 
-        def add_buttons(row, text, color, cmd):
+        def add_buttons(row, text, color, hover_color, cmd):
             button = ctk.CTkButton(
                 inner,
                 text=text,
                 font=self.button_font,
                 fg_color=color,
-                hover_color="#000000",
+                hover_color=hover_color,
                 command=cmd,
             )
             button.grid(row=row, column=0, sticky="nsew", padx=0, pady=(8, 8))
             self.menu_buttons.append(button)
 
-        add_buttons(0, "Play", "#005DFF", self.start_game)
-        add_buttons(1, "Instructions", "#00CFC5", self.show_instructions)
-        add_buttons(2, "Manage Questions", "#FFC553", self.manage_questions)
-        add_buttons(3, "Credits", "#FF8C00", self.show_credits)
-        add_buttons(4, "Exit", "#FF4F60", self.exit_game)
+        add_buttons(0, "Play", "#005DFF", "#003BB8", self.start_game)
+        add_buttons(1, "Instructions", "#00CFC5", "#009B94", self.show_instructions)
+        add_buttons(2, "Manage Questions", "#FFC553", "#CC9A42", self.manage_questions)
+        add_buttons(3, "Credits", "#FF8C00", "#CC6F00", self.show_credits)
+        add_buttons(4, "Exit", "#FF4F60", "#CC3F4D", self.exit_game)
 
         for row in range(5):
             inner.grid_rowconfigure(row, weight=1, uniform="btns")
@@ -156,7 +155,7 @@ class MenuScreen:
         self.button_font.configure(size=int(max(12, 24 * s)))
 
         pad_y = int(max(4, min(10, 10 * s)))
-        btn_w = int(max(300, min(400, 340 * s)))
+        btn_w = int(max(300, min(600, 500 * s)))
         for b in getattr(self, "menu_buttons", []):
             b.grid_configure(pady=(pad_y, pad_y), sticky="nsew")
             b.configure(width=btn_w)
