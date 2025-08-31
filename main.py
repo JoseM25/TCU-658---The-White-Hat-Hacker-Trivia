@@ -11,7 +11,7 @@ root.title("White Hat Hacker Trivia!")
 root.geometry("1280x720")
 
 root.resizable(True, True)
-root.minsize(400, 300)
+root.minsize(640, 480)
 root.maxsize(3840, 2160)
 
 root.configure(fg_color="#F5F7FA")
