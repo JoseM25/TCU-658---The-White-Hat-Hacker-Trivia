@@ -139,6 +139,50 @@ class MenuScreen:
         footer.grid(row=0, column=0, sticky="nsew", pady=0)
         footer.grid_propagate(False)
 
+        footer.grid_columnconfigure(0, weight=1)
+        footer.grid_columnconfigure(1, weight=1)
+        footer.grid_columnconfigure(2, weight=1)
+        footer.grid_rowconfigure(0, weight=1)
+
+        try:
+            ucr_path = os.path.join("recursos", "imagenes", "UCRLogo.png")
+            ucr_pil = ImageTk.Image.open(ucr_path).convert("RGBA")
+            ucr_img = ctk.CTkImage(
+                light_image=ucr_pil, dark_image=ucr_pil, size=(120, 60)
+            )
+            ucr_label = ctk.CTkLabel(footer, image=ucr_img, text="")
+            ucr_label.image = ucr_img
+            ucr_label.grid(row=0, column=0, padx=50, pady=10, sticky="w")
+
+            elm_path = os.path.join("recursos", "imagenes", "ELMLogo.png")
+            elm_pil = ImageTk.Image.open(elm_path).convert("RGBA")
+            elm_img = ctk.CTkImage(
+                light_image=elm_pil, dark_image=elm_pil, size=(140, 40)
+            )
+            elm_label = ctk.CTkLabel(footer, image=elm_img, text="")
+            elm_label.image = elm_img
+            elm_label.grid(row=0, column=1, padx=10, pady=10)
+
+            tcu_path = os.path.join("recursos", "imagenes", "TCULogo.png")
+            tcu_pil = ImageTk.Image.open(tcu_path).convert("RGBA")
+            tcu_img = ctk.CTkImage(
+                light_image=tcu_pil, dark_image=tcu_pil, size=(30, 60)
+            )
+            tcu_label = ctk.CTkLabel(footer, image=tcu_img, text="")
+            tcu_label.image = tcu_img
+            tcu_label.grid(row=0, column=2, padx=50, pady=10, sticky="e")
+        except (FileNotFoundError, OSError, ValueError, AttributeError, TypeError) as e:
+            print(f"Error loading footer images: {e}")
+            ctk.CTkLabel(footer, text="UCR", text_color="#666").grid(
+                row=0, column=0, padx=10, pady=10
+            )
+            ctk.CTkLabel(footer, text="TCU", text_color="#666").grid(
+                row=0, column=1, padx=10, pady=10
+            )
+            ctk.CTkLabel(footer, text="ELM", text_color="#666").grid(
+                row=0, column=2, padx=10, pady=10
+            )
+
     def _on_resize(self, event):
         if event.widget is self.parent:
             if self._resize_job:
@@ -169,7 +213,7 @@ class MenuScreen:
 
         for b in getattr(self, "menu_buttons", []):
             b.grid_configure(pady=(pad_y, pad_y))
-            b.configure(height=int(48 * s))
+            b.configure(height=int(60 * s))
 
         desired_logo = int(max(64, min(200, self.base_logo_px * s)))
         if desired_logo != self._current_logo_px and hasattr(self, "logo_label"):
