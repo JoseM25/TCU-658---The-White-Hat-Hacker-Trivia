@@ -14,7 +14,7 @@ root.resizable(True, True)
 root.minsize(400, 300)
 root.maxsize(3840, 2160)
 
-root.configure(fg_color = "#F5F7FA")
+root.configure(fg_color="#F5F7FA")
 
 menu = MenuScreen(root)
 
