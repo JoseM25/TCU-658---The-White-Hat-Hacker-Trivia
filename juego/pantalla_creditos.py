@@ -10,7 +10,7 @@ class CreditsScreen:
     BASE_LOGO_SIZE = 100
     LOGO_MIN_SIZE = 50
     LOGO_MAX_SIZE = 150
-    SCALE_LIMITS = (0.50, 1.60)
+    SCALE_LIMITS = (0.35, 1.60)
     RESIZE_DELAY = 80
     SVG_RASTER_SCALE = 2.0
 
@@ -19,6 +19,8 @@ class CreditsScreen:
         self.on_return_callback = on_return_callback
         self.logo_label = None
         self.title_label = None
+        self.divider_container = None
+        self.divider_bar = None
         self.body_label = None
         self.return_button = None
         self.logo_image = None
@@ -108,21 +110,23 @@ class CreditsScreen:
         self.title_label.grid(row=0, column=0, pady=0, sticky="n")
 
     def divider_section(self):
-        divider_container = ctk.CTkFrame(self.main, fg_color="transparent")
-        divider_container.grid(row=2, column=0, sticky="ew", pady=(0, 30), padx=350)
-        divider_container.grid_columnconfigure(0, weight=1)
+        self.divider_container = ctk.CTkFrame(self.main, fg_color="transparent")
+        self.divider_container.grid(row=2, column=0, sticky="ew", pady=(0, 24), padx=16)
+        self.divider_container.grid_columnconfigure(0, weight=1)
 
-        divider = ctk.CTkFrame(divider_container, height=8, fg_color="#005DFF")
-        divider.grid(row=0, column=0, sticky="ew")
+        self.divider_bar = ctk.CTkFrame(
+            self.divider_container, height=8, fg_color="#005DFF"
+        )
+        self.divider_bar.grid(row=0, column=0, sticky="ew")
 
     def body_section(self):
-        body_container = ctk.CTkFrame(self.main, fg_color="transparent")
-        body_container.grid(row=3, column=0, sticky="new", pady=(0, 10), padx=50)
-        body_container.grid_columnconfigure(0, weight=1)
-        body_container.grid_rowconfigure(0, weight=1)
+        self.body_container = ctk.CTkFrame(self.main, fg_color="transparent")
+        self.body_container.grid(row=3, column=0, sticky="nsew", pady=(0, 10), padx=20)
+        self.body_container.grid_columnconfigure(0, weight=1)
+        self.body_container.grid_rowconfigure(0, weight=1)
 
-        # Crear un frame con scroll para el texto
-        text_frame = ctk.CTkFrame(body_container, fg_color="transparent")
+        # Crear un frame para el texto
+        text_frame = ctk.CTkFrame(self.body_container, fg_color="transparent")
         text_frame.grid(row=0, column=0, sticky="nsew")
         text_frame.grid_columnconfigure(0, weight=1)
         text_frame.grid_rowconfigure(0, weight=1)
@@ -182,23 +186,20 @@ class CreditsScreen:
         w = max(self.parent.winfo_width(), 1)
         h = max(self.parent.winfo_height(), 1)
 
-        # Calcular factor de escala
         scale = min(w / self.BASE_DIMENSIONS[0], h / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
 
-        # Actualizar fuentes
+        # Letra
         self.title_font.configure(
-            size=int(max(18, self.BASE_FONT_SIZES["title"] * scale))
+            size=int(max(16, self.BASE_FONT_SIZES["title"] * scale))
         )
-        self.body_font.configure(
-            size=int(max(10, self.BASE_FONT_SIZES["body"] * scale))
-        )
+        self.body_font.configure(size=int(max(9, self.BASE_FONT_SIZES["body"] * scale)))
         self.button_font.configure(
             size=int(max(12, self.BASE_FONT_SIZES["button"] * scale))
         )
 
-        # Actualizar logo
-        if self.logo_image is not None:
+        # Logo
+        if self.logo_image:
             desired = int(
                 max(
                     self.LOGO_MIN_SIZE,
@@ -207,15 +208,34 @@ class CreditsScreen:
             )
             self.logo_image.configure(size=(desired, desired))
 
-        # Actualizar botón
-        button_height = int(max(30, 50 * scale))
-        button_width = int(max(150, 200 * scale))
-        self.return_button.configure(height=button_height, width=button_width)
+        min_gutter = 12
+        capacity_w = max(100, w - 2 * min_gutter)
 
-        # Actualizar wraplength del texto
+        divider_base = 900
+        divider_target = int(divider_base * scale)
+        divider_w = max(320, min(capacity_w, 1100, divider_target))
+        divider_padx = max(min_gutter, (w - divider_w) // 2)
+        self.divider_container.grid_configure(padx=divider_padx)
+
+        body_base = 1100
+        body_target = int(body_base * scale)
+        body_soft_cap = min(int(w * 0.94), 1600)
+        body_w = max(520, min(capacity_w, body_soft_cap, body_target))
+        body_padx = max(min_gutter, (w - body_w) // 2)
+        self.body_container.grid_configure(padx=body_padx)
+
+        if self.divider_bar:
+            self.divider_bar.configure(height=int(max(3, min(10, 8 * scale))))
+
+        # Botones
+        self.return_button.configure(
+            height=int(max(30, 50 * scale)),
+            width=int(max(150, 200 * scale)),
+        )
+
+        # Ajustar wraplength del texto
         if self.body_label:
-            wrap_length = int(max(400, 800 * scale))
-            self.body_label.configure(wraplength=wrap_length)
+            self.body_label.configure(wraplength=max(260, body_w - 40))
 
         self._resize_job = None
 
