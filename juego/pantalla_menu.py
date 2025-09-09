@@ -24,6 +24,10 @@ class MenuScreen:
         self._current_logo_size = 0
         self._resize_job = None
 
+        self.footer_labels = []
+        self.footer_current_sizes = []
+        self.footer_base_configs = []
+
         # Crear Fuentes
         self.title_font = ctk.CTkFont(
             family="Poppins ExtraBold",
@@ -184,6 +188,11 @@ class MenuScreen:
         positions = ["w", "", "e"]
         paddings = [50, 10, 50]
 
+        # Guardar configuracion base para redimensionar luego
+        self.footer_base_configs = footer_images
+        self.footer_labels = []
+        self.footer_current_sizes = []
+
         for col, ((filename, size), fallback) in enumerate(
             zip(footer_images, fallback_texts)
         ):
@@ -196,12 +205,17 @@ class MenuScreen:
                 label = ctk.CTkLabel(footer, image=img, text="")
                 label.image = img
                 label.grid(row=0, column=col, padx=padx, pady=10, sticky=sticky)
+                self.footer_labels.append(label)
+                self.footer_current_sizes.append(size)
             else:
-                ctk.CTkLabel(
+                fallback_label = ctk.CTkLabel(
                     footer,
                     text=fallback,
                     text_color="#666666",
-                ).grid(row=0, column=col, padx=10, pady=10)
+                )
+                fallback_label.grid(row=0, column=col, padx=10, pady=10)
+                self.footer_labels.append(fallback_label)
+                self.footer_current_sizes.append((None))
 
     def on_resize(self, event):
         if event.widget is not self.parent:
@@ -240,6 +254,33 @@ class MenuScreen:
             if img:
                 self.logo_label.configure(image=img)
                 self._current_logo_size = desired_logo_size
+
+        for i, (filename, base_size) in enumerate(self.footer_base_configs):
+            current_size = self.footer_current_sizes[i]
+
+            if current_size is None:
+                continue
+
+            footer_scale = min(scale, 1.2)
+
+            # Calcular nuevo tamano
+            new_width = int(max(25, min(200, base_size[0] * footer_scale)))
+            new_height = int(max(20, min(100, base_size[1] * footer_scale)))
+            new_size = (new_width, new_height)
+
+            # Actualizar solo si cambio significativo
+            size_diff = abs(new_size[0] - current_size[0]) + abs(
+                new_size[1] - current_size[1]
+            )
+            if size_diff > 5:
+                path = os.path.join("recursos", "imagenes", filename)
+                img = self.load_footer_image(path, new_size)
+
+                if img and self.footer_labels[i]:
+                    self.footer_labels[i].configure(image=img)
+                    self.footer_labels[i].image = img
+                    self.footer_current_sizes[i] = new_size
+
         self._resize_job = None
 
     def start_game(self):
