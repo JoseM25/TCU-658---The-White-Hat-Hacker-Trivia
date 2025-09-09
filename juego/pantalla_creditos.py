@@ -24,7 +24,9 @@ class CreditsScreen:
         self.title_label = None
         self.divider_container = None
         self.divider_bar = None
+        self.body_container = None
         self.body_label = None
+        self.button_container = None
         self.return_button = None
         self.logo_image = None
 
