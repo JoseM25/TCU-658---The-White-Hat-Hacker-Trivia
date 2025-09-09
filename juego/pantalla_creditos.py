@@ -30,7 +30,7 @@ class CreditsScreen:
         )
 
         self.body_font = ctk.CTkFont(
-            family="Open Sans Regular", size=self.BASE_FONT_SIZES["body"]
+            family="Open Sans Regular", size=self.BASE_FONT_SIZES["body"], weight="bold"
         )
 
         self.button_font = ctk.CTkFont(
@@ -109,52 +109,58 @@ class CreditsScreen:
 
     def divider_section(self):
         divider_container = ctk.CTkFrame(self.main, fg_color="transparent")
-        divider_container.grid(row=2, column=0, sticky="ew", pady=(0, 30), padx=100)
+        divider_container.grid(row=2, column=0, sticky="ew", pady=(0, 30), padx=350)
         divider_container.grid_columnconfigure(0, weight=1)
 
-        divider = ctk.CTkFrame(divider_container, height=2, fg_color="#005DFF")
+        divider = ctk.CTkFrame(divider_container, height=8, fg_color="#005DFF")
         divider.grid(row=0, column=0, sticky="ew")
 
     def body_section(self):
         body_container = ctk.CTkFrame(self.main, fg_color="transparent")
-        body_container.grid(row=3, column=0, sticky="nsew", pady=(0, 30), padx=50)
+        body_container.grid(row=3, column=0, sticky="new", pady=(0, 10), padx=50)
         body_container.grid_columnconfigure(0, weight=1)
         body_container.grid_rowconfigure(0, weight=1)
 
         # Crear un frame con scroll para el texto
-        scrollable_frame = ctk.CTkScrollableFrame(
-            body_container, fg_color="transparent", scrollbar_fg_color="transparent"
-        )
-        scrollable_frame.grid(row=0, column=0, sticky="nsew")
-        scrollable_frame.grid_columnconfigure(0, weight=1)
+        text_frame = ctk.CTkFrame(body_container, fg_color="transparent")
+        text_frame.grid(row=0, column=0, sticky="nsew")
+        text_frame.grid_columnconfigure(0, weight=1)
+        text_frame.grid_rowconfigure(0, weight=1)
 
         credits_text = """
             Application developed by Computer Science Student Jose Antonio Mora Monge in 2025 for TCU 658: 
             "Cooperación con el Proceso de Enseñanza-Aprendizaje del Inglés en Educación Secundaria Pública"
             from the School of Modern Languages at the University of Costa Rica (UCR).
+
+
+            
             Carried out under the guidance of Professor Daniela María Barrantes Torres, Coordinator of TCU-658
             and Professor at the School of Modern Languages at UCR.
+
+            
+            
+            All resources used follow Public Domain License
         """
 
         self.body_label = ctk.CTkLabel(
-            scrollable_frame,
+            text_frame,
             text=credits_text.strip(),
             font=self.body_font,
             text_color="#404040",
             anchor="center",
             justify="center",
-            wraplength=800,
+            wraplength=600,
         )
-        self.body_label.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
+        self.body_label.grid(row=0, column=0, pady=5, padx=10, sticky="nsew")
 
     def button_section(self):
         button_container = ctk.CTkFrame(self.main, fg_color="transparent")
-        button_container.grid(row=4, column=0, sticky="n", pady=(0, 30))
+        button_container.grid(row=4, column=0, sticky="ew", pady=(10, 30))
         button_container.grid_columnconfigure(0, weight=1)
 
         self.return_button = ctk.CTkButton(
             button_container,
-            text="Back to Menu",
+            text="Main Menu",
             font=self.button_font,
             fg_color="#005DFF",
             hover_color="#003BB8",
