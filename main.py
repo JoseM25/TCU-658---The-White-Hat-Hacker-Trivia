@@ -14,6 +14,9 @@ root.resizable(True, True)
 root.minsize(640, 480)
 root.maxsize(3840, 2160)
 
+root.grid_rowconfigure(0, weight=1)
+root.grid_columnconfigure(0, weight=1)
+
 root.configure(fg_color="#F5F7FA")
 
 menu = MenuScreen(root)

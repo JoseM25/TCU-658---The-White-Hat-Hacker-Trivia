@@ -100,7 +100,7 @@ class MenuScreen:
         outer = ctk.CTkFrame(self.main, fg_color="transparent")
         outer.grid(row=2, column=0, sticky="nsew", pady=(0, 16))
         for c in (0, 1, 2):
-            outer.grid_columnconfigure(c, weight=1)
+            outer.grid_columnconfigure(c, weight=1, uniform="buttons")
         outer.grid_rowconfigure(0, weight=1)
 
         self.inner_frame = ctk.CTkFrame(outer, fg_color="transparent")
@@ -200,18 +200,6 @@ class MenuScreen:
         self.button_font.configure(size=int(max(12, self.base_btn_px * s)))
 
         pad_y = int(max(4, min(12, 10 * s)))
-
-        if w > 1200:
-            button_padx = int(w * 0.15)
-        elif w > 1000:
-            button_padx = int(w * 0.10)
-        elif w > 800:
-            button_padx = int(w * 0.05)
-        else:
-            button_padx = 0
-
-        if hasattr(self, "inner_frame"):
-            self.inner_frame.grid_configure(padx=button_padx)
 
         for b in getattr(self, "menu_buttons", []):
             b.grid_configure(pady=(pad_y, pad_y))
