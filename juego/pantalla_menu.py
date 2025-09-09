@@ -1,7 +1,7 @@
 import os
 from tkinter import messagebox, TclError
 import customtkinter as ctk
-from PIL import ImageTk
+from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
 
@@ -10,23 +10,24 @@ class MenuScreen:
     BASE_DIMENSIONS = (1280, 720)
     BASE_FONT_SIZES = {"title": 48, "button": 24}
     BASE_LOGO_SIZE = 150
+    LOGO_MIN_SIZE = 64
+    LOGO_MAX_SIZE = 220
     SCALE_LIMITS = (0.50, 1.60)
     RESIZE_DELAY = 80
+
+    FOOTER_MIN_SIZE = (25, 20)
+    FOOTER_MAX_SIZE = (200, 100)
+
+    SVG_RASTER_SCALE = 2.0
 
     def __init__(self, parent):
         self.parent = parent
         self.menu_buttons = []
         self.logo_label = None
         self.title_label = None
+        self.logo_image = None
 
-        # Image cache
-        self._image_cache = {}
-        self._current_logo_size = 0
-        self._resize_job = None
-
-        self.footer_labels = []
-        self.footer_current_sizes = []
-        self.footer_base_configs = []
+        self.footer_items = []
 
         # Crear Fuentes
         self.title_font = ctk.CTkFont(
@@ -41,39 +42,12 @@ class MenuScreen:
 
         self.logo_svg_path = os.path.join("recursos", "imagenes", "Hat.svg")
 
-        self.parent.bind("<Configure>", self.on_resize)
+        self._resize_job = None
+
         self.build_ui()
 
-    def load_svg_image(self, svg_path, size):
-        cache_key = f"{svg_path}_{size}"
-        if cache_key in self._image_cache:
-            return self._image_cache[cache_key]
-
-        try:
-            # Cargar SVG y convertir a PNG
-            photo = TkSvgImage(file=svg_path, scale=1.0)
-            # Crear Imagen PIL
-            pil = ImageTk.getimage(photo).convert("RGBA")
-            img = ctk.CTkImage(light_image=pil, dark_image=pil, size=(size, size))
-            self._image_cache[cache_key] = img
-            return img
-        except (FileNotFoundError, TclError, ValueError) as e:
-            print(f"Error loading SVG image: {e}")
-            return None
-
-    def load_footer_image(self, path, size):
-        cache_key = f"{path}_{size[0]}_{size[1]}"
-        if cache_key in self._image_cache:
-            return self._image_cache[cache_key]
-
-        try:
-            pil = ImageTk.Image.open(path).convert("RGBA")
-            img = ctk.CTkImage(light_image=pil, dark_image=pil, size=size)
-            self._image_cache[cache_key] = img
-            return img
-        except (FileNotFoundError, OSError) as e:
-            print(f"Error loading footer image: {e}")
-            return None
+        self.parent.bind("<Configure>", self.on_resize)
+        self.apply_responsive()
 
     def build_ui(self):
         self.parent.grid_rowconfigure(0, weight=1)
@@ -100,11 +74,17 @@ class MenuScreen:
         logo_container.grid(row=0, column=0, sticky="n", pady=(0, 6))
         logo_container.grid_columnconfigure(0, weight=1)
 
-        img = self.load_svg_image(self.logo_svg_path, self.BASE_LOGO_SIZE)
+        img = self.load_svg_image(self.logo_svg_path, scale=self.SVG_RASTER_SCALE)
         if img:
-            self.logo_label = ctk.CTkLabel(logo_container, image=img, text="")
+            self.logo_image = ctk.CTkImage(
+                light_image=img,
+                dark_image=img,
+                size=(self.BASE_LOGO_SIZE, self.BASE_LOGO_SIZE),
+            )
+            self.logo_label = ctk.CTkLabel(
+                logo_container, image=self.logo_image, text=""
+            )
             self.logo_label.grid(row=0, column=0, sticky="n")
-            self._current_logo_size = self.BASE_LOGO_SIZE
 
         else:
             ctk.CTkLabel(
@@ -167,6 +147,7 @@ class MenuScreen:
         footer_container.grid(row=3, column=0, sticky="nsew", padx=0, pady=(12, 0))
         footer_container.grid_columnconfigure(0, weight=1)
         footer_container.grid_rowconfigure(0, weight=1)
+
         footer = ctk.CTkFrame(
             footer_container, fg_color="#D1D8E0", height=100, corner_radius=0
         )
@@ -179,49 +160,38 @@ class MenuScreen:
 
         # Configuracion logos Footer
         footer_images = [
-            ("UCRLogo.png", (120, 60)),
-            ("ELMLogo.png", (140, 30)),
-            ("TCULogo.png", (30, 60)),
+            ("UCRLogo.png", (120, 60), "w", 50, "UCR"),
+            ("ELMLogo.png", (140, 30), "", 10, "ELM"),
+            ("TCULogo.png", (30, 60), "e", 50, "TCU"),
         ]
 
-        fallback_texts = ["UCR", "ELM", "TCU"]
-        positions = ["w", "", "e"]
-        paddings = [50, 10, 50]
+        self.footer_items.clear()
 
-        # Guardar configuracion base para redimensionar luego
-        self.footer_base_configs = footer_images
-        self.footer_labels = []
-        self.footer_current_sizes = []
-
-        for col, ((filename, size), fallback) in enumerate(
-            zip(footer_images, fallback_texts)
+        for col, (filename, base_size, sticky, padx, fallback) in enumerate(
+            footer_images
         ):
             path = os.path.join("recursos", "imagenes", filename)
-            img = self.load_footer_image(path, size)
-            sticky = positions[col]
-            padx = paddings[col]
+            img = self.load_png_image(path)
 
             if img:
-                label = ctk.CTkLabel(footer, image=img, text="")
-                label.image = img
-                label.grid(row=0, column=col, padx=padx, pady=10, sticky=sticky)
-                self.footer_labels.append(label)
-                self.footer_current_sizes.append(size)
-            else:
-                fallback_label = ctk.CTkLabel(
-                    footer,
-                    text=fallback,
-                    text_color="#666666",
+                image = ctk.CTkImage(
+                    light_image=img,
+                    dark_image=img,
+                    size=base_size,
                 )
-                fallback_label.grid(row=0, column=col, padx=10, pady=10)
-                self.footer_labels.append(fallback_label)
-                self.footer_current_sizes.append((None))
+                label = ctk.CTkLabel(footer, image=image, text="")
+                label.grid(row=0, column=col, padx=padx, pady=10, sticky=sticky)
+                self.footer_items.append({"image": image, "base_size": base_size})
+            else:
+                label = ctk.CTkLabel(footer, text=fallback, text_color="red")
+                label.grid(row=0, column=col, padx=10, pady=10, sticky=sticky)
+                self.footer_items.append({"image": None, "base_size": base_size})
 
     def on_resize(self, event):
         if event.widget is not self.parent:
             return
 
-        if self._resize_job is not None:
+        if self._resize_job:
             self.parent.after_cancel(self._resize_job)
         self._resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
@@ -242,46 +212,59 @@ class MenuScreen:
 
         # Actualizar botones
         pad_y = int(max(4, min(12, 10 * scale)))
-
+        height = int(max(24, 48 * scale))
         for button in self.menu_buttons:
             button.grid_configure(pady=pad_y)
-            button.configure(height=int(max(24, 48 * scale)))
+            button.configure(height=height)
 
         # Actualizar Logo si tamano cambia mucho
-        desired_logo_size = int(max(64, min(200, self.BASE_LOGO_SIZE * scale)))
-        if abs(desired_logo_size - self._current_logo_size) > 10 and self.logo_label:
-            img = self.load_svg_image(self.logo_svg_path, desired_logo_size)
-            if img:
-                self.logo_label.configure(image=img)
-                self._current_logo_size = desired_logo_size
+        if self.logo_image is not None:
+            desired = int(
+                max(
+                    self.LOGO_MIN_SIZE,
+                    min(self.LOGO_MAX_SIZE, self.BASE_LOGO_SIZE * scale),
+                )
+            )
+            self.logo_image.configure(size=(desired, desired))
 
-        for i, (filename, base_size) in enumerate(self.footer_base_configs):
-            current_size = self.footer_current_sizes[i]
+        footer_scale = min(scale, 1.2)
 
-            if current_size is None:
-                continue
-
-            footer_scale = min(scale, 1.2)
+        for item in self.footer_items:
+            img = item["image"]
+            w, h = item["base_size"]
 
             # Calcular nuevo tamano
-            new_width = int(max(25, min(200, base_size[0] * footer_scale)))
-            new_height = int(max(20, min(100, base_size[1] * footer_scale)))
-            new_size = (new_width, new_height)
-
-            # Actualizar solo si cambio significativo
-            size_diff = abs(new_size[0] - current_size[0]) + abs(
-                new_size[1] - current_size[1]
+            new_width = int(
+                max(
+                    self.FOOTER_MIN_SIZE[0],
+                    min(self.FOOTER_MAX_SIZE[0], w * footer_scale),
+                )
             )
-            if size_diff > 5:
-                path = os.path.join("recursos", "imagenes", filename)
-                img = self.load_footer_image(path, new_size)
-
-                if img and self.footer_labels[i]:
-                    self.footer_labels[i].configure(image=img)
-                    self.footer_labels[i].image = img
-                    self.footer_current_sizes[i] = new_size
+            new_height = int(
+                max(
+                    self.FOOTER_MIN_SIZE[1],
+                    min(self.FOOTER_MAX_SIZE[1], h * footer_scale),
+                )
+            )
+            img.configure(size=(new_width, new_height))
 
         self._resize_job = None
+
+    def load_svg_image(self, svg_path, scale=1.0):
+        try:
+            svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
+            pil = ImageTk.getimage(svg_photo).convert("RGBA")
+            return pil
+        except (FileNotFoundError, TclError, ValueError) as e:
+            print(f"Error loading SVG image '{svg_path}': {e}")
+            return None
+
+    def load_png_image(self, png_path):
+        try:
+            return Image.open(png_path).convert("RGBA")
+        except (FileNotFoundError, OSError) as e:
+            print(f"Error loading PNG image '{png_path}': {e}")
+            return None
 
     def start_game(self):
         print("Iniciando juego...")
@@ -303,4 +286,4 @@ class MenuScreen:
     def exit_game(self):
         result = messagebox.askyesno("Salir", "¿Estás seguro que quieres salir?")
         if result:
-            self.parent.quit()
+            self.parent.destroy()
