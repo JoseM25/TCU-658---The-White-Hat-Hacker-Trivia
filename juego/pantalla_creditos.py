@@ -13,6 +13,9 @@ class CreditsScreen:
     SCALE_LIMITS = (0.35, 1.60)
     RESIZE_DELAY = 80
     SVG_RASTER_SCALE = 2.0
+    BUTTON_TOP_PAD_BASE = 10
+    BUTTON_BOTTOM_PAD_BASE = 30
+    BUTTON_EXTRA_BOTTOM_PAD = 24
 
     def __init__(self, parent, on_return_callback):
         self.parent = parent
@@ -158,12 +161,12 @@ class CreditsScreen:
         self.body_label.grid(row=0, column=0, pady=5, padx=10, sticky="nsew")
 
     def button_section(self):
-        button_container = ctk.CTkFrame(self.main, fg_color="transparent")
-        button_container.grid(row=4, column=0, sticky="ew", pady=(10, 30))
-        button_container.grid_columnconfigure(0, weight=1)
+        self.button_container = ctk.CTkFrame(self.main, fg_color="transparent")
+        self.button_container.grid(row=4, column=0, sticky="ew", pady=(10, 30))
+        self.button_container.grid_columnconfigure(0, weight=1)
 
         self.return_button = ctk.CTkButton(
-            button_container,
+            self.button_container,
             text="Main Menu",
             font=self.button_font,
             fg_color="#005DFF",
@@ -232,6 +235,13 @@ class CreditsScreen:
             height=int(max(30, 50 * scale)),
             width=int(max(150, 200 * scale)),
         )
+
+        top_pad = int(max(6, self.BUTTON_TOP_PAD_BASE * scale))
+        bottom_pad = (
+            int(max(12, self.BUTTON_BOTTOM_PAD_BASE * scale))
+            + self.BUTTON_EXTRA_BOTTOM_PAD
+        )
+        self.button_container.grid_configure(pady=(top_pad, bottom_pad))
 
         # Ajustar wraplength del texto
         if self.body_label:
