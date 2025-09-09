@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from juego.pantalla_menu import MenuScreen
+from juego.interfaz import AppController
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
@@ -19,6 +19,6 @@ root.grid_columnconfigure(0, weight=1)
 
 root.configure(fg_color="#F5F7FA")
 
-menu = MenuScreen(root)
+app = AppController(root)
 
 root.mainloop()

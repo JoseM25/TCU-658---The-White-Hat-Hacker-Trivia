@@ -1,5 +1,5 @@
 import os
-from tkinter import messagebox, TclError
+from tkinter import messagebox
 import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
@@ -20,8 +20,9 @@ class MenuScreen:
 
     SVG_RASTER_SCALE = 2.0
 
-    def __init__(self, parent):
+    def __init__(self, parent, app_controller=None):
         self.parent = parent
+        self.app_controller = app_controller
         self.menu_buttons = []
         self.logo_label = None
         self.title_label = None
@@ -255,7 +256,7 @@ class MenuScreen:
             svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
             pil = ImageTk.getimage(svg_photo).convert("RGBA")
             return pil
-        except (FileNotFoundError, TclError, ValueError) as e:
+        except (FileNotFoundError, ValueError) as e:
             print(f"Error loading SVG image '{svg_path}': {e}")
             return None
 
@@ -281,7 +282,10 @@ class MenuScreen:
         )
 
     def show_credits(self):
-        messagebox.showinfo("Créditos", "Aquí van los créditos del juego.")
+        if self.app_controller:
+            self.app_controller.show_credits()
+        else:
+            messagebox.showinfo("Créditos", "Aquí van los créditos del juego.")
 
     def exit_game(self):
         result = messagebox.askyesno("Salir", "¿Estás seguro que quieres salir?")
