@@ -27,8 +27,8 @@ class InstructionsScreen:
     SECTION_TOP_PAD_BASE = 8
     SECTION_BOTTOM_PAD_BASE = 18
 
-    ICON_BASE_SIZE = 50
-    ICON_MIN_SIZE = 28
+    ICON_BASE_SIZE = 25
+    ICON_MIN_SIZE = 10
     ICON_MAX_SIZE = 96
 
     TOGGLE_WIDTH_BASE = 76
@@ -198,7 +198,9 @@ class InstructionsScreen:
             family="Poppins SemiBold", size=self.BASE_FONT_SIZES["button"]
         )
         self.toggle_font = ctk.CTkFont(
-            family="Poppins Medium", size=self.BASE_FONT_SIZES["toggle"]
+            family="Poppins SemiBold",
+            size=self.BASE_FONT_SIZES["toggle"],
+            weight="bold",
         )
         self.icon_font = ctk.CTkFont(
             family="Poppins Bold", size=self.BASE_FONT_SIZES["icon"], weight="bold"
@@ -286,12 +288,10 @@ class InstructionsScreen:
                 font=self.toggle_font,
                 width=self.TOGGLE_WIDTH_BASE,
                 height=self.TOGGLE_HEIGHT_BASE,
-                corner_radius=14,
-                fg_color="#F5F7FA",
-                hover_color="#E4EBF8",
                 text_color="#202632",
                 command=lambda value=lang: self.set_language(value),
-                border_width=0,
+                fg_color="transparent",
+                hover_color=self.parent.cget("fg_color"),
             )
             button.grid(
                 row=0, column=idx, sticky="nsew", padx=(0 if idx == 0 else 1, 0), pady=4
@@ -307,6 +307,7 @@ class InstructionsScreen:
 
         self.instructions_card = ctk.CTkFrame(
             self.card_container,
+            fg_color="transparent",
             corner_radius=24,
             border_color="#E2E7F3",
             border_width=1,
@@ -327,6 +328,7 @@ class InstructionsScreen:
 
             icon_frame = ctk.CTkFrame(
                 section_frame,
+                fg_color="transparent",
                 corner_radius=18,
                 width=self.ICON_BASE_SIZE,
                 height=self.ICON_BASE_SIZE,
@@ -437,15 +439,13 @@ class InstructionsScreen:
         for lang, button in self.toggle_buttons.items():
             if lang == self.language:
                 button.configure(
-                    fg_color="#005DFF",
-                    text_color="#FFFFFF",
-                    hover_color="#0044CC",
+                    fg_color="transparent",
+                    text_color="#005DFF",
                 )
             else:
                 button.configure(
-                    fg_color="#FFFFFF",
-                    text_color="#202632",
-                    hover_color="#E4EBF8",
+                    fg_color="transparent",
+                    text_color="#7A7A7A",
                 )
 
     def on_resize(self, event):
