@@ -9,7 +9,7 @@ class InstructionsScreen:
     BASE_FONT_SIZES = {
         "title": 48,
         "section_title": 24,
-        "body": 8,
+        "body": 16,
         "button": 24,
         "toggle": 16,
         "icon": 16,
