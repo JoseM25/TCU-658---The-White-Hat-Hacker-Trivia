@@ -7,7 +7,7 @@ from tksvg import SvgImage as TkSvgImage
 class InstructionsScreen:
     BASE_DIMENSIONS = (1280, 720)
     BASE_FONT_SIZES = {
-        "title": 46,
+        "title": 48,
         "section_title": 24,
         "body": 16,
         "button": 24,
@@ -58,7 +58,9 @@ class InstructionsScreen:
         self.section_widgets = {}
         self.section_frames = []
         self.return_button = None
-        self._resize_job = None
+        self.resize_job = None
+        self.header_frame = None
+        self.button_container = None
 
         self.section_configs = [
             {"key": "objective", "icon_text": "OBJ", "color": "#005DFF"},
@@ -239,7 +241,9 @@ class InstructionsScreen:
                 command=lambda value=lang: self.set_language(value),
                 border_width=0,
             )
-            button.grid(row=0, column=idx, sticky="nsew", padx=(0 if idx == 0 else 1, 0), pady=4)
+            button.grid(
+                row=0, column=idx, sticky="nsew", padx=(0 if idx == 0 else 1, 0), pady=4
+            )
             self.toggle_container.grid_columnconfigure(idx, weight=1)
             self.toggle_buttons[lang] = button
 
@@ -263,10 +267,10 @@ class InstructionsScreen:
         self.section_frames.clear()
 
         for index, config in enumerate(self.section_configs):
-            section_frame = ctk.CTkFrame(
-                self.instructions_card, fg_color="transparent"
+            section_frame = ctk.CTkFrame(self.instructions_card, fg_color="transparent")
+            section_frame.grid(
+                row=index, column=0, sticky="nsew", padx=self.CARD_PADDING_BASE
             )
-            section_frame.grid(row=index, column=0, sticky="nsew", padx=self.CARD_PADDING_BASE)
             section_frame.grid_columnconfigure(0, weight=0)
             section_frame.grid_columnconfigure(1, weight=1)
 
@@ -377,9 +381,9 @@ class InstructionsScreen:
     def on_resize(self, event):
         if event.widget is not self.parent:
             return
-        if self._resize_job:
-            self.parent.after_cancel(self._resize_job)
-        self._resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
+        if self.resize_job:
+            self.parent.after_cancel(self.resize_job)
+        self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def apply_responsive(self):
         width = max(self.parent.winfo_width(), 1)
@@ -388,7 +392,9 @@ class InstructionsScreen:
         scale = min(width / self.BASE_DIMENSIONS[0], height / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
 
-        self.title_font.configure(size=int(max(18, self.BASE_FONT_SIZES["title"] * scale)))
+        self.title_font.configure(
+            size=int(max(18, self.BASE_FONT_SIZES["title"] * scale))
+        )
         self.section_title_font.configure(
             size=int(max(12, self.BASE_FONT_SIZES["section_title"] * scale))
         )
@@ -417,13 +423,13 @@ class InstructionsScreen:
         header_padx = int(
             max(12, min(80, self.HEADER_HORIZONTAL_PAD_BASE * (0.6 + scale)))
         )
-        header_top = int(
-            max(10, min(60, self.HEADER_TOP_PAD_BASE * (0.6 + scale)))
-        )
+        header_top = int(max(10, min(60, self.HEADER_TOP_PAD_BASE * (0.6 + scale))))
         header_bottom = int(
             max(8, min(40, self.HEADER_BOTTOM_PAD_BASE * (0.6 + scale)))
         )
-        self.header_frame.grid_configure(padx=header_padx, pady=(header_top, header_bottom))
+        self.header_frame.grid_configure(
+            padx=header_padx, pady=(header_top, header_bottom)
+        )
 
         toggle_pad_y = int(max(2, 6 * scale))
         self.toggle_container.grid_configure(pady=(toggle_pad_y, toggle_pad_y))
@@ -435,7 +441,9 @@ class InstructionsScreen:
         usable_width = max(240, width - 24)
         target_card_width = int(self.CARD_BASE_WIDTH * scale)
         target_card_width = max(self.CARD_MIN_WIDTH, target_card_width)
-        target_card_width = min(target_card_width, self.CARD_MAX_WIDTH, int(usable_width))
+        target_card_width = min(
+            target_card_width, self.CARD_MAX_WIDTH, int(usable_width)
+        )
         card_padx = max(12, (width - target_card_width) // 2)
         self.card_container.grid_configure(padx=card_padx)
 
@@ -446,9 +454,7 @@ class InstructionsScreen:
                 min(80, self.CARD_PADDING_BASE * (0.6 + min(scale, 1.2))),
             )
         )
-        section_top = int(
-            max(6, min(32, self.SECTION_TOP_PAD_BASE * (0.8 + scale)))
-        )
+        section_top = int(max(6, min(32, self.SECTION_TOP_PAD_BASE * (0.8 + scale))))
         section_bottom = int(
             max(10, min(40, self.SECTION_BOTTOM_PAD_BASE * (0.8 + scale)))
         )
@@ -468,13 +474,17 @@ class InstructionsScreen:
         for widget in self.section_widgets.values():
             widget["icon_frame"].configure(width=icon_size, height=icon_size)
             widget["icon_label"].configure(font=self.icon_font)
-            widget["body"].configure(wraplength=max(240, card_width - (icon_size + card_inner_pad + 90)))
+            widget["body"].configure(
+                wraplength=max(240, card_width - (icon_size + card_inner_pad + 90))
+            )
 
         button_top = int(max(12, min(60, self.BUTTON_TOP_PAD_BASE * (0.8 + scale))))
         button_bottom = int(
             max(18, min(80, self.BUTTON_BOTTOM_PAD_BASE * (0.8 + scale)))
         )
-        self.button_container.grid_configure(padx=header_padx, pady=(button_top, button_bottom))
+        self.button_container.grid_configure(
+            padx=header_padx, pady=(button_top, button_bottom)
+        )
         self.return_button.configure(
             height=int(max(36, min(86, 52 * scale))),
             width=int(max(160, min(360, 240 * scale))),
