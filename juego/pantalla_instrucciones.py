@@ -9,7 +9,7 @@ class InstructionsScreen:
     BASE_FONT_SIZES = {
         "title": 48,
         "section_title": 24,
-        "body": 16,
+        "body": 8,
         "button": 24,
         "toggle": 16,
         "icon": 16,
@@ -62,10 +62,23 @@ class InstructionsScreen:
         self.header_frame = None
         self.button_container = None
 
+        self.images_dir = os.path.join("recursos", "imagenes")
         self.section_configs = [
-            {"key": "objective", "icon_text": "OBJ", "color": "#005DFF"},
-            {"key": "how_to_play", "icon_text": "PLAY", "color": "#0CA9A5"},
-            {"key": "scoring", "icon_text": "PTS", "color": "#FF8C00"},
+            {
+                "key": "objective",
+                "icon_svg": os.path.join(self.images_dir, "target.svg"),
+                "fallback_text": "OBJ",
+            },
+            {
+                "key": "how_to_play",
+                "icon_svg": os.path.join(self.images_dir, "keyboard.svg"),
+                "fallback_text": "PLAY",
+            },
+            {
+                "key": "scoring",
+                "icon_svg": os.path.join(self.images_dir, "star.svg"),
+                "fallback_text": "PTS",
+            },
         ]
 
         self.language_content = {
@@ -76,25 +89,44 @@ class InstructionsScreen:
                     "objective": {
                         "title": "Objective",
                         "body": [
-                            "Students identify and match ethical hacking definitions with the correct vocabulary terms.",
-                            "Each definition uses supporting visuals or audio clips to reinforce learning.",
-                            "Teachers can introduce new vocabulary items to keep the content up to date.",
+                            "The primary goal is for students to identify and "
+                            "match definitions related to Ethical hacking with "
+                            "their respective vocabulary terms. This will be aided "
+                            "by images and audio. Additionally, the teachers can "
+                            "introduce new definitions and vocabulary terms.\n",
                         ],
                     },
                     "how_to_play": {
                         "title": "How to Play",
                         "body": [
-                            "A definition appears along with blank spaces representing the answer letter count.",
-                            "Use the virtual keyboard to pick letters, helpers to reveal clues, or skip when needed.",
-                            "Keep an eye on the timer and total score bar to track your ongoing performance.",
+                            "When the game starts, a definition of an Ethical Hacking "
+                            "hacking concept will appear on the screen. Each definition "
+                            "includes both an image and an audio explanation to facilitate "
+                            "better understanding.\n",
+                            "A series of spaces corresponding to the length of the word to "
+                            "be guessed will be displayed, with each space representing a letter. "
+                            "A virtual keyboard will be provided for letter input. The screen will "
+                            "also show a timer, wildcard options, and your total score.\n",
+                            "To enter your answer, select letters using the virtual keyboard to fill "
+                            "in the provided spaces, then press the button to check your response. "
+                            "Answers cannot be verified until all spaces for the word are filled.\n",
                         ],
                     },
                     "scoring": {
                         "title": "Scoring",
                         "body": [
-                            "Correct answers award points and increase your total; wrong answers can be retried.",
-                            "Faster answers grant higher scores and unlock available helpers like freezes or reveals.",
-                            "A final summary highlights total score, accuracy, and the achieved mastery level.",
+                            "If your answer is incorrect, the game will notify you, and you can try "
+                            "again. If correct, your earned points and total score will be displayed. "
+                            "If you're unsure of the answer, you can skip the word; the correct answer "
+                            "will be revealed, but no points will be awarded. Your total score is "
+                            "calculated based on how quickly you provide the correct answer and the "
+                            "number of mistakes made.\n",
+                            "Achieving higher scores unlocks wildcards or lifelines (such as "
+                            "score multipliers, letter reveals, and time freezes) to assist you in "
+                            "guessing subsequent words, helping you achieve higher overall scores.\n",
+                            "At the end of the game, after answering all questions, a final screen will "
+                            "display your total score and your knowledge level on the topic (beginner, "
+                            "student, professional, expert, master).\n",
                         ],
                     },
                 },
@@ -106,25 +138,45 @@ class InstructionsScreen:
                     "objective": {
                         "title": "Objetivo",
                         "body": [
-                            "El estudiantado identifica y empareja definiciones de hacking ético con los términos correctos.",
-                            "Cada definición puede apoyarse en imágenes o clips de audio para facilitar la comprensión.",
-                            "El personal docente puede añadir vocabulario nuevo para mantener el banco de términos.",
+                            "El objetivo principal es que los y las estudiantes identifiquen "
+                            "y emparejen definiciones relacionadas con el Hacking Ético con sus "
+                            "respectivos términos de vocabulario. Esto se verá facilitado por "
+                            "imágenes y audio. Además, los docentes pueden introducir nuevas "
+                            "definiciones y términos de vocabulario.\n",
                         ],
                     },
                     "how_to_play": {
                         "title": "Cómo Jugar",
                         "body": [
-                            "Aparece una definición junto con espacios en blanco que indican la cantidad de letras.",
-                            "Usa el teclado virtual para seleccionar letras, comodines para obtener pistas o saltar si es necesario.",
-                            "Observa el temporizador y la barra de puntaje para seguir tu rendimiento en tiempo real.",
+                            "Cuando el juego comience, aparecerá en pantalla una definición "
+                            "de un concepto de Hacking Ético. Cada definición incluirá una "
+                            "imagen y una explicación en audio para facilitar una mejor comprensión.\n",
+                            "Se mostrará una serie de espacios correspondientes a la longitud "
+                            "de la palabra que se debe adivinar, donde cada espacio representando "
+                            "una letra. Se proporcionara un teclado virtual para la entrada de letras. "
+                            "La pantalla también mostrará un temporizador, opciones de comodín y tu "
+                            "puntuación total.\n",
+                            "Para ingresar su respuesta, seleccione letras usando el teclado virtual "
+                            "para llenar los espacios proporcionados y luego presione el botón para "
+                            "verificar su respuesta. Las respuestas no pueden ser verificadas hasta que "
+                            "todos los espacios de la palabra estén llenos.\n",
                         ],
                     },
                     "scoring": {
                         "title": "Puntaje",
                         "body": [
-                            "Las respuestas correctas suman puntos y aumentan el total; los errores pueden intentarse de nuevo.",
-                            "Responder con rapidez concede más puntaje y habilita comodines como congelamientos o revelaciones.",
-                            "Un resumen final muestra el puntaje total, la precisión y el nivel de dominio alcanzado.",
+                            "Si la respuesta es incorrecta, el juego indicará que ha cometido un error "
+                            "y podrá intentarlo nuevamente. Si es correcta, se mostrarán la puntuación "
+                            "obtenida y el puntaje total acumulado. Si desconoce la respuesta, puede "
+                            "saltar la palabra; la respuesta correcta será revelada, pero no se otorgarán "
+                            "puntos. La puntuación total se calcula en función de la rapidez con la que se "
+                            "proporciona la respuesta correcta y el número de errores cometidos.\n",
+                            "Lograr puntuaciones más altas desbloquea comodines o salvavidas (como multiplicadores "
+                            "de puntuación, revelaciones de letras y congelaciones de temporizador) que facilitarán "
+                            "adivinar las palabras posteriores y mejorar así su puntaje general.\n",
+                            "Al final del juego, después de responder todas las preguntas, una pantalla final mostrará "
+                            "su puntuación total y su nivel de conocimiento sobre el tema (principiante, estudiante, "
+                            "profesional, experto, maestro).\n",
                         ],
                     },
                 },
@@ -152,7 +204,7 @@ class InstructionsScreen:
             family="Poppins Bold", size=self.BASE_FONT_SIZES["icon"], weight="bold"
         )
 
-        self.logo_svg_path = os.path.join("recursos", "imagenes", "Hat.svg")
+        self.logo_svg_path = os.path.join(self.images_dir, "Hat.svg")
 
         self.build_ui()
         self.update_language()
@@ -221,7 +273,7 @@ class InstructionsScreen:
 
         self.toggle_container = ctk.CTkFrame(
             self.header_frame,
-            fg_color="#FFFFFF",
+            fg_color="#F5F7FA",
             border_color="#D3DBEA",
             border_width=1,
             corner_radius=18,
@@ -235,7 +287,7 @@ class InstructionsScreen:
                 width=self.TOGGLE_WIDTH_BASE,
                 height=self.TOGGLE_HEIGHT_BASE,
                 corner_radius=14,
-                fg_color="#FFFFFF",
+                fg_color="#F5F7FA",
                 hover_color="#E4EBF8",
                 text_color="#202632",
                 command=lambda value=lang: self.set_language(value),
@@ -255,7 +307,6 @@ class InstructionsScreen:
 
         self.instructions_card = ctk.CTkFrame(
             self.card_container,
-            fg_color="#FFFFFF",
             corner_radius=24,
             border_color="#E2E7F3",
             border_width=1,
@@ -276,7 +327,6 @@ class InstructionsScreen:
 
             icon_frame = ctk.CTkFrame(
                 section_frame,
-                fg_color=config["color"],
                 corner_radius=18,
                 width=self.ICON_BASE_SIZE,
                 height=self.ICON_BASE_SIZE,
@@ -284,12 +334,31 @@ class InstructionsScreen:
             icon_frame.grid(row=0, column=0, rowspan=2, sticky="nw")
             icon_frame.grid_propagate(False)
 
-            icon_label = ctk.CTkLabel(
-                icon_frame,
-                text=config["icon_text"],
-                font=self.icon_font,
-                text_color="#FFFFFF",
-            )
+            icon_image = None
+            svg_path = config.get("icon_svg")
+            if svg_path:
+                svg_image = self.load_svg_image(svg_path, scale=2.0)
+                if svg_image:
+                    icon_image = ctk.CTkImage(
+                        light_image=svg_image,
+                        dark_image=svg_image,
+                        size=(self.ICON_BASE_SIZE, self.ICON_BASE_SIZE),
+                    )
+                    icon_label = ctk.CTkLabel(icon_frame, image=icon_image, text="")
+                else:
+                    icon_label = ctk.CTkLabel(
+                        icon_frame,
+                        text=config.get("fallback_text", config["key"].upper()),
+                        font=self.icon_font,
+                        text_color="#FFFFFF",
+                    )
+            else:
+                icon_label = ctk.CTkLabel(
+                    icon_frame,
+                    text=config.get("fallback_text", config["key"].upper()),
+                    font=self.icon_font,
+                    text_color="#FFFFFF",
+                )
             icon_label.place(relx=0.5, rely=0.5, anchor="center")
 
             title_label = ctk.CTkLabel(
@@ -317,6 +386,7 @@ class InstructionsScreen:
                 "body": body_label,
                 "icon_frame": icon_frame,
                 "icon_label": icon_label,
+                "icon_image": icon_image,
             }
 
     def build_footer(self):
@@ -473,7 +543,11 @@ class InstructionsScreen:
         )
         for widget in self.section_widgets.values():
             widget["icon_frame"].configure(width=icon_size, height=icon_size)
-            widget["icon_label"].configure(font=self.icon_font)
+            icon_image = widget.get("icon_image")
+            if icon_image:
+                icon_image.configure(size=(icon_size, icon_size))
+            else:
+                widget["icon_label"].configure(font=self.icon_font)
             widget["body"].configure(
                 wraplength=max(240, card_width - (icon_size + card_inner_pad + 90))
             )
