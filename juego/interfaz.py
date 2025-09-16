@@ -1,5 +1,6 @@
 from juego.pantalla_menu import MenuScreen
 from juego.pantalla_creditos import CreditsScreen
+from juego.pantalla_instrucciones import InstructionsScreen
 
 
 class AppController:
@@ -10,6 +11,11 @@ class AppController:
 
     def show_menu(self):
         self.current_screen = MenuScreen(self.root, app_controller=self)
+
+    def show_instructions(self):
+        self.current_screen = InstructionsScreen(
+            self.root, on_return_callback=self.show_menu
+        )
 
     def show_credits(self):
         self.current_screen = CreditsScreen(
