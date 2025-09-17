@@ -489,6 +489,14 @@ class InstructionsScreen:
         scale = min(width / self.BASE_DIMENSIONS[0], height / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
 
+        tk_scaling_raw = self.parent.tk.call("tk", "scaling")
+        try:
+            widget_scaling = float(tk_scaling_raw)
+        except (TypeError, ValueError):
+            widget_scaling = 1.0
+        if widget_scaling <= 0:
+            widget_scaling = 1.0
+
         self.title_font.configure(
             size=int(max(18, self.BASE_FONT_SIZES["title"] * scale))
         )
@@ -568,6 +576,8 @@ class InstructionsScreen:
                 min(self.ICON_MAX_SIZE, self.ICON_BASE_SIZE * scale),
             )
         )
+        min_wrap_px = 240
+        min_wrap_units = max(1, int(round(min_wrap_px / widget_scaling)))
         for widget in self.section_widgets.values():
             widget["icon_frame"].configure(width=icon_size, height=icon_size)
             icon_image = widget.get("icon_image")
@@ -575,9 +585,9 @@ class InstructionsScreen:
                 icon_image.configure(size=(icon_size, icon_size))
             else:
                 widget["icon_label"].configure(font=self.icon_font)
-            widget["body"].configure(
-                wraplength=max(240, card_width - (icon_size + card_inner_pad + 90))
-            )
+            wrap_px = max(min_wrap_px, card_width - (icon_size + card_inner_pad + 90))
+            wrap_units = max(min_wrap_units, int(round(wrap_px / widget_scaling)))
+            widget["body"].configure(wraplength=wrap_units)
 
         button_top = int(max(12, min(60, self.BUTTON_TOP_PAD_BASE * (0.8 + scale))))
         button_bottom = int(
