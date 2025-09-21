@@ -9,7 +9,7 @@ class InstructionsScreen:
     BASE_FONT_SIZES = {
         "title": 48,
         "section_title": 24,
-        "body": 16,
+        "body": 10,
         "button": 24,
         "toggle": 16,
         "icon": 16,
@@ -351,6 +351,7 @@ class InstructionsScreen:
             )
             section_frame.grid_columnconfigure(0, weight=0)
             section_frame.grid_columnconfigure(1, weight=1)
+            section_frame.grid_rowconfigure(1, weight=1)
 
             icon_frame = ctk.CTkFrame(
                 section_frame,
@@ -406,7 +407,7 @@ class InstructionsScreen:
                 justify="left",
                 anchor="w",
             )
-            body_label.grid(row=1, column=1, sticky="nw", padx=(16, 6))
+            body_label.grid(row=1, column=1, sticky="nwe", padx=(16, 6))
 
             self.section_frames.append(section_frame)
             self.section_widgets[config["key"]] = {
@@ -415,6 +416,7 @@ class InstructionsScreen:
                 "icon_frame": icon_frame,
                 "icon_label": icon_label,
                 "icon_image": icon_image,
+                "frame": section_frame,
             }
 
     def build_footer(self):
@@ -486,7 +488,11 @@ class InstructionsScreen:
         width = max(self.parent.winfo_width(), 1)
         height = max(self.parent.winfo_height(), 1)
 
-        scale = min(width / self.BASE_DIMENSIONS[0], height / self.BASE_DIMENSIONS[1])
+        width_ratio = width / self.BASE_DIMENSIONS[0]
+        height_ratio = height / self.BASE_DIMENSIONS[1]
+        scale = min(width_ratio, height_ratio)
+        if height_ratio <= 1.0:
+            scale *= 0.96
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
 
         tk_scaling_raw = self.parent.tk.call("tk", "scaling")
@@ -501,10 +507,10 @@ class InstructionsScreen:
             size=int(max(18, self.BASE_FONT_SIZES["title"] * scale))
         )
         self.section_title_font.configure(
-            size=int(max(12, self.BASE_FONT_SIZES["section_title"] * scale))
+            size=int(max(10, self.BASE_FONT_SIZES["section_title"] * scale))
         )
         self.body_font.configure(
-            size=int(max(10, self.BASE_FONT_SIZES["body"] * scale))
+            size=int(max(7, self.BASE_FONT_SIZES["body"] * scale))
         )
         self.button_font.configure(
             size=int(max(12, self.BASE_FONT_SIZES["button"] * scale))
@@ -553,15 +559,18 @@ class InstructionsScreen:
         self.card_container.grid_configure(padx=card_padx)
 
         card_width = max(200, width - (card_padx * 2))
+        pad_scale = 0.45 + min(scale, 1.1) * 0.7
         card_inner_pad = int(
             max(
-                16,
-                min(80, self.CARD_PADDING_BASE * (0.6 + min(scale, 1.2))),
+                14,
+                min(70, self.CARD_PADDING_BASE * pad_scale),
             )
         )
-        section_top = int(max(6, min(32, self.SECTION_TOP_PAD_BASE * (0.8 + scale))))
+        section_top = int(
+            max(4, min(24, self.SECTION_TOP_PAD_BASE * (0.45 + (scale * 0.85))))
+        )
         section_bottom = int(
-            max(10, min(40, self.SECTION_BOTTOM_PAD_BASE * (0.8 + scale)))
+            max(8, min(30, self.SECTION_BOTTOM_PAD_BASE * (0.5 + (scale * 0.75))))
         )
 
         for idx, frame in enumerate(self.section_frames):
@@ -576,8 +585,6 @@ class InstructionsScreen:
                 min(self.ICON_MAX_SIZE, self.ICON_BASE_SIZE * scale),
             )
         )
-        min_wrap_px = 240
-        min_wrap_units = max(1, int(round(min_wrap_px / widget_scaling)))
         for widget in self.section_widgets.values():
             widget["icon_frame"].configure(width=icon_size, height=icon_size)
             icon_image = widget.get("icon_image")
@@ -585,13 +592,17 @@ class InstructionsScreen:
                 icon_image.configure(size=(icon_size, icon_size))
             else:
                 widget["icon_label"].configure(font=self.icon_font)
-            wrap_px = max(min_wrap_px, card_width - (icon_size + card_inner_pad + 90))
-            wrap_units = max(min_wrap_units, int(round(wrap_px / widget_scaling)))
-            widget["body"].configure(wraplength=wrap_units)
 
-        button_top = int(max(12, min(60, self.BUTTON_TOP_PAD_BASE * (0.8 + scale))))
+        self._update_section_wraps(
+            card_width=card_width,
+            card_pad=card_inner_pad,
+            widget_scaling=widget_scaling,
+        )
+
+        button_pad_factor = 0.6 + (min(scale, 1.2) * 0.8)
+        button_top = int(max(8, min(48, self.BUTTON_TOP_PAD_BASE * button_pad_factor)))
         button_bottom = int(
-            max(18, min(80, self.BUTTON_BOTTOM_PAD_BASE * (0.8 + scale)))
+            max(12, min(64, self.BUTTON_BOTTOM_PAD_BASE * button_pad_factor))
         )
         self.button_container.grid_configure(
             padx=header_padx, pady=(button_top, button_bottom)
@@ -602,6 +613,45 @@ class InstructionsScreen:
         )
 
         self._resize_job = None
+
+    def _update_section_wraps(self, *, card_width, card_pad, widget_scaling):
+        if not self.section_widgets:
+            return
+
+        self.instructions_card.update_idletasks()
+        card_width = max(card_width, self.instructions_card.winfo_width())
+
+        scaling = max(widget_scaling, 0.1)
+        min_wrap_base = max(120, int(card_width * 0.38))
+        max_wrap_base = max(260, int(card_width * 0.96))
+        body_pad_left = 16
+        body_pad_right = 6
+
+        for widget in self.section_widgets.values():
+            section_frame = widget["frame"]
+            section_frame.update_idletasks()
+
+            icon_frame = widget["icon_frame"]
+            icon_frame.update_idletasks()
+            icon_width = icon_frame.winfo_width() or self.ICON_BASE_SIZE
+
+            cell_bbox = section_frame.grid_bbox(1, 1)
+            if cell_bbox:
+                body_cell_width = cell_bbox[2]
+            else:
+                fallback_width = card_width - (card_pad * 1.5) - icon_width
+                body_cell_width = max(140, fallback_width)
+
+            available_px = body_cell_width - (body_pad_left + body_pad_right)
+            if not cell_bbox:
+                available_px -= 12
+            available_px = max(90, available_px)
+
+            target_px = max(min_wrap_base, min(max_wrap_base, available_px))
+            wrap_px = min(target_px, available_px)
+
+            wrap_units = max(40, int(round(wrap_px / scaling)))
+            widget["body"].configure(wraplength=wrap_units)
 
     def return_to_menu(self):
         if self.on_return_callback:
