@@ -199,16 +199,40 @@ class ManageQuestionsScreen:
 
     def build_question_list(self, container):
         needs_scrollbar = len(self.questions) > self.MAX_VISIBLE_QUESTIONS
-        frame_class = ctk.CTkScrollableFrame if needs_scrollbar else ctk.CTkFrame
 
-        list_frame = frame_class(
+        frame_kwargs = {
+            "fg_color": "#F5F7FA",
+            "border_width": 1,
+            "border_color": "#D2DAE6",
+            "corner_radius": 24,
+        }
+
+        list_container = ctk.CTkFrame(
             container,
-            fg_color="#F5F7FA",
-            border_width=1,
-            border_color="#D2DAE6",
-            corner_radius=24,
+            fg_color="transparent",
         )
-        list_frame.grid(row=1, column=0, sticky="nsew", pady=(20, 0))
+        list_container.grid(row=1, column=0, sticky="nsew", pady=(20, 0))
+        list_container.grid_columnconfigure(0, weight=1)
+        list_container.grid_rowconfigure(0, weight=1)
+
+        scrollbar = None
+        if needs_scrollbar:
+            list_frame = ctk.CTkScrollableFrame(
+                list_container,
+                **frame_kwargs,
+            )
+            scrollbar = list_frame._scrollbar
+        else:
+            list_frame = ctk.CTkFrame(
+                list_container,
+                **frame_kwargs,
+            )
+
+        list_frame.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+
+        if scrollbar is not None:
+            scrollbar.grid_configure(padx=(0, 6), pady=(6, 6))
+
         list_frame.grid_columnconfigure(0, weight=1)
         list_frame.grid_rowconfigure(0, minsize=24)
 
