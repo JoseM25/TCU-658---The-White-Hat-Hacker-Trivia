@@ -277,12 +277,17 @@ class MenuScreen:
         if self.app_controller:
             self.app_controller.show_instructions()
         else:
-            messagebox.showinfo("Instrucciones", "Aquí van las instrucciones del juego.")
+            messagebox.showinfo(
+                "Instrucciones", "Aquí van las instrucciones del juego."
+            )
 
     def manage_questions(self):
-        messagebox.showinfo(
-            "Manejo de Preguntas", "Aquí va la sección para manejar preguntas."
-        )
+        if self.app_controller:
+            self.app_controller.show_manage_questions()
+        else:
+            messagebox.showinfo(
+                "Manage Questions", "Manage questions screen coming soon."
+            )
 
     def show_credits(self):
         if self.app_controller:
