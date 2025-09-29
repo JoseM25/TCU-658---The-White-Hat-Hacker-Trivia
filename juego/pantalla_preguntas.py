@@ -1,24 +1,24 @@
+import json
+from pathlib import Path
 import customtkinter as ctk
 
 
 class ManageQuestionsScreen:
     HEADER_TEXT = "Manage Questions"
-    QUESTIONS = [
-        "Cracker",
-        "Modder",
-        "Malware",
-        "Exploit",
-        "Brute Force",
-        "Worm",
-        "Pirate",
-        "Tracing",
-    ]
-    MAX_VISIBLE_QUESTIONS = 6
+    MAX_VISIBLE_QUESTIONS = 8
+    QUESTIONS_FILE = Path(__file__).resolve().parent.parent / "datos" / "preguntas.json"
+    QUESTION_DEFAULT_BG = "transparent"
+    QUESTION_DEFAULT_TEXT = "#1F2937"
+    QUESTION_DEFAULT_HOVER = "#E2E8F0"
+    QUESTION_SELECTED_BG = "#1D6CFF"
 
     def __init__(self, parent, on_return_callback=None):
         self.parent = parent
         self.on_return_callback = on_return_callback
         self.placeholder_visible = False
+        self.selected_question_button = None
+        self.question_selected_text_color = "#FFFFFF"
+        self.questions = self.load_questions()
 
         for widget in self.parent.winfo_children():
             widget.destroy()
@@ -37,6 +37,31 @@ class ManageQuestionsScreen:
         )
 
         self.build_ui()
+
+    def load_questions(self):
+        if not self.QUESTIONS_FILE.exists():
+            return []
+
+        try:
+            data = json.loads(self.QUESTIONS_FILE.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return []
+
+        if isinstance(data, dict):
+            raw_questions = data.get("questions", [])
+        else:
+            raw_questions = data
+
+        titles = []
+        for item in raw_questions:
+            if isinstance(item, dict):
+                title = item.get("title")
+                if isinstance(title, str) and title.strip():
+                    titles.append(title.strip())
+            elif isinstance(item, str) and item.strip():
+                titles.append(item.strip())
+
+        return titles
 
     def build_ui(self):
         self.parent.grid_rowconfigure(0, weight=1)
@@ -141,9 +166,13 @@ class ManageQuestionsScreen:
             corner_radius=12,
         )
         add_button.grid(row=0, column=1, padx=(0, 16), pady=16)
+        self.add_button = add_button
+        resolved_text_color = add_button.cget("text_color")
+        if resolved_text_color:
+            self.question_selected_text_color = resolved_text_color
 
     def build_question_list(self, container):
-        needs_scrollbar = len(self.QUESTIONS) > self.MAX_VISIBLE_QUESTIONS
+        needs_scrollbar = len(self.questions) > self.MAX_VISIBLE_QUESTIONS
         frame_class = ctk.CTkScrollableFrame if needs_scrollbar else ctk.CTkFrame
 
         list_frame = frame_class(
@@ -157,17 +186,32 @@ class ManageQuestionsScreen:
         list_frame.grid_columnconfigure(0, weight=1)
         list_frame.grid_rowconfigure(0, minsize=24)
 
-        for index, question in enumerate(self.QUESTIONS, start=1):
+        self.selected_question_button = None
+
+        if not self.questions:
+            empty_label = ctk.CTkLabel(
+                list_frame,
+                text="No questions available.",
+                font=self.body_font,
+                text_color="#6B7280",
+            )
+            empty_label.grid(row=1, column=0, padx=24, pady=(12, 24), sticky="nsew")
+            list_frame.grid_rowconfigure(1, weight=1)
+            return
+
+        for index, question in enumerate(self.questions, start=1):
             button = ctk.CTkButton(
                 list_frame,
                 text=question,
                 font=self.question_font,
-                text_color="#1F2937",
-                fg_color="transparent",
-                hover_color="#E2E8F0",
+                text_color=self.QUESTION_DEFAULT_TEXT,
+                fg_color=self.QUESTION_DEFAULT_BG,
+                hover_color=self.QUESTION_DEFAULT_HOVER,
                 border_width=0,
-                corner_radius=12,
-                command=lambda q=question: self.show_question_details(q),
+                corner_radius=0,
+            )
+            button.configure(
+                command=lambda q=question, b=button: self.show_question_details(q, b)
             )
             button.grid(
                 row=index,
@@ -188,10 +232,27 @@ class ManageQuestionsScreen:
         if self.on_return_callback:
             self.on_return_callback()
 
-    def show_question_details(self, question):
+    def show_question_details(self, question, button):
         if not self.placeholder_visible:
             self.placeholder.grid()
             self.placeholder_visible = True
+
+        if (
+            self.selected_question_button
+            and self.selected_question_button is not button
+        ):
+            self.selected_question_button.configure(
+                fg_color=self.QUESTION_DEFAULT_BG,
+                text_color=self.QUESTION_DEFAULT_TEXT,
+                hover_color=self.QUESTION_DEFAULT_HOVER,
+            )
+
+        button.configure(
+            fg_color=self.QUESTION_SELECTED_BG,
+            text_color=self.question_selected_text_color,
+            hover_color=self.QUESTION_SELECTED_BG,
+        )
+        self.selected_question_button = button
 
         self.placeholder_label.configure(
             text=f"Details for {question} will appear here soon."
