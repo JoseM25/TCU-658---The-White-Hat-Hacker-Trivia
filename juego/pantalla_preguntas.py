@@ -11,6 +11,9 @@ class ManageQuestionsScreen:
     QUESTION_DEFAULT_TEXT = "#1F2937"
     QUESTION_DEFAULT_HOVER = "#E2E8F0"
     QUESTION_SELECTED_BG = "#1D6CFF"
+    QUESTION_BUTTON_SIDE_MARGIN = 1
+    QUESTION_BUTTON_HEIGHT = 50
+    QUESTION_BUTTON_VERTICAL_PADDING = 1
 
     def __init__(self, parent, on_return_callback=None):
         self.parent = parent
@@ -29,7 +32,12 @@ class ManageQuestionsScreen:
             weight="bold",
         )
         self.body_font = ctk.CTkFont(family="Poppins Medium", size=18)
-        self.button_font = ctk.CTkFont(family="Poppins SemiBold", size=16)
+        self.button_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=16, weight="bold"
+        )
+        self.search_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=18, weight="bold"
+        )
         self.question_font = ctk.CTkFont(
             family="Poppins SemiBold",
             size=18,
@@ -125,7 +133,7 @@ class ManageQuestionsScreen:
         self.placeholder_label = ctk.CTkLabel(
             placeholder,
             text="Question details will appear here.",
-            font=self.body_font,
+            font=self.search_font,
             text_color="#6B7280",
         )
         self.placeholder_label.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
@@ -147,7 +155,7 @@ class ManageQuestionsScreen:
             placeholder_text="Search...",
             placeholder_text_color="#F5F7FA",
             fg_color="#D1D8E0",
-            font=self.body_font,
+            font=self.search_font,
             corner_radius=18,
             height=42,
             border_width=0,
@@ -208,7 +216,7 @@ class ManageQuestionsScreen:
                 fg_color=self.QUESTION_DEFAULT_BG,
                 hover_color=self.QUESTION_DEFAULT_HOVER,
                 border_width=0,
-                corner_radius=0,
+                height=self.QUESTION_BUTTON_HEIGHT,
             )
             button.configure(
                 command=lambda q=question, b=button: self.show_question_details(q, b)
@@ -217,8 +225,14 @@ class ManageQuestionsScreen:
                 row=index,
                 column=0,
                 sticky="nsew",
-                padx=24,
-                pady=(0 if index == 1 else 12, 12),
+                padx=(
+                    self.QUESTION_BUTTON_SIDE_MARGIN,
+                    self.QUESTION_BUTTON_SIDE_MARGIN,
+                ),
+                pady=(
+                    (0 if index == 1 else self.QUESTION_BUTTON_VERTICAL_PADDING),
+                    self.QUESTION_BUTTON_VERTICAL_PADDING,
+                ),
             )
             list_frame.grid_rowconfigure(index, weight=0)
 
