@@ -92,7 +92,23 @@ class ManageQuestionsScreen:
             corner_radius=0,
         )
         header.grid(row=0, column=0, columnspan=3, sticky="ew")
-        header.grid_columnconfigure(0, weight=1)
+        header.grid_columnconfigure(0, weight=0)
+        header.grid_columnconfigure(1, weight=1)
+
+        back_button = ctk.CTkButton(
+            header,
+            text="< Menu",
+            font=self.button_font,
+            text_color="#FFFFFF",
+            fg_color="transparent",
+            hover_color="#273246",
+            command=self.return_to_menu,
+            corner_radius=8,
+            border_width=0,
+            width=110,
+            height=44,
+        )
+        back_button.grid(row=0, column=0, padx=(24, 16), pady=(28, 32), sticky="w")
 
         title = ctk.CTkLabel(
             header,
@@ -102,7 +118,7 @@ class ManageQuestionsScreen:
             anchor="center",
             justify="center",
         )
-        title.grid(row=0, column=0, padx=32, pady=(28, 32), sticky="nsew")
+        title.grid(row=0, column=1, padx=32, pady=(28, 32), sticky="nsew")
 
     def build_content(self):
         sidebar = ctk.CTkFrame(self.main, fg_color="transparent")
@@ -123,8 +139,10 @@ class ManageQuestionsScreen:
 
         placeholder = ctk.CTkFrame(
             self.main,
-            fg_color="#EEF2F8",
+            fg_color="#F5F7FA",
             corner_radius=16,
+            border_width=1,
+            border_color="#D2DAE6",
         )
         placeholder.grid(row=1, column=2, sticky="nsew", padx=(12, 32), pady=32)
         placeholder.grid_rowconfigure(0, weight=1)
