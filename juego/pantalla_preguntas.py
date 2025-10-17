@@ -53,7 +53,7 @@ class ManageQuestionsScreen:
         )
         self.detail_title_font = ctk.CTkFont(
             family="Poppins ExtraBold",
-            size=32,
+            size=38,
             weight="bold",
         )
 
@@ -192,14 +192,14 @@ class ManageQuestionsScreen:
             anchor="w",
             justify="left",
         )
-        self.detail_title_label.grid(row=0, column=0, sticky="w")
+        self.detail_title_label.grid(row=0, column=0, sticky="w", padx=(12, 0))
 
         self.edit_button = ctk.CTkButton(
             detail_header,
             text="Edit",
-            font=self.button_font,
-            fg_color="#1D6CFF",
-            hover_color="#0F55C9",
+            font=self.question_font,
+            fg_color="#00CFC5",
+            hover_color="#04AFA6",
             command=self.on_edit_pressed,
             width=110,
             height=44,
@@ -210,9 +210,9 @@ class ManageQuestionsScreen:
         self.delete_button = ctk.CTkButton(
             detail_header,
             text="Delete",
-            font=self.button_font,
-            fg_color="#DC2626",
-            hover_color="#B91C1C",
+            font=self.question_font,
+            fg_color="#FF4F60",
+            hover_color="#E53949",
             command=self.on_delete_pressed,
             width=110,
             height=44,
