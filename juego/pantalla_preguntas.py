@@ -1,9 +1,13 @@
 import json
+import threading
 import tkinter as tk
 from pathlib import Path
+
 import customtkinter as ctk
 from PIL import Image, ImageTk, UnidentifiedImageError
 from tksvg import SvgImage as TkSvgImage
+
+import pipervoice
 
 
 class ManageQuestionsScreen:
@@ -22,6 +26,9 @@ class ManageQuestionsScreen:
     QUESTION_BUTTON_SIDE_MARGIN = 1
     QUESTION_BUTTON_HEIGHT = 50
     QUESTION_BUTTON_VERTICAL_PADDING = 1
+    AUDIO_DIR = Path(__file__).resolve().parent.parent / "recursos" / "audio"
+    PIPER_MODEL_FILENAME = "en_US-ryan-high.onnx"
+    PIPER_CONFIG_FILENAME = "en_US-ryan-high.onnx.json"
 
     def __init__(self, parent, on_return_callback=None):
         self.parent = parent
@@ -41,6 +48,12 @@ class ManageQuestionsScreen:
         self.definition_audio_button: None
         self.definition_audio_image = None
         self.detail_image = None
+        self.current_question = None
+        self.audio_thread = None
+        self.voice = None
+        self.voice_error = None
+        self.piper_model_path = self.AUDIO_DIR / self.PIPER_MODEL_FILENAME
+        self.piper_config_path = self.AUDIO_DIR / self.PIPER_CONFIG_FILENAME
 
         for widget in self.parent.winfo_children():
             widget.destroy()
@@ -291,6 +304,7 @@ class ManageQuestionsScreen:
             **button_kwargs,
         )
         self.definition_audio_button.grid(row=0, column=0, sticky="nw", padx=(0, 16))
+        self.definition_audio_button.configure(state="disabled")
 
         self.detail_definition_label = ctk.CTkLabel(
             definition_row,
@@ -441,10 +455,27 @@ class ManageQuestionsScreen:
         pass
 
     def on_definition_audio_pressed(self):
-        # Placeholder for future audio playback
-        pass
+        if not self.current_question:
+            return
+
+        definition = (self.current_question.get("definition") or "").strip()
+        if not definition:
+            return
+
+        if not self.ensure_voice():
+            return
+
+        self.stop_definition_audio()
+
+        self.audio_thread = threading.Thread(
+            target=self._speak_definition_async,
+            args=(definition,),
+            daemon=True,
+        )
+        self.audio_thread.start()
 
     def return_to_menu(self):
+        self.stop_definition_audio()
         if self.on_return_callback:
             self.on_return_callback()
 
@@ -568,6 +599,8 @@ class ManageQuestionsScreen:
         self.detail_image_label.image = loaded_image
 
     def show_question_details(self, question, button):
+        self.stop_definition_audio()
+
         if not self.detail_visible:
             self.detail_container.grid()
             self.detail_visible = True
@@ -590,10 +623,72 @@ class ManageQuestionsScreen:
         self.selected_question_button = button
 
         title = question.get("title", "")
-        definition = question.get("definition") or "No definition available yet."
+        raw_definition = (question.get("definition") or "")
+        definition = raw_definition or "No definition available yet."
         image_path = question.get("image", "")
+        self.current_question = question
+
+        if self.definition_audio_button:
+            if raw_definition.strip():
+                self.definition_audio_button.configure(state="normal")
+            else:
+                self.definition_audio_button.configure(state="disabled")
 
         self.detail_title_label.configure(text=title)
         self.detail_definition_label.configure(text=definition)
         self.current_image_path = image_path
         self.update_detail_image()
+
+    def stop_definition_audio(self):
+        if self.voice:
+            try:
+                self.voice.stop()
+            except pipervoice.PiperVoiceError:
+                pass
+        self.audio_thread = None
+
+    def ensure_voice(self):
+        if self.voice:
+            return True
+
+        if not self.piper_model_path.exists():
+            message = f"Piper model file not found at: {self.piper_model_path}"
+            if self.voice_error != message:
+                print(message)
+            self.voice_error = message
+            return False
+
+        if not self.piper_config_path.exists():
+            message = f"Piper config file not found at: {self.piper_config_path}"
+            if self.voice_error != message:
+                print(message)
+            self.voice_error = message
+            return False
+
+        try:
+            self.voice = pipervoice.PiperVoice(
+                model_path=self.piper_model_path,
+                config_path=self.piper_config_path,
+            )
+            self.voice_error = None
+        except pipervoice.PiperVoiceError as exc:
+            message = f"Unable to initialize Piper voice: {exc}"
+            if self.voice_error != message:
+                print(message)
+            self.voice = None
+            self.voice_error = message
+            return False
+
+        return True
+
+    def _speak_definition_async(self, text):
+        if not text or not self.voice:
+            return
+
+        try:
+            self.voice.speak(text)
+        except pipervoice.PiperVoiceError as exc:
+            print(f"Piper playback failed: {exc}")
+        finally:
+            if threading.current_thread() is self.audio_thread:
+                self.audio_thread = None
