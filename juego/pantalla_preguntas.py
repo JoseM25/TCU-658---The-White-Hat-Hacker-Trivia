@@ -1,7 +1,8 @@
 import json
+import tkinter as tk
 from pathlib import Path
 import customtkinter as ctk
-from PIL import ImageTk
+from PIL import Image, ImageTk, UnidentifiedImageError
 from tksvg import SvgImage as TkSvgImage
 
 
@@ -10,6 +11,7 @@ class ManageQuestionsScreen:
     MAX_VISIBLE_QUESTIONS = 8
     QUESTIONS_FILE = Path(__file__).resolve().parent.parent / "datos" / "preguntas.json"
     IMAGES_DIR = Path(__file__).resolve().parent.parent / "recursos" / "imagenes"
+    DETAIL_IMAGE_MAX_SIZE = (220, 220)
     AUDIO_ICON_FILENAME = "volume.svg"
     AUDIO_ICON_SIZE = (32, 32)
     SVG_RASTER_SCALE = 2.0
@@ -38,6 +40,7 @@ class ManageQuestionsScreen:
         self.detail_definition_label: None
         self.definition_audio_button: None
         self.definition_audio_image = None
+        self.detail_image = None
 
         for widget in self.parent.winfo_children():
             widget.destroy()
@@ -252,6 +255,7 @@ class ManageQuestionsScreen:
             width=220,
             height=220,
             corner_radius=16,
+            anchor="center",
         )
         self.detail_image_label.grid(
             row=0, column=0, pady=(28, 48), padx=12, sticky="n"
@@ -468,6 +472,101 @@ class ManageQuestionsScreen:
         )
         return True
 
+    def resolve_image_path(self, image_path):
+        if not image_path:
+            return None
+
+        candidate = Path(image_path)
+        if not candidate.is_absolute():
+            candidate = Path(__file__).resolve().parent.parent / candidate
+
+        if candidate.exists():
+            return candidate
+        return None
+
+    def create_detail_ctk_image(self, image_file):
+        resample_source = getattr(Image, "Resampling", Image)
+        resample_method = getattr(
+            resample_source, "LANCZOS", getattr(resample_source, "BICUBIC", 3)
+        )
+
+        try:
+            with Image.open(image_file) as loaded_image:
+                image_rgba = loaded_image.convert("RGBA")
+                prepared_image = image_rgba.copy()
+        except (FileNotFoundError, UnidentifiedImageError, OSError, ValueError):
+            return None
+
+        width, height = prepared_image.size
+        if width <= 0 or height <= 0:
+            return None
+
+        max_width, max_height = self.DETAIL_IMAGE_MAX_SIZE
+        width_scale = max_width / width
+        height_scale = max_height / height
+        scale = min(width_scale, height_scale, 1)
+
+        scaled_size = (
+            max(1, int(round(width * scale))),
+            max(1, int(round(height * scale))),
+        )
+
+        if scale < 1:
+            prepared_image = prepared_image.resize(scaled_size, resample_method)
+
+        return ctk.CTkImage(
+            light_image=prepared_image,
+            dark_image=prepared_image,
+            size=scaled_size,
+        )
+
+    def update_detail_image(self):
+        if not self.detail_image_label or not self.detail_image_label.winfo_exists():
+            return
+
+        resolved_path = self.resolve_image_path(self.current_image_path)
+        if not resolved_path:
+            try:
+                self.detail_image_label.configure(
+                    image=None,
+                    text="Image not available",
+                )
+            except tk.TclError:
+                return
+            self.detail_image_label.image = None
+            self.detail_image = None
+            return
+
+        loaded_image = self.create_detail_ctk_image(resolved_path)
+        if loaded_image is None:
+            try:
+                self.detail_image_label.configure(
+                    image=None,
+                    text="Image not available",
+                )
+            except tk.TclError:
+                return
+            self.detail_image_label.image = None
+            self.detail_image = None
+            return
+
+        try:
+            self.detail_image_label.configure(image=loaded_image, text="")
+        except tk.TclError:
+            try:
+                self.detail_image_label.configure(
+                    image=None,
+                    text="Image not available",
+                )
+            except tk.TclError:
+                return
+            self.detail_image_label.image = None
+            self.detail_image = None
+            return
+
+        self.detail_image = loaded_image
+        self.detail_image_label.image = loaded_image
+
     def show_question_details(self, question, button):
         if not self.detail_visible:
             self.detail_container.grid()
@@ -496,5 +595,5 @@ class ManageQuestionsScreen:
 
         self.detail_title_label.configure(text=title)
         self.detail_definition_label.configure(text=definition)
-        self.detail_image_label.configure(text="Image placeholder")
         self.current_image_path = image_path
+        self.update_detail_image()

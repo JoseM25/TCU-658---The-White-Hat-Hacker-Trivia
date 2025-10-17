@@ -2,91 +2,91 @@
   "questions": [
     {
       "title": "Cracker",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Cracker.png",
       "definition": "A harmful individual who destroys everything in their path using viruses and tools that they develop, often breaking security in systems and programs",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Modder",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Modder.png",
       "definition": "A person who modifies or customizes software, games, or hardware to enhance functionality, improve performance, or create new features",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Malware",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Malware.png",
       "definition": "Malicious software designed to harm or exploit any programmable device or network",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Password Cracker",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Password_Cracker.png",
       "definition": "An application used to identify unknown or forgotten passwords for computers or network resources. It can also assist a human cracker in gaining unauthorized access",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Exploit",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Exploit.png",
       "definition": "A specific method of using a vulnerability to gain entry into a system",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Brute Force",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Brute_Force.png",
       "definition": "A method for discovering a password by trying all possible combinations until the correct one is found",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Worm",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Worm.png",
       "definition": "A self-replicating program that spreads across systems by copying itself, consuming resources from the targeted systems",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Pirate",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Pirate.png",
       "definition": "A person who copies and distributes illegal software, including cracked commercial software and registered shareware, and who is different from a \"hacker\"",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Tracing",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Tracing.png",
       "definition": "The process of tracking information about a person through the network",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Virus",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Virus.png",
       "definition": "A program that self-replicates and often attacks other programs, creating copies of itself and potentially damaging data",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Adware",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Adware.png",
       "definition": "Software used by hackers to forcibly display advertisements on a system",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Backdoor",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Backdoor.png",
       "definition": "Also known as a trapdoor, it is a means of bypassing normal authentication to access a computer system",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Bot",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Bot.png",
       "definition": "A program designed to automate tasks, allowing actions to be performed more frequently",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "White Hat Hacker",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/White_Hat_Hacker.png",
       "definition": "An ethical hacker who aims to identify weaknesses in systems or networks without causing harm",
       "audio": "audio/placeholder.mp3"
     },
     {
       "title": "Black Hat Hacker",
-      "image": "images/placeholder.png",
+      "image": "recursos/imagenes/Black_Hat_Hacker.png",
       "definition": "A cracker who seeks unauthorized access to networks or systems with the intent to cause damage",
       "audio": "audio/placeholder.mp3"
     }
