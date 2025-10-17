@@ -251,10 +251,10 @@ class ManageQuestionsScreen:
             text="Image placeholder",
             font=self.search_font,
             text_color="#4B5563",
-            fg_color="#E5E7EB",
+            fg_color="transparent",
             width=220,
             height=220,
-            corner_radius=16,
+            corner_radius=0,
             anchor="center",
         )
         self.detail_image_label.grid(
