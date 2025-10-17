@@ -1,12 +1,18 @@
 import json
 from pathlib import Path
 import customtkinter as ctk
+from PIL import ImageTk
+from tksvg import SvgImage as TkSvgImage
 
 
 class ManageQuestionsScreen:
     HEADER_TEXT = "Manage Questions"
     MAX_VISIBLE_QUESTIONS = 8
     QUESTIONS_FILE = Path(__file__).resolve().parent.parent / "datos" / "preguntas.json"
+    IMAGES_DIR = Path(__file__).resolve().parent.parent / "recursos" / "imagenes"
+    AUDIO_ICON_FILENAME = "volume.svg"
+    AUDIO_ICON_SIZE = (32, 32)
+    SVG_RASTER_SCALE = 2.0
     QUESTION_DEFAULT_BG = "transparent"
     QUESTION_DEFAULT_TEXT = "#1F2937"
     QUESTION_DEFAULT_HOVER = "#E2E8F0"
@@ -30,6 +36,8 @@ class ManageQuestionsScreen:
         self.delete_button: None
         self.detail_image_label: None
         self.detail_definition_label: None
+        self.definition_audio_button: None
+        self.definition_audio_image = None
 
         for widget in self.parent.winfo_children():
             widget.destroy()
@@ -249,8 +257,39 @@ class ManageQuestionsScreen:
             row=0, column=0, pady=(28, 48), padx=12, sticky="n"
         )
 
-        self.detail_definition_label = ctk.CTkLabel(
+        definition_row = ctk.CTkFrame(
             detail_content,
+            fg_color="transparent",
+        )
+        definition_row.grid(row=1, column=0, sticky="ew", padx=32, pady=(32, 0))
+        definition_row.grid_columnconfigure(0, weight=0)
+        definition_row.grid_columnconfigure(1, weight=1)
+
+        audio_image_loaded = self.ensure_audio_icon()
+        button_kwargs = {}
+        if audio_image_loaded:
+            button_kwargs["image"] = self.definition_audio_image
+            button_kwargs["text"] = ""
+        else:
+            button_kwargs["text"] = "Audio"
+            button_kwargs["font"] = self.body_font
+            button_kwargs["text_color"] = "#1F2937"
+
+        self.definition_audio_button = ctk.CTkButton(
+            definition_row,
+            fg_color="transparent",
+            hover_color="#E5E7EB",
+            border_width=0,
+            width=44,
+            height=44,
+            corner_radius=22,
+            command=self.on_definition_audio_pressed,
+            **button_kwargs,
+        )
+        self.definition_audio_button.grid(row=0, column=0, sticky="nw", padx=(0, 16))
+
+        self.detail_definition_label = ctk.CTkLabel(
+            definition_row,
             text="",
             font=self.body_font,
             text_color="#1F2937",
@@ -258,9 +297,7 @@ class ManageQuestionsScreen:
             anchor="w",
             wraplength=540,
         )
-        self.detail_definition_label.grid(
-            row=1, column=0, sticky="n", padx=32, pady=(32, 0)
-        )
+        self.detail_definition_label.grid(row=0, column=1, sticky="nw")
 
         self.detail_container = detail_container
         self.detail_container.grid_remove()
@@ -399,9 +436,37 @@ class ManageQuestionsScreen:
         # Placeholder for future delete-question flow
         pass
 
+    def on_definition_audio_pressed(self):
+        # Placeholder for future audio playback
+        pass
+
     def return_to_menu(self):
         if self.on_return_callback:
             self.on_return_callback()
+
+    def load_svg_image(self, svg_path, scale=1.0):
+        try:
+            svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
+            pil_image = ImageTk.getimage(svg_photo).convert("RGBA")
+            return pil_image
+        except (FileNotFoundError, ValueError):
+            return None
+
+    def ensure_audio_icon(self):
+        if self.definition_audio_image:
+            return True
+
+        svg_path = self.IMAGES_DIR / self.AUDIO_ICON_FILENAME
+        pil_image = self.load_svg_image(svg_path, scale=self.SVG_RASTER_SCALE)
+        if not pil_image:
+            return False
+
+        self.definition_audio_image = ctk.CTkImage(
+            light_image=pil_image,
+            dark_image=pil_image,
+            size=self.AUDIO_ICON_SIZE,
+        )
+        return True
 
     def show_question_details(self, question, button):
         if not self.detail_visible:
