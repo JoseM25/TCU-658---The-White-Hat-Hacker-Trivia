@@ -246,7 +246,7 @@ class ManageQuestionsScreen:
             corner_radius=16,
         )
         self.detail_image_label.grid(
-            row=0, column=0, pady=(12, 24), padx=12, sticky="n"
+            row=0, column=0, pady=(28, 48), padx=12, sticky="n"
         )
 
         self.detail_definition_label = ctk.CTkLabel(
@@ -254,10 +254,13 @@ class ManageQuestionsScreen:
             text="",
             font=self.body_font,
             text_color="#1F2937",
-            justify="center",
+            justify="left",
+            anchor="w",
             wraplength=540,
         )
-        self.detail_definition_label.grid(row=1, column=0, sticky="n", padx=12)
+        self.detail_definition_label.grid(
+            row=1, column=0, sticky="n", padx=32, pady=(32, 0)
+        )
 
         self.detail_container = detail_container
         self.detail_container.grid_remove()
