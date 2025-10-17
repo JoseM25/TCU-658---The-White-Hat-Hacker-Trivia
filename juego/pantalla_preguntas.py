@@ -18,10 +18,18 @@ class ManageQuestionsScreen:
     def __init__(self, parent, on_return_callback=None):
         self.parent = parent
         self.on_return_callback = on_return_callback
-        self.placeholder_visible = False
+        self.detail_visible = False
         self.selected_question_button = None
         self.question_selected_text_color = "#FFFFFF"
         self.questions = self.load_questions()
+        self.current_image_path = ""
+        self.add_button: None
+        self.detail_container: None
+        self.detail_title_label: None
+        self.edit_button: None
+        self.delete_button: None
+        self.detail_image_label: None
+        self.detail_definition_label: None
 
         for widget in self.parent.winfo_children():
             widget.destroy()
@@ -43,6 +51,11 @@ class ManageQuestionsScreen:
             size=18,
             weight="bold",
         )
+        self.detail_title_font = ctk.CTkFont(
+            family="Poppins ExtraBold",
+            size=32,
+            weight="bold",
+        )
 
         self.build_ui()
 
@@ -60,16 +73,29 @@ class ManageQuestionsScreen:
         else:
             raw_questions = data
 
-        titles = []
+        questions = []
         for item in raw_questions:
-            if isinstance(item, dict):
-                title = item.get("title")
-                if isinstance(title, str) and title.strip():
-                    titles.append(title.strip())
-            elif isinstance(item, str) and item.strip():
-                titles.append(item.strip())
+            if not isinstance(item, dict):
+                continue
 
-        return titles
+            title = (item.get("title") or "").strip()
+            if not title:
+                continue
+
+            definition = (item.get("definition") or "").strip()
+            image = (item.get("image") or "").strip()
+            audio = (item.get("audio") or "").strip()
+
+            questions.append(
+                {
+                    "title": title,
+                    "definition": definition,
+                    "image": image,
+                    "audio": audio,
+                }
+            )
+
+        return questions
 
     def build_ui(self):
         self.parent.grid_rowconfigure(0, weight=1)
@@ -137,28 +163,105 @@ class ManageQuestionsScreen:
         )
         divider.grid(row=1, column=1, sticky="ns", pady=32)
 
-        placeholder = ctk.CTkFrame(
+        detail_container = ctk.CTkFrame(
             self.main,
             fg_color="#F5F7FA",
             corner_radius=16,
             border_width=1,
             border_color="#D2DAE6",
         )
-        placeholder.grid(row=1, column=2, sticky="nsew", padx=(12, 32), pady=32)
-        placeholder.grid_rowconfigure(0, weight=1)
-        placeholder.grid_columnconfigure(0, weight=1)
+        detail_container.grid(row=1, column=2, sticky="nsew", padx=(12, 32), pady=32)
+        detail_container.grid_rowconfigure(0, weight=0)
+        detail_container.grid_rowconfigure(1, weight=1)
+        detail_container.grid_columnconfigure(0, weight=1)
 
-        self.placeholder_label = ctk.CTkLabel(
-            placeholder,
-            text="Question details will appear here.",
-            font=self.search_font,
-            text_color="#6B7280",
+        detail_header = ctk.CTkFrame(
+            detail_container,
+            fg_color="transparent",
         )
-        self.placeholder_label.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
+        detail_header.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 12))
+        detail_header.grid_columnconfigure(0, weight=1)
+        detail_header.grid_columnconfigure(1, weight=0)
+        detail_header.grid_columnconfigure(2, weight=0)
 
-        self.placeholder = placeholder
-        self.placeholder.grid_remove()
-        self.placeholder_visible = False
+        self.detail_title_label = ctk.CTkLabel(
+            detail_header,
+            text="",
+            font=self.detail_title_font,
+            text_color="#111827",
+            anchor="w",
+            justify="left",
+        )
+        self.detail_title_label.grid(row=0, column=0, sticky="w")
+
+        self.edit_button = ctk.CTkButton(
+            detail_header,
+            text="Edit",
+            font=self.button_font,
+            fg_color="#1D6CFF",
+            hover_color="#0F55C9",
+            command=self.on_edit_pressed,
+            width=110,
+            height=44,
+            corner_radius=12,
+        )
+        self.edit_button.grid(row=0, column=1, padx=(12, 12), sticky="e")
+
+        self.delete_button = ctk.CTkButton(
+            detail_header,
+            text="Delete",
+            font=self.button_font,
+            fg_color="#DC2626",
+            hover_color="#B91C1C",
+            command=self.on_delete_pressed,
+            width=110,
+            height=44,
+            corner_radius=12,
+        )
+        self.delete_button.grid(row=0, column=2, sticky="e")
+
+        detail_body = ctk.CTkFrame(
+            detail_container,
+            fg_color="transparent",
+        )
+        detail_body.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
+        detail_body.grid_rowconfigure(0, weight=1)
+        detail_body.grid_columnconfigure(0, weight=1)
+
+        detail_content = ctk.CTkFrame(
+            detail_body,
+            fg_color="transparent",
+        )
+        detail_content.grid(row=0, column=0, sticky="n")
+        detail_content.grid_columnconfigure(0, weight=1)
+
+        self.detail_image_label = ctk.CTkLabel(
+            detail_content,
+            text="Image placeholder",
+            font=self.search_font,
+            text_color="#4B5563",
+            fg_color="#E5E7EB",
+            width=220,
+            height=220,
+            corner_radius=16,
+        )
+        self.detail_image_label.grid(
+            row=0, column=0, pady=(12, 24), padx=12, sticky="n"
+        )
+
+        self.detail_definition_label = ctk.CTkLabel(
+            detail_content,
+            text="",
+            font=self.body_font,
+            text_color="#1F2937",
+            justify="center",
+            wraplength=540,
+        )
+        self.detail_definition_label.grid(row=1, column=0, sticky="n", padx=12)
+
+        self.detail_container = detail_container
+        self.detail_container.grid_remove()
+        self.detail_visible = False
 
     def build_controls(self, container):
         controls = ctk.CTkFrame(
@@ -215,13 +318,11 @@ class ManageQuestionsScreen:
         list_container.grid_columnconfigure(0, weight=1)
         list_container.grid_rowconfigure(0, weight=1)
 
-        scrollbar = None
         if needs_scrollbar:
             list_frame = ctk.CTkScrollableFrame(
                 list_container,
                 **frame_kwargs,
             )
-            scrollbar = list_frame._scrollbar
         else:
             list_frame = ctk.CTkFrame(
                 list_container,
@@ -230,8 +331,11 @@ class ManageQuestionsScreen:
 
         list_frame.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
 
-        if scrollbar is not None:
-            scrollbar.grid_configure(padx=(0, 6), pady=(6, 6))
+        if needs_scrollbar:
+            for child in list_frame.winfo_children():
+                if isinstance(child, ctk.CTkScrollbar):
+                    child.grid_configure(padx=(0, 6), pady=(6, 6))
+                    break
 
         list_frame.grid_columnconfigure(0, weight=1)
         list_frame.grid_rowconfigure(0, minsize=24)
@@ -252,7 +356,7 @@ class ManageQuestionsScreen:
         for index, question in enumerate(self.questions, start=1):
             button = ctk.CTkButton(
                 list_frame,
-                text=question,
+                text=question.get("title", ""),
                 font=self.question_font,
                 text_color=self.QUESTION_DEFAULT_TEXT,
                 fg_color=self.QUESTION_DEFAULT_BG,
@@ -284,14 +388,22 @@ class ManageQuestionsScreen:
         # Placeholder for future add-question flow
         pass
 
+    def on_edit_pressed(self):
+        # Placeholder for future edit-question flow
+        pass
+
+    def on_delete_pressed(self):
+        # Placeholder for future delete-question flow
+        pass
+
     def return_to_menu(self):
         if self.on_return_callback:
             self.on_return_callback()
 
     def show_question_details(self, question, button):
-        if not self.placeholder_visible:
-            self.placeholder.grid()
-            self.placeholder_visible = True
+        if not self.detail_visible:
+            self.detail_container.grid()
+            self.detail_visible = True
 
         if (
             self.selected_question_button
@@ -310,6 +422,11 @@ class ManageQuestionsScreen:
         )
         self.selected_question_button = button
 
-        self.placeholder_label.configure(
-            text=f"Details for {question} will appear here soon."
-        )
+        title = question.get("title", "")
+        definition = question.get("definition") or "No definition available yet."
+        image_path = question.get("image", "")
+
+        self.detail_title_label.configure(text=title)
+        self.detail_definition_label.configure(text=definition)
+        self.detail_image_label.configure(text="Image placeholder")
+        self.current_image_path = image_path
