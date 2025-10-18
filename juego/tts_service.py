@@ -1,102 +1,66 @@
 import io
-import os
+import logging
+import threading
 import wave
 import winsound
+from contextlib import suppress
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from piper.voice import PiperVoice
+
+# Suppress Piper phoneme warnings
+logging.getLogger("piper.voice").setLevel(logging.ERROR)
 
 
 class TTSService:
 
     def __init__(self, model_dir, model_name="en_US-ryan-high.onnx"):
-        self.model_path = model_dir / model_name
-        self.config_path = model_dir / f"{model_name}.json"
-        self.voice = None
-        self.temp_file = None
-
-    def load_voice(self):
-        if self.voice:
-            return True
-
-        if not self.model_path.exists() or not self.config_path.exists():
-            print(f"Piper model files not found in {self.model_path.parent}")
-            return False
-
-        try:
-            self.voice = PiperVoice.load(
-                model_path=str(self.model_path),
-                config_path=str(self.config_path),
-            )
-            return True
-        except (OSError, RuntimeError, ValueError) as e:
-            print(f"Failed to load Piper voice: {e}")
-            return False
+        self.model_path = Path(model_dir) / model_name
+        self.config_path = Path(model_dir) / f"{model_name}.json"
+        self._voice = None
+        self._speaking_thread = None
 
     def speak(self, text):
-        if not text or not self.load_voice():
-            return False
+        if not text or not text.strip():
+            return
 
-        # Synthesize audio
-        audio_bytes = self.synthesize(text)
-        if not audio_bytes:
-            return False
+        # Stop any current speech
+        self.stop()
 
-        # Play audio
-        return self.play(audio_bytes)
+        # Start new speech in background thread
+        self._speaking_thread = threading.Thread(
+            target=self._speak_worker, args=(text,), daemon=True
+        )
+        self._speaking_thread.start()
 
-    def synthesize(self, text):
-        buffer = io.BytesIO()
+    def _speak_worker(self, text):
+        # Lazy-load voice model on first use
+        if not self._voice:
+            with suppress(Exception):
+                self._voice = PiperVoice.load(
+                    str(self.model_path), str(self.config_path)
+                )
+            if not self._voice:
+                return
 
-        try:
-            with wave.open(buffer, "wb") as wav_file:
-                first_chunk = True
-                for chunk in self.voice.synthesize(text):
-                    if first_chunk:
-                        wav_file.setnchannels(chunk.sample_channels)
-                        wav_file.setsampwidth(chunk.sample_width)
-                        wav_file.setframerate(chunk.sample_rate)
-                        first_chunk = False
-                    wav_file.writeframes(chunk.audio_int16_bytes)
+        # Synthesize audio to WAV format in memory
+        with suppress(Exception):
+            buffer = io.BytesIO()
+            with wave.open(buffer, "wb") as wav:  # type: ignore
+                for i, chunk in enumerate(self._voice.synthesize(text)):
+                    if i == 0:  # Configure WAV on first chunk
+                        wav.setnchannels(chunk.sample_channels)
+                        wav.setsampwidth(chunk.sample_width)
+                        wav.setframerate(chunk.sample_rate)
+                    wav.writeframes(chunk.audio_int16_bytes)
 
-                if first_chunk:  # No audio was generated
-                    return None
-
-            return buffer.getvalue()
-        except (wave.Error, OSError, RuntimeError, ValueError) as e:
-            print(f"Audio synthesis failed: {e}")
-            return None
-
-    def play(self, audio_bytes):
-        self.stop()  # Clean up any previous playback
-
-        try:
-            # Write to temporary file
-            with NamedTemporaryFile(delete=False, suffix=".wav") as f:
-                f.write(audio_bytes)
-                self.temp_file = f.name
-
-            # Play asynchronously
-            winsound.PlaySound(
-                self.temp_file, winsound.SND_FILENAME | winsound.SND_ASYNC
-            )
-            return True
-        except (OSError, RuntimeError) as e:
-            print(f"Audio playback failed: {e}")
-            self._cleanup_temp_file()
-            return False
+            # Play audio from temporary file
+            with NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp.write(buffer.getvalue())
+                tmp.flush()
+                winsound.PlaySound(tmp.name, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
     def stop(self):
-        try:
+        with suppress(Exception):
             winsound.PlaySound(None, winsound.SND_PURGE)
-        except RuntimeError:
-            pass
-        self._cleanup_temp_file()
-
-    def _cleanup_temp_file(self):
-        if self.temp_file:
-            try:
-                os.remove(self.temp_file)
-            except OSError:
-                pass
-            self.temp_file = None

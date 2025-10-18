@@ -1,5 +1,4 @@
 import json
-import threading
 import tkinter as tk
 from pathlib import Path
 
@@ -47,7 +46,6 @@ class ManageQuestionsScreen:
         self.definition_audio_image = None
         self.detail_image = None
         self.current_question = None
-        self.audio_thread = None
 
         # Initialize TTS service
         self.tts = TTSService(self.AUDIO_DIR)
@@ -456,17 +454,9 @@ class ManageQuestionsScreen:
             return
 
         definition = (self.current_question.get("definition") or "").strip()
-        if not definition:
-            return
-
-        # Stop any current audio and play new audio in background thread
-        self.tts.stop()
-        self.audio_thread = threading.Thread(
-            target=self.tts.speak,
-            args=(definition,),
-            daemon=True,
-        )
-        self.audio_thread.start()
+        if definition:
+            self.tts.stop()
+            self.tts.speak(definition)
 
     def return_to_menu(self):
         self.tts.stop()
