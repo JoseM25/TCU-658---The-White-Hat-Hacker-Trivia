@@ -744,11 +744,21 @@ class ManageQuestionsScreen:
         )
         image_label.grid(row=4, column=0, sticky="w", pady=(16, 8))
 
-        image_picker_frame = ctk.CTkFrame(
+        image_input_frame = ctk.CTkFrame(
             form_frame,
+            fg_color="#FFFFFF",
+            border_color="#CBD5E1",
+            border_width=2,
+            corner_radius=12,
+        )
+        image_input_frame.grid(row=5, column=0, sticky="ew")
+        image_input_frame.grid_columnconfigure(0, weight=1)
+
+        image_picker_frame = ctk.CTkFrame(
+            image_input_frame,
             fg_color="transparent",
         )
-        image_picker_frame.grid(row=5, column=0, sticky="ew")
+        image_picker_frame.grid(row=0, column=0, sticky="ew", padx=12, pady=8)
         image_picker_frame.grid_columnconfigure(0, weight=1)
         image_picker_frame.grid_columnconfigure(1, weight=0)
 
@@ -759,7 +769,7 @@ class ManageQuestionsScreen:
             text_color="#4B5563",
             anchor="w",
             justify="left",
-            wraplength=320,
+            wraplength=260,
         )
         image_status_label.grid(row=0, column=0, sticky="w", padx=(0, 16))
 
@@ -783,8 +793,9 @@ class ManageQuestionsScreen:
             text_color="#DC2626",
             anchor="w",
             justify="left",
+            wraplength=360,
         )
-        image_feedback_label.grid(row=6, column=0, sticky="w", pady=(8, 0))
+        image_feedback_label.grid(row=6, column=0, sticky="w", pady=(8, 0), padx=4)
 
         buttons_frame = ctk.CTkFrame(
             container,
@@ -850,7 +861,7 @@ class ManageQuestionsScreen:
         )
 
         target_width = max(480, int(parent_width * 0.5))
-        target_height = max(340, int(parent_height * 0.5))
+        target_height = max(460, int(parent_height * 0.6))
 
         width = min(target_width, screen_width - 80)
         height = min(target_height, screen_height - 80)
@@ -874,11 +885,9 @@ class ManageQuestionsScreen:
 
         try:
             initial_dir = (
-                str(self.IMAGES_DIR)
-                if self.IMAGES_DIR.exists()
-                else str(Path.home())
+                str(self.IMAGES_DIR) if self.IMAGES_DIR.exists() else str(Path.home())
             )
-        except Exception:
+        except (OSError, RuntimeError):
             initial_dir = None
 
         try:
@@ -903,12 +912,14 @@ class ManageQuestionsScreen:
 
         feedback_label = (
             self.add_image_feedback_label
-            if self.add_image_feedback_label and self.add_image_feedback_label.winfo_exists()
+            if self.add_image_feedback_label
+            and self.add_image_feedback_label.winfo_exists()
             else None
         )
         status_label = (
             self.add_image_display_label
-            if self.add_image_display_label and self.add_image_display_label.winfo_exists()
+            if self.add_image_display_label
+            and self.add_image_display_label.winfo_exists()
             else None
         )
 
@@ -971,12 +982,7 @@ class ManageQuestionsScreen:
         if definition_widget:
             try:
                 definition_value = definition_widget.get()
-            except TypeError:
-                try:
-                    definition_value = definition_widget.get("0.0", tk.END)
-                except tk.TclError:
-                    definition_value = ""
-            except tk.TclError:
+            except (TypeError, tk.TclError):
                 definition_value = ""
 
         definition = (definition_value or "").strip()
@@ -1087,7 +1093,9 @@ class ManageQuestionsScreen:
             destination_path = destination_dir / candidate_name
             copy_index = 1
             while destination_path.exists():
-                destination_path = destination_dir / f"{candidate_stem}_{copy_index}{candidate_suffix}"
+                destination_path = (
+                    destination_dir / f"{candidate_stem}_{copy_index}{candidate_suffix}"
+                )
                 copy_index += 1
 
             try:
@@ -1099,9 +1107,7 @@ class ManageQuestionsScreen:
                 )
                 return
 
-            relative_image_path = (
-                Path("recursos") / "imagenes" / destination_path.name
-            )
+            relative_image_path = Path("recursos") / "imagenes" / destination_path.name
 
         stored_image_path = (
             relative_image_path.as_posix()
@@ -1141,7 +1147,9 @@ class ManageQuestionsScreen:
         self.render_question_list()
 
         if self.selected_question_button:
-            self.show_question_details(self.current_question, self.selected_question_button)
+            self.show_question_details(
+                self.current_question, self.selected_question_button
+            )
 
         self.close_add_modal()
 
