@@ -78,6 +78,11 @@ class ManageQuestionsScreen:
         self.button_font = ctk.CTkFont(
             family="Poppins SemiBold", size=16, weight="bold"
         )
+        self.cancel_button_font = ctk.CTkFont(
+            family="Poppins ExtraBold",
+            size=16,
+            weight="bold",
+        )
         self.search_font = ctk.CTkFont(
             family="Poppins SemiBold", size=18, weight="bold"
         )
@@ -99,6 +104,11 @@ class ManageQuestionsScreen:
         self.dialog_body_font = ctk.CTkFont(
             family="Poppins Medium",
             size=16,
+        )
+        self.dialog_label_font = ctk.CTkFont(
+            family="Poppins SemiBold",
+            size=16,
+            weight="bold",
         )
 
         self.build_ui()
@@ -693,7 +703,7 @@ class ManageQuestionsScreen:
         concept_label = ctk.CTkLabel(
             form_frame,
             text="Concept",
-            font=self.dialog_body_font,
+            font=self.dialog_label_font,
             text_color="#111827",
             anchor="w",
             justify="left",
@@ -709,13 +719,14 @@ class ManageQuestionsScreen:
             border_width=2,
             height=44,
             font=self.body_font,
+            corner_radius=16,
         )
         concept_entry.grid(row=1, column=0, sticky="ew", pady=(0, 16))
 
         definition_label = ctk.CTkLabel(
             form_frame,
             text="Definition",
-            font=self.dialog_body_font,
+            font=self.dialog_label_font,
             text_color="#111827",
             anchor="w",
             justify="left",
@@ -731,13 +742,14 @@ class ManageQuestionsScreen:
             height=44,
             font=self.body_font,
             placeholder_text="Enter definition",
+            corner_radius=16,
         )
         definition_textbox.grid(row=3, column=0, sticky="ew")
 
         image_label = ctk.CTkLabel(
             form_frame,
             text="Illustration",
-            font=self.dialog_body_font,
+            font=self.dialog_label_font,
             text_color="#111827",
             anchor="w",
             justify="left",
@@ -749,7 +761,7 @@ class ManageQuestionsScreen:
             fg_color="#FFFFFF",
             border_color="#CBD5E1",
             border_width=2,
-            corner_radius=12,
+            corner_radius=16,
         )
         image_input_frame.grid(row=5, column=0, sticky="ew")
         image_input_frame.grid_columnconfigure(0, weight=1)
@@ -810,9 +822,9 @@ class ManageQuestionsScreen:
         cancel_button = ctk.CTkButton(
             buttons_frame,
             text="Cancel",
-            font=self.button_font,
+            font=self.cancel_button_font,
             fg_color="#E5E7EB",
-            text_color="#1F2937",
+            text_color="#FFFFFF",
             hover_color="#CBD5E1",
             command=self.close_add_modal,
             width=130,
