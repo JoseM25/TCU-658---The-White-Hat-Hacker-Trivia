@@ -7,8 +7,6 @@ import customtkinter as ctk
 from PIL import Image, ImageTk, UnidentifiedImageError
 from tksvg import SvgImage as TkSvgImage
 
-import pipervoice
-
 
 class ManageQuestionsScreen:
     HEADER_TEXT = "Manage Questions"
@@ -623,7 +621,7 @@ class ManageQuestionsScreen:
         self.selected_question_button = button
 
         title = question.get("title", "")
-        raw_definition = (question.get("definition") or "")
+        raw_definition = question.get("definition") or ""
         definition = raw_definition or "No definition available yet."
         image_path = question.get("image", "")
         self.current_question = question
