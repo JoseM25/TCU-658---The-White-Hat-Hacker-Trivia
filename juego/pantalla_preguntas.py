@@ -45,6 +45,9 @@ class ManageQuestionsScreen:
         self.edit_button: None
         self.delete_button: None
         self.delete_modal = None
+        self.add_modal = None
+        self.add_concept_entry = None
+        self.add_definition_textbox = None
         self.detail_image_label: None
         self.detail_definition_label: None
         self.definition_audio_button: None
@@ -608,8 +611,7 @@ class ManageQuestionsScreen:
             self.detail_image_label.image = None
 
     def on_add_pressed(self):
-        # Placeholder for future add-question flow
-        pass
+        self.show_add_question_modal()
 
     def on_edit_pressed(self):
         # Placeholder for future edit-question flow
@@ -621,6 +623,216 @@ class ManageQuestionsScreen:
 
         self.tts.stop()
         self.show_delete_confirmation_modal()
+
+    def show_add_question_modal(self):
+        if self.parent and not self.parent.winfo_exists():
+            return
+
+        if self.add_modal and self.add_modal.winfo_exists():
+            try:
+                self.add_modal.lift()
+                self.add_modal.focus_force()
+            except tk.TclError:
+                pass
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+        modal_parent = root if root else self.parent
+
+        modal = ctk.CTkToplevel(modal_parent)
+        modal.title("Add Question")
+        if root:
+            modal.transient(root)
+
+        try:
+            modal.grab_set()
+        except tk.TclError:
+            pass
+
+        modal.resizable(False, False)
+        modal.configure(fg_color="#F5F7FA")
+        modal.grid_rowconfigure(0, weight=1)
+        modal.grid_columnconfigure(0, weight=1)
+
+        container = ctk.CTkFrame(
+            modal,
+            fg_color="#F5F7FA",
+            corner_radius=0,
+        )
+        container.grid(row=0, column=0, padx=0, pady=0, sticky="nsew")
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_rowconfigure(1, weight=1)
+
+        header_frame = ctk.CTkFrame(
+            container,
+            fg_color="#202632",
+            corner_radius=0,
+            height=72,
+        )
+        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
+        header_frame.grid_propagate(False)
+        header_frame.grid_columnconfigure(0, weight=1)
+
+        header_label = ctk.CTkLabel(
+            header_frame,
+            text="Add Question",
+            font=self.dialog_title_font,
+            text_color="#FFFFFF",
+            anchor="center",
+            justify="center",
+        )
+        header_label.grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
+
+        form_frame = ctk.CTkFrame(
+            container,
+            fg_color="#F5F7FA",
+        )
+        form_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
+        form_frame.grid_columnconfigure(0, weight=1)
+        form_frame.grid_rowconfigure(3, weight=1)
+
+        concept_label = ctk.CTkLabel(
+            form_frame,
+            text="Concept",
+            font=self.dialog_body_font,
+            text_color="#111827",
+            anchor="w",
+            justify="left",
+        )
+        concept_label.grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        concept_entry = ctk.CTkEntry(
+            form_frame,
+            placeholder_text="Enter concept",
+            fg_color="#FFFFFF",
+            text_color="#111827",
+            border_color="#CBD5E1",
+            border_width=2,
+            height=44,
+            font=self.body_font,
+        )
+        concept_entry.grid(row=1, column=0, sticky="ew", pady=(0, 16))
+
+        definition_label = ctk.CTkLabel(
+            form_frame,
+            text="Definition",
+            font=self.dialog_body_font,
+            text_color="#111827",
+            anchor="w",
+            justify="left",
+        )
+        definition_label.grid(row=2, column=0, sticky="w", pady=(0, 8))
+
+        definition_textbox = ctk.CTkTextbox(
+            form_frame,
+            fg_color="#FFFFFF",
+            text_color="#111827",
+            border_color="#CBD5E1",
+            border_width=2,
+            corner_radius=12,
+            height=160,
+            font=self.body_font,
+            wrap="word",
+        )
+        definition_textbox.grid(row=3, column=0, sticky="nsew")
+
+        buttons_frame = ctk.CTkFrame(
+            container,
+            fg_color="transparent",
+        )
+        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=0)
+        buttons_frame.grid_columnconfigure(2, weight=0)
+        buttons_frame.grid_columnconfigure(3, weight=1)
+
+        cancel_button = ctk.CTkButton(
+            buttons_frame,
+            text="Cancel",
+            font=self.button_font,
+            fg_color="#E5E7EB",
+            text_color="#1F2937",
+            hover_color="#CBD5E1",
+            command=self.close_add_modal,
+            width=130,
+            height=46,
+            corner_radius=14,
+        )
+        cancel_button.grid(row=0, column=1, sticky="e", padx=(0, 32))
+
+        save_button = ctk.CTkButton(
+            buttons_frame,
+            text="Save",
+            font=self.button_font,
+            fg_color="#1D6CFF",
+            hover_color="#0F55C9",
+            command=self.handle_add_question_save,
+            width=130,
+            height=46,
+            corner_radius=14,
+        )
+        save_button.grid(row=0, column=2, sticky="w", padx=(32, 0))
+
+        self.add_modal = modal
+        self.add_concept_entry = concept_entry
+        self.add_definition_textbox = definition_textbox
+
+        modal.protocol("WM_DELETE_WINDOW", self.close_add_modal)
+        modal.bind("<Escape>", self.close_add_modal)
+
+        modal.update_idletasks()
+        try:
+            concept_entry.focus_set()
+        except tk.TclError:
+            pass
+
+        screen_width = modal.winfo_screenwidth()
+        screen_height = modal.winfo_screenheight()
+
+        parent_width = (
+            root.winfo_width()
+            if root and root.winfo_width() > 1
+            else screen_width
+        )
+        parent_height = (
+            root.winfo_height()
+            if root and root.winfo_height() > 1
+            else screen_height
+        )
+
+        target_width = max(480, int(parent_width * 0.5))
+        target_height = max(340, int(parent_height * 0.5))
+
+        width = min(target_width, screen_width - 80)
+        height = min(target_height, screen_height - 80)
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            root_x = root.winfo_rootx()
+            root_y = root.winfo_rooty()
+            root_w = root.winfo_width()
+            root_h = root.winfo_height()
+            pos_x = root_x + max((root_w - width) // 2, 0)
+            pos_y = root_y + max((root_h - height) // 2, 0)
+        else:
+            pos_x = max((screen_width - width) // 2, 0)
+            pos_y = max((screen_height - height) // 2, 0)
+
+        modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+    def close_add_modal(self, event=None):
+        if self.add_modal and self.add_modal.winfo_exists():
+            try:
+                self.add_modal.grab_release()
+            except tk.TclError:
+                pass
+            self.add_modal.destroy()
+        self.add_modal = None
+        self.add_concept_entry = None
+        self.add_definition_textbox = None
+
+    def handle_add_question_save(self):
+        # Placeholder for add-question save functionality
+        pass
 
     def show_delete_confirmation_modal(self):
         if not self.current_question:
@@ -683,7 +895,7 @@ class ManageQuestionsScreen:
             anchor="center",
             justify="center",
         )
-        header_label.grid(row=0, column=0, sticky="nsew", padx=24)
+        header_label.grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
 
         message_label = ctk.CTkLabel(
             container,
