@@ -124,14 +124,11 @@ class ManageQuestionsScreen:
 
             definition = (item.get("definition") or "").strip()
             image = (item.get("image") or "").strip()
-            audio = (item.get("audio") or "").strip()
-
             questions.append(
                 {
                     "title": title,
                     "definition": definition,
                     "image": image,
-                    "audio": audio,
                 }
             )
 
@@ -153,9 +150,7 @@ class ManageQuestionsScreen:
         return True
 
     def _show_save_error(self, error):
-        base_message = (
-            "Unable to update the questions file. Please check permissions and try again."
-        )
+        base_message = "Unable to update the questions file. Please check permissions and try again."
         detail = f"\n\nDetails: {error}" if error else ""
         message = f"{base_message}{detail}"
 
@@ -790,14 +785,10 @@ class ManageQuestionsScreen:
         screen_height = modal.winfo_screenheight()
 
         parent_width = (
-            root.winfo_width()
-            if root and root.winfo_width() > 1
-            else screen_width
+            root.winfo_width() if root and root.winfo_width() > 1 else screen_width
         )
         parent_height = (
-            root.winfo_height()
-            if root and root.winfo_height() > 1
-            else screen_height
+            root.winfo_height() if root and root.winfo_height() > 1 else screen_height
         )
 
         target_width = max(480, int(parent_width * 0.5))
@@ -819,7 +810,7 @@ class ManageQuestionsScreen:
 
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
-    def close_add_modal(self, event=None):
+    def close_add_modal(self):
         if self.add_modal and self.add_modal.winfo_exists():
             try:
                 self.add_modal.grab_release()
@@ -831,8 +822,92 @@ class ManageQuestionsScreen:
         self.add_definition_textbox = None
 
     def handle_add_question_save(self):
-        # Placeholder for add-question save functionality
-        pass
+        if not self.add_concept_entry or not self.add_concept_entry.winfo_exists():
+            return
+
+        if (
+            not self.add_definition_textbox
+            or not self.add_definition_textbox.winfo_exists()
+        ):
+            return
+
+        title = (self.add_concept_entry.get() or "").strip()
+
+        try:
+            definition_value = self.add_definition_textbox.get("0.0", tk.END)
+        except tk.TclError:
+            definition_value = ""
+        definition = (definition_value or "").strip()
+
+        if not title:
+            messagebox.showwarning(
+                "Missing Information", "Please enter a title for the question."
+            )
+            try:
+                self.add_concept_entry.focus_set()
+            except tk.TclError:
+                pass
+            return
+
+        if not definition:
+            messagebox.showwarning(
+                "Missing Information", "Please provide a definition for the question."
+            )
+            try:
+                self.add_definition_textbox.focus_set()
+            except tk.TclError:
+                pass
+            return
+
+        normalized_title = title.lower()
+        for existing in self.questions:
+            existing_title = (existing.get("title") or "").strip().lower()
+            if existing_title == normalized_title:
+                messagebox.showwarning(
+                    "Duplicate Question",
+                    "A question with this title already exists. Please use a different title.",
+                )
+                try:
+                    self.add_concept_entry.focus_set()
+                    self.add_concept_entry.select_range(0, tk.END)
+                except tk.TclError:
+                    pass
+                return
+
+        new_question = {
+            "title": title,
+            "definition": definition,
+            "image": "",
+        }
+
+        updated_questions = list(self.questions)
+        updated_questions.append(new_question)
+
+        if not self.save_questions(updated_questions):
+            if self.add_modal and self.add_modal.winfo_exists():
+                try:
+                    self.add_modal.lift()
+                    self.add_modal.focus_force()
+                except tk.TclError:
+                    pass
+            return
+
+        self.questions = updated_questions
+        self.current_question = new_question
+
+        if self.search_entry and self.search_entry.winfo_exists():
+            try:
+                self.search_entry.delete(0, tk.END)
+            except tk.TclError:
+                pass
+
+        self.filtered_questions = list(self.questions)
+        self.render_question_list()
+
+        if self.selected_question_button:
+            self.show_question_details(self.current_question, self.selected_question_button)
+
+        self.close_add_modal()
 
     def show_delete_confirmation_modal(self):
         if not self.current_question:
@@ -962,14 +1037,10 @@ class ManageQuestionsScreen:
         screen_height = modal.winfo_screenheight()
 
         parent_width = (
-            root.winfo_width()
-            if root and root.winfo_width() > 1
-            else screen_width
+            root.winfo_width() if root and root.winfo_width() > 1 else screen_width
         )
         parent_height = (
-            root.winfo_height()
-            if root and root.winfo_height() > 1
-            else screen_height
+            root.winfo_height() if root and root.winfo_height() > 1 else screen_height
         )
 
         target_width = max(480, int(parent_width * 0.5))
