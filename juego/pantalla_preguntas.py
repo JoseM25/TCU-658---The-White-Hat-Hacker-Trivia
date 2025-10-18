@@ -1,17 +1,13 @@
-import io
 import json
-import os
 import threading
 import tkinter as tk
-import wave
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-import winsound
 
 import customtkinter as ctk
 from PIL import Image, ImageTk, UnidentifiedImageError
-from piper.voice import PiperVoice
 from tksvg import SvgImage as TkSvgImage
+
+from juego.tts_service import TTSService
 
 
 class ManageQuestionsScreen:
@@ -31,8 +27,6 @@ class ManageQuestionsScreen:
     QUESTION_BUTTON_HEIGHT = 50
     QUESTION_BUTTON_VERTICAL_PADDING = 1
     AUDIO_DIR = Path(__file__).resolve().parent.parent / "recursos" / "audio"
-    PIPER_MODEL_FILENAME = "en_US-ryan-high.onnx"
-    PIPER_CONFIG_FILENAME = "en_US-ryan-high.onnx.json"
 
     def __init__(self, parent, on_return_callback=None):
         self.parent = parent
@@ -54,12 +48,9 @@ class ManageQuestionsScreen:
         self.detail_image = None
         self.current_question = None
         self.audio_thread = None
-        self.voice = None
-        self.voice_error = None
-        self.playback_error = None
-        self._active_audio_temp_path = None
-        self.piper_model_path = self.AUDIO_DIR / self.PIPER_MODEL_FILENAME
-        self.piper_config_path = self.AUDIO_DIR / self.PIPER_CONFIG_FILENAME
+
+        # Initialize TTS service
+        self.tts = TTSService(self.AUDIO_DIR)
 
         for widget in self.parent.winfo_children():
             widget.destroy()
@@ -468,20 +459,17 @@ class ManageQuestionsScreen:
         if not definition:
             return
 
-        if not self.ensure_voice():
-            return
-
-        self.stop_definition_audio()
-
+        # Stop any current audio and play new audio in background thread
+        self.tts.stop()
         self.audio_thread = threading.Thread(
-            target=self.speak_definition_async,
+            target=self.tts.speak,
             args=(definition,),
             daemon=True,
         )
         self.audio_thread.start()
 
     def return_to_menu(self):
-        self.stop_definition_audio()
+        self.tts.stop()
         if self.on_return_callback:
             self.on_return_callback()
 
@@ -605,7 +593,7 @@ class ManageQuestionsScreen:
         self.detail_image_label.image = loaded_image
 
     def show_question_details(self, question, button):
-        self.stop_definition_audio()
+        self.tts.stop()
 
         if not self.detail_visible:
             self.detail_container.grid()
@@ -643,150 +631,3 @@ class ManageQuestionsScreen:
 
         self.detail_title_label.configure(text=title)
         self.detail_definition_label.configure(text=definition)
-
-    def stop_definition_audio(self):
-        if winsound is not None:
-            try:
-                winsound.PlaySound(None, winsound.SND_PURGE)
-            except RuntimeError:
-                pass
-        self.cleanup_temp_audio_file()
-        self.audio_thread = None
-
-    def ensure_voice(self):
-        if self.voice:
-            return True
-
-        if not self.piper_model_path.exists():
-            message = f"Piper model file not found at: {self.piper_model_path}"
-            if self.voice_error != message:
-                print(message)
-            self.voice_error = message
-            return False
-
-        if not self.piper_config_path.exists():
-            message = f"Piper config file not found at: {self.piper_config_path}"
-            if self.voice_error != message:
-                print(message)
-            self.voice_error = message
-            return False
-
-        try:
-            self.voice = PiperVoice.load(
-                model_path=str(self.piper_model_path),
-                config_path=str(self.piper_config_path),
-            )
-            self.voice_error = None
-        except FileNotFoundError as exc:
-            message = f"Unable to open Piper files: {exc}"
-            if self.voice_error != message:
-                print(message)
-            self.voice = None
-            self.voice_error = message
-            return False
-        except (OSError, RuntimeError, ValueError) as exc:
-            message = f"Unable to initialize Piper voice: {exc}"
-            if self.voice_error != message:
-                print(message)
-            self.voice = None
-            self.voice_error = message
-            return False
-
-        return True
-
-    def cleanup_temp_audio_file(self):
-        if not self._active_audio_temp_path:
-            return
-
-        try:
-            os.remove(self._active_audio_temp_path)
-        except OSError:
-            pass
-
-        self._active_audio_temp_path = None
-
-    def synthesize_definition_audio(self, text):
-        if not text or not self.voice:
-            return None
-
-        buffer = io.BytesIO()
-        wrote_audio = False
-
-        try:
-            with wave.open(buffer, "wb") as wav_file:
-                for chunk in self.voice.synthesize(text):
-                    if not wrote_audio:
-                        wav_file.setnchannels(chunk.sample_channels)
-                        wav_file.setsampwidth(chunk.sample_width)
-                        wav_file.setframerate(chunk.sample_rate)
-                        wrote_audio = True
-                    wav_file.writeframes(chunk.audio_int16_bytes)
-        except (wave.Error, OSError, RuntimeError, ValueError, AttributeError) as exc:
-            message = f"Unable to synthesize Piper audio: {exc}"
-            if self.playback_error != message:
-                print(message)
-            self.playback_error = message
-            return None
-
-        if not wrote_audio:
-            message = "Piper synthesis returned no audio data."
-            if self.playback_error != message:
-                print(message)
-            self.playback_error = message
-            return None
-
-        self.playback_error = None
-        return buffer.getvalue()
-
-    def play_audio_bytes(self, audio_bytes):
-        if not audio_bytes:
-            return
-
-        if winsound is None:
-            message = "Audio playback is not supported on this platform."
-            if self.playback_error != message:
-                print(message)
-            self.playback_error = message
-            return
-
-        self.cleanup_temp_audio_file()
-
-        temp_path = None
-        try:
-            with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
-                temp_file.write(audio_bytes)
-                temp_path = temp_file.name
-
-            winsound.PlaySound(
-                temp_path,
-                winsound.SND_FILENAME | winsound.SND_ASYNC,
-            )
-            self._active_audio_temp_path = temp_path
-            self.playback_error = None
-        except (OSError, RuntimeError) as exc:
-            message = f"Piper playback failed: {exc}"
-            if self.playback_error != message:
-                print(message)
-            self.playback_error = message
-            if temp_path:
-                try:
-                    os.remove(temp_path)
-                except OSError:
-                    pass
-
-    def speak_definition_async(self, text):
-        if not text or not self.voice:
-            return
-
-        try:
-            audio_bytes = self.synthesize_definition_audio(text)
-            if not audio_bytes:
-                return
-
-            if threading.current_thread() is not self.audio_thread:
-                return
-
-            self.play_audio_bytes(audio_bytes)
-        finally:
-            if threading.current_thread() is self.audio_thread:
-                self.audio_thread = None
