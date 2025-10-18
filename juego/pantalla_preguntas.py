@@ -3,7 +3,7 @@ import tkinter as tk
 from pathlib import Path
 
 import customtkinter as ctk
-from PIL import Image, ImageTk, UnidentifiedImageError
+from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
 from juego.tts_service import TTSService
@@ -277,18 +277,15 @@ class ManageQuestionsScreen:
         definition_row.grid_columnconfigure(0, weight=0)
         definition_row.grid_columnconfigure(1, weight=1)
 
-        audio_image_loaded = self.ensure_audio_icon()
-        button_kwargs = {}
-        if audio_image_loaded:
-            button_kwargs["image"] = self.definition_audio_image
-            button_kwargs["text"] = ""
-        else:
-            button_kwargs["text"] = "Audio"
-            button_kwargs["font"] = self.body_font
-            button_kwargs["text_color"] = "#1F2937"
+        # Try to load audio icon, fallback to text
+        self.ensure_audio_icon()
 
         self.definition_audio_button = ctk.CTkButton(
             definition_row,
+            text="" if self.definition_audio_image else "Audio",
+            image=self.definition_audio_image if self.definition_audio_image else None,
+            font=self.body_font if not self.definition_audio_image else None,
+            text_color="#1F2937" if not self.definition_audio_image else None,
             fg_color="transparent",
             hover_color="#E5E7EB",
             border_width=0,
@@ -296,10 +293,9 @@ class ManageQuestionsScreen:
             height=44,
             corner_radius=22,
             command=self.on_definition_audio_pressed,
-            **button_kwargs,
+            state="disabled",
         )
         self.definition_audio_button.grid(row=0, column=0, sticky="nw", padx=(0, 16))
-        self.definition_audio_button.configure(state="disabled")
 
         self.detail_definition_label = ctk.CTkLabel(
             definition_row,
@@ -455,7 +451,6 @@ class ManageQuestionsScreen:
 
         definition = (self.current_question.get("definition") or "").strip()
         if definition:
-            self.tts.stop()
             self.tts.speak(definition)
 
     def return_to_menu(self):
@@ -466,26 +461,23 @@ class ManageQuestionsScreen:
     def load_svg_image(self, svg_path, scale=1.0):
         try:
             svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
-            pil_image = ImageTk.getimage(svg_photo).convert("RGBA")
-            return pil_image
-        except (FileNotFoundError, ValueError):
+            return ImageTk.getimage(svg_photo).convert("RGBA")
+        except (FileNotFoundError, OSError, ValueError, RuntimeError):
             return None
 
     def ensure_audio_icon(self):
         if self.definition_audio_image:
-            return True
+            return
 
         svg_path = self.IMAGES_DIR / self.AUDIO_ICON_FILENAME
         pil_image = self.load_svg_image(svg_path, scale=self.SVG_RASTER_SCALE)
-        if not pil_image:
-            return False
 
-        self.definition_audio_image = ctk.CTkImage(
-            light_image=pil_image,
-            dark_image=pil_image,
-            size=self.AUDIO_ICON_SIZE,
-        )
-        return True
+        if pil_image:
+            self.definition_audio_image = ctk.CTkImage(
+                light_image=pil_image,
+                dark_image=pil_image,
+                size=self.AUDIO_ICON_SIZE,
+            )
 
     def resolve_image_path(self, image_path):
         if not image_path:
@@ -495,100 +487,67 @@ class ManageQuestionsScreen:
         if not candidate.is_absolute():
             candidate = Path(__file__).resolve().parent.parent / candidate
 
-        if candidate.exists():
-            return candidate
-        return None
+        return candidate if candidate.exists() else None
 
     def create_detail_ctk_image(self, image_file):
-        resample_source = getattr(Image, "Resampling", Image)
-        resample_method = getattr(
-            resample_source, "LANCZOS", getattr(resample_source, "BICUBIC", 3)
-        )
-
         try:
-            with Image.open(image_file) as loaded_image:
-                image_rgba = loaded_image.convert("RGBA")
-                prepared_image = image_rgba.copy()
-        except (FileNotFoundError, UnidentifiedImageError, OSError, ValueError):
+            with Image.open(image_file) as img:
+                prepared_image = img.convert("RGBA").copy()
+        except (FileNotFoundError, OSError, ValueError):
             return None
 
         width, height = prepared_image.size
         if width <= 0 or height <= 0:
             return None
 
+        # Calculate scale to fit within max size
         max_width, max_height = self.DETAIL_IMAGE_MAX_SIZE
-        width_scale = max_width / width
-        height_scale = max_height / height
-        scale = min(width_scale, height_scale, 1)
-
-        scaled_size = (
-            max(1, int(round(width * scale))),
-            max(1, int(round(height * scale))),
-        )
+        scale = min(max_width / width, max_height / height, 1)
 
         if scale < 1:
-            prepared_image = prepared_image.resize(scaled_size, resample_method)
+            new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+            resample = getattr(Image.Resampling, "LANCZOS", 1)
+            prepared_image = prepared_image.resize(new_size, resample)
 
         return ctk.CTkImage(
             light_image=prepared_image,
             dark_image=prepared_image,
-            size=scaled_size,
+            size=prepared_image.size,
         )
 
     def update_detail_image(self):
         if not self.detail_image_label or not self.detail_image_label.winfo_exists():
             return
 
+        # Try to load and display image
         resolved_path = self.resolve_image_path(self.current_image_path)
-        if not resolved_path:
-            try:
-                self.detail_image_label.configure(
-                    image=None,
-                    text="Image not available",
-                )
-            except tk.TclError:
-                return
-            self.detail_image_label.image = None
-            self.detail_image = None
-            return
-
-        loaded_image = self.create_detail_ctk_image(resolved_path)
-        if loaded_image is None:
-            try:
-                self.detail_image_label.configure(
-                    image=None,
-                    text="Image not available",
-                )
-            except tk.TclError:
-                return
-            self.detail_image_label.image = None
-            self.detail_image = None
-            return
+        loaded_image = (
+            self.create_detail_ctk_image(resolved_path) if resolved_path else None
+        )
 
         try:
-            self.detail_image_label.configure(image=loaded_image, text="")
-        except tk.TclError:
-            try:
+            if loaded_image:
+                self.detail_image_label.configure(image=loaded_image, text="")
+                self.detail_image = loaded_image
+                self.detail_image_label.image = loaded_image
+            else:
                 self.detail_image_label.configure(
-                    image=None,
-                    text="Image not available",
+                    image=None, text="Image not available"
                 )
-            except tk.TclError:
-                return
-            self.detail_image_label.image = None
-            self.detail_image = None
-            return
-
-        self.detail_image = loaded_image
-        self.detail_image_label.image = loaded_image
+                self.detail_image = None
+                self.detail_image_label.image = None
+        except tk.TclError:
+            pass
 
     def show_question_details(self, question, button):
         self.tts.stop()
 
+        # Show detail panel if hidden
         if not self.detail_visible:
             self.detail_container.grid()
             self.detail_visible = True
 
+        # Update button selection states
         if (
             self.selected_question_button
             and self.selected_question_button is not button
@@ -606,18 +565,20 @@ class ManageQuestionsScreen:
         )
         self.selected_question_button = button
 
+        # Update detail content
         title = question.get("title", "")
-        raw_definition = question.get("definition") or ""
+        raw_definition = (question.get("definition") or "").strip()
         definition = raw_definition or "No definition available yet."
-        self.current_image_path = question.get("image", "")
+
         self.current_question = question
+        self.current_image_path = question.get("image", "")
         self.update_detail_image()
 
+        # Enable/disable audio button based on definition availability
         if self.definition_audio_button:
-            if raw_definition.strip():
-                self.definition_audio_button.configure(state="normal")
-            else:
-                self.definition_audio_button.configure(state="disabled")
+            self.definition_audio_button.configure(
+                state="normal" if raw_definition else "disabled"
+            )
 
         self.detail_title_label.configure(text=title)
         self.detail_definition_label.configure(text=definition)

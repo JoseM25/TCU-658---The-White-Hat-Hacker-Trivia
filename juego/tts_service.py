@@ -3,13 +3,12 @@ import logging
 import threading
 import wave
 import winsound
-from contextlib import suppress
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from piper.voice import PiperVoice
 
-# Suppress Piper phoneme warnings
+# Suppress Piper warnings
 logging.getLogger("piper.voice").setLevel(logging.ERROR)
 
 
@@ -25,35 +24,34 @@ class TTSService:
         if not text or not text.strip():
             return
 
-        # Stop any current speech
         self.stop()
-
-        # Start new speech in background thread
         self._speaking_thread = threading.Thread(
-            target=self._speak_worker, args=(text,), daemon=True
+            target=self.speak_worker, args=(text,), daemon=True
         )
         self._speaking_thread.start()
 
-    def _speak_worker(self, text):
-        # Lazy-load voice model on first use
-        if not self._voice:
-            with suppress(Exception):
+    def speak_worker(self, text):
+        try:
+            # Lazy-load voice model on first use
+            if not self._voice:
                 self._voice = PiperVoice.load(
                     str(self.model_path), str(self.config_path)
                 )
-            if not self._voice:
-                return
 
-        # Synthesize audio to WAV format in memory
-        with suppress(Exception):
+            # Synthesize audio to WAV in memory
             buffer = io.BytesIO()
-            with wave.open(buffer, "wb") as wav:  # type: ignore
-                for i, chunk in enumerate(self._voice.synthesize(text)):
-                    if i == 0:  # Configure WAV on first chunk
-                        wav.setnchannels(chunk.sample_channels)
-                        wav.setsampwidth(chunk.sample_width)
-                        wav.setframerate(chunk.sample_rate)
-                    wav.writeframes(chunk.audio_int16_bytes)
+            wav_file = wave.open(buffer, "wb")
+            wav_configured = False
+
+            for chunk in self._voice.synthesize(text):
+                if not wav_configured:
+                    wav_file.setnchannels(chunk.sample_channels)
+                    wav_file.setsampwidth(chunk.sample_width)
+                    wav_file.setframerate(chunk.sample_rate)
+                    wav_configured = True
+                wav_file.writeframes(chunk.audio_int16_bytes)
+
+            wav_file.close()
 
             # Play audio from temporary file
             with NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -61,6 +59,12 @@ class TTSService:
                 tmp.flush()
                 winsound.PlaySound(tmp.name, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
+        except Exception:  # pylint: disable=broad-except
+            # Silently fail - TTS is non-critical
+            pass
+
     def stop(self):
-        with suppress(Exception):
+        try:
             winsound.PlaySound(None, winsound.SND_PURGE)
+        except Exception:  # pylint: disable=broad-except
+            pass
