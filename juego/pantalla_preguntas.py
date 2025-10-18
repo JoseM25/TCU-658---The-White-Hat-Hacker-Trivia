@@ -1,6 +1,7 @@
 import json
+import shutil
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 from pathlib import Path
 
 import customtkinter as ctk
@@ -48,6 +49,9 @@ class ManageQuestionsScreen:
         self.add_modal = None
         self.add_concept_entry = None
         self.add_definition_textbox = None
+        self.add_image_display_label = None
+        self.add_image_feedback_label = None
+        self.add_selected_image_source_path = None
         self.detail_image_label: None
         self.detail_definition_label: None
         self.definition_audio_button: None
@@ -684,7 +688,7 @@ class ManageQuestionsScreen:
         )
         form_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
         form_frame.grid_columnconfigure(0, weight=1)
-        form_frame.grid_rowconfigure(3, weight=1)
+        form_frame.grid_rowconfigure(3, weight=0)
 
         concept_label = ctk.CTkLabel(
             form_frame,
@@ -718,18 +722,69 @@ class ManageQuestionsScreen:
         )
         definition_label.grid(row=2, column=0, sticky="w", pady=(0, 8))
 
-        definition_textbox = ctk.CTkTextbox(
+        definition_textbox = ctk.CTkEntry(
             form_frame,
             fg_color="#FFFFFF",
             text_color="#111827",
             border_color="#CBD5E1",
             border_width=2,
-            corner_radius=12,
-            height=160,
+            height=44,
             font=self.body_font,
-            wrap="word",
+            placeholder_text="Enter definition",
         )
-        definition_textbox.grid(row=3, column=0, sticky="nsew")
+        definition_textbox.grid(row=3, column=0, sticky="ew")
+
+        image_label = ctk.CTkLabel(
+            form_frame,
+            text="Illustration",
+            font=self.dialog_body_font,
+            text_color="#111827",
+            anchor="w",
+            justify="left",
+        )
+        image_label.grid(row=4, column=0, sticky="w", pady=(16, 8))
+
+        image_picker_frame = ctk.CTkFrame(
+            form_frame,
+            fg_color="transparent",
+        )
+        image_picker_frame.grid(row=5, column=0, sticky="ew")
+        image_picker_frame.grid_columnconfigure(0, weight=1)
+        image_picker_frame.grid_columnconfigure(1, weight=0)
+
+        image_status_label = ctk.CTkLabel(
+            image_picker_frame,
+            text="No image selected",
+            font=self.body_font,
+            text_color="#4B5563",
+            anchor="w",
+            justify="left",
+            wraplength=320,
+        )
+        image_status_label.grid(row=0, column=0, sticky="w", padx=(0, 16))
+
+        image_select_button = ctk.CTkButton(
+            image_picker_frame,
+            text="Choose File",
+            font=self.button_font,
+            fg_color="#1D6CFF",
+            hover_color="#0F55C9",
+            command=self.on_add_select_image,
+            width=140,
+            height=36,
+            corner_radius=14,
+        )
+        image_select_button.grid(row=0, column=1, sticky="e")
+
+        image_feedback_label = ctk.CTkLabel(
+            form_frame,
+            text="",
+            font=self.body_font,
+            text_color="#DC2626",
+            anchor="w",
+            justify="left",
+        )
+        image_feedback_label.grid(row=6, column=0, sticky="w", pady=(8, 0))
 
         buttons_frame = ctk.CTkFrame(
             container,
@@ -771,6 +826,9 @@ class ManageQuestionsScreen:
         self.add_modal = modal
         self.add_concept_entry = concept_entry
         self.add_definition_textbox = definition_textbox
+        self.add_image_display_label = image_status_label
+        self.add_image_feedback_label = image_feedback_label
+        self.add_selected_image_source_path = None
 
         modal.protocol("WM_DELETE_WINDOW", self.close_add_modal)
         modal.bind("<Escape>", self.close_add_modal)
@@ -810,6 +868,77 @@ class ManageQuestionsScreen:
 
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
+    def on_add_select_image(self):
+        if not self.add_modal or not self.add_modal.winfo_exists():
+            return
+
+        try:
+            initial_dir = (
+                str(self.IMAGES_DIR)
+                if self.IMAGES_DIR.exists()
+                else str(Path.home())
+            )
+        except Exception:
+            initial_dir = None
+
+        try:
+            file_path = filedialog.askopenfilename(
+                parent=self.add_modal,
+                title="Select illustration",
+                initialdir=initial_dir,
+                filetypes=[
+                    ("Image files", "*.png;*.jpg;*.jpeg;*.gif;*.bmp"),
+                    ("All files", "*.*"),
+                ],
+            )
+        except tk.TclError:
+            return
+
+        if not file_path:
+            return
+
+        source_path = Path(file_path)
+        extension = source_path.suffix.lower()
+        allowed_extensions = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
+
+        feedback_label = (
+            self.add_image_feedback_label
+            if self.add_image_feedback_label and self.add_image_feedback_label.winfo_exists()
+            else None
+        )
+        status_label = (
+            self.add_image_display_label
+            if self.add_image_display_label and self.add_image_display_label.winfo_exists()
+            else None
+        )
+
+        if extension not in allowed_extensions:
+            if feedback_label:
+                feedback_label.configure(
+                    text="Unsupported file type selected. Please choose a PNG or JPG image.",
+                    text_color="#DC2626",
+                )
+            if status_label:
+                status_label.configure(text="No image selected", text_color="#4B5563")
+            self.add_selected_image_source_path = None
+            return
+
+        display_name = source_path.name
+        max_display_length = 60
+        if len(display_name) > max_display_length:
+            display_name = f"{display_name[:28]}...{display_name[-24:]}"
+
+        if status_label:
+            status_label.configure(text=display_name, text_color="#111827")
+
+        if feedback_label:
+            feedback_label.configure(
+                text="Image ready to import.",
+                text_color="#047857",
+            )
+
+        self.add_selected_image_source_path = str(source_path)
+
     def close_add_modal(self):
         if self.add_modal and self.add_modal.winfo_exists():
             try:
@@ -820,6 +949,9 @@ class ManageQuestionsScreen:
         self.add_modal = None
         self.add_concept_entry = None
         self.add_definition_textbox = None
+        self.add_image_display_label = None
+        self.add_image_feedback_label = None
+        self.add_selected_image_source_path = None
 
     def handle_add_question_save(self):
         if not self.add_concept_entry or not self.add_concept_entry.winfo_exists():
@@ -833,10 +965,20 @@ class ManageQuestionsScreen:
 
         title = (self.add_concept_entry.get() or "").strip()
 
-        try:
-            definition_value = self.add_definition_textbox.get("0.0", tk.END)
-        except tk.TclError:
-            definition_value = ""
+        definition_widget = self.add_definition_textbox
+        definition_value = ""
+
+        if definition_widget:
+            try:
+                definition_value = definition_widget.get()
+            except TypeError:
+                try:
+                    definition_value = definition_widget.get("0.0", tk.END)
+                except tk.TclError:
+                    definition_value = ""
+            except tk.TclError:
+                definition_value = ""
+
         definition = (definition_value or "").strip()
 
         if not title:
@@ -874,10 +1016,103 @@ class ManageQuestionsScreen:
                     pass
                 return
 
+        if not self.add_selected_image_source_path:
+            messagebox.showwarning(
+                "Missing Information",
+                "Please choose an illustration for the question.",
+            )
+            if (
+                self.add_image_feedback_label
+                and self.add_image_feedback_label.winfo_exists()
+            ):
+                self.add_image_feedback_label.configure(
+                    text="Select an image before saving.",
+                    text_color="#DC2626",
+                )
+            return
+
+        source_image_path = Path(self.add_selected_image_source_path)
+        if not source_image_path.exists():
+            messagebox.showerror(
+                "Image Not Found",
+                "The selected image could not be located. Please choose a different file.",
+            )
+            if (
+                self.add_image_feedback_label
+                and self.add_image_feedback_label.winfo_exists()
+            ):
+                self.add_image_feedback_label.configure(
+                    text="Selected file is no longer available.",
+                    text_color="#DC2626",
+                )
+            self.add_selected_image_source_path = None
+            if (
+                self.add_image_display_label
+                and self.add_image_display_label.winfo_exists()
+            ):
+                self.add_image_display_label.configure(
+                    text="No image selected", text_color="#4B5563"
+                )
+            return
+
+        try:
+            resolved_images_dir = self.IMAGES_DIR.resolve()
+            resolved_source = source_image_path.resolve()
+        except OSError:
+            resolved_images_dir = self.IMAGES_DIR
+            resolved_source = source_image_path
+
+        relative_image_path = None
+        destination_path = None
+
+        try:
+            relative_sub_path = resolved_source.relative_to(resolved_images_dir)
+            destination_path = resolved_source
+            relative_image_path = Path("recursos") / "imagenes" / relative_sub_path
+        except ValueError:
+            destination_dir = self.IMAGES_DIR
+            try:
+                destination_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as error:
+                messagebox.showerror(
+                    "Image Folder Error",
+                    f"Unable to create the images directory.\n\nDetails: {error}",
+                )
+                return
+
+            candidate_name = source_image_path.name or "image.png"
+            candidate_stem = source_image_path.stem or "image"
+            candidate_suffix = source_image_path.suffix or ".png"
+
+            destination_path = destination_dir / candidate_name
+            copy_index = 1
+            while destination_path.exists():
+                destination_path = destination_dir / f"{candidate_stem}_{copy_index}{candidate_suffix}"
+                copy_index += 1
+
+            try:
+                shutil.copy2(source_image_path, destination_path)
+            except OSError as error:
+                messagebox.showerror(
+                    "Image Copy Failed",
+                    f"Unable to copy the selected image into the project.\n\nDetails: {error}",
+                )
+                return
+
+            relative_image_path = (
+                Path("recursos") / "imagenes" / destination_path.name
+            )
+
+        stored_image_path = (
+            relative_image_path.as_posix()
+            if relative_image_path is not None
+            else destination_path.as_posix()
+        )
+
         new_question = {
             "title": title,
             "definition": definition,
-            "image": "",
+            "image": stored_image_path,
         }
 
         updated_questions = list(self.questions)
@@ -894,6 +1129,7 @@ class ManageQuestionsScreen:
 
         self.questions = updated_questions
         self.current_question = new_question
+        self.current_image_path = stored_image_path
 
         if self.search_entry and self.search_entry.winfo_exists():
             try:
