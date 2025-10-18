@@ -34,6 +34,7 @@ class ManageQuestionsScreen:
         self.selected_question_button = None
         self.question_selected_text_color = "#FFFFFF"
         self.questions = self.load_questions()
+        self.filtered_questions = list(self.questions)
         self.current_image_path = ""
         self.add_button: None
         self.detail_container: None
@@ -46,6 +47,9 @@ class ManageQuestionsScreen:
         self.definition_audio_image = None
         self.detail_image = None
         self.current_question = None
+        self.search_entry = None
+        self.list_container = None
+        self.list_frame = None
 
         # Initialize TTS service
         self.tts = TTSService(self.AUDIO_DIR)
@@ -320,17 +324,21 @@ class ManageQuestionsScreen:
         controls.grid(row=0, column=0, sticky="ew")
         controls.grid_columnconfigure(0, weight=1)
         controls.grid_columnconfigure(1, weight=0)
-        search_entry = ctk.CTkEntry(
+        self.search_entry = ctk.CTkEntry(
             controls,
             placeholder_text="Search...",
             placeholder_text_color="#F5F7FA",
             fg_color="#D1D8E0",
+            text_color="#FFFFFF",
             font=self.search_font,
             corner_radius=18,
             height=42,
             border_width=0,
         )
-        search_entry.grid(row=0, column=0, padx=(16, 12), pady=16, sticky="ew")
+        self.search_entry.grid(row=0, column=0, padx=(16, 12), pady=16, sticky="ew")
+        self.search_entry.bind("<KeyRelease>", self._handle_search_input_change)
+        self.search_entry.bind("<<Paste>>", self._handle_search_input_change)
+        self.search_entry.bind("<<Cut>>", self._handle_search_input_change)
 
         add_button = ctk.CTkButton(
             controls,
@@ -350,7 +358,51 @@ class ManageQuestionsScreen:
             self.question_selected_text_color = resolved_text_color
 
     def build_question_list(self, container):
-        needs_scrollbar = len(self.questions) > self.MAX_VISIBLE_QUESTIONS
+        self.list_container = ctk.CTkFrame(
+            container,
+            fg_color="transparent",
+        )
+        self.list_container.grid(row=1, column=0, sticky="nsew", pady=(20, 0))
+        self.list_container.grid_columnconfigure(0, weight=1)
+        self.list_container.grid_rowconfigure(0, weight=1)
+
+        self.render_question_list()
+
+    def _handle_search_input_change(self, *_):
+        self.on_search_change()
+
+    def on_search_change(self):
+        query_source = self.search_entry.get() if self.search_entry else ""
+        query = (query_source or "").strip().lower()
+
+        if query:
+            self.filtered_questions = [
+                question
+                for question in self.questions
+                if query in (question.get("title") or "").lower()
+            ]
+        else:
+            self.filtered_questions = list(self.questions)
+
+        self.render_question_list()
+
+    def render_question_list(self):
+        if not self.list_container or not self.list_container.winfo_exists():
+            return
+
+        for child in self.list_container.winfo_children():
+            child.destroy()
+
+        questions = self.filtered_questions or []
+        selected_visible = False
+        if self.current_question:
+            selected_visible = any(
+                candidate is self.current_question for candidate in questions
+            )
+        if not selected_visible and self.current_question:
+            self.clear_question_details()
+
+        needs_scrollbar = len(questions) > self.MAX_VISIBLE_QUESTIONS
 
         frame_kwargs = {
             "fg_color": "#F5F7FA",
@@ -359,26 +411,19 @@ class ManageQuestionsScreen:
             "corner_radius": 24,
         }
 
-        list_container = ctk.CTkFrame(
-            container,
-            fg_color="transparent",
-        )
-        list_container.grid(row=1, column=0, sticky="nsew", pady=(20, 0))
-        list_container.grid_columnconfigure(0, weight=1)
-        list_container.grid_rowconfigure(0, weight=1)
-
         if needs_scrollbar:
             list_frame = ctk.CTkScrollableFrame(
-                list_container,
+                self.list_container,
                 **frame_kwargs,
             )
         else:
             list_frame = ctk.CTkFrame(
-                list_container,
+                self.list_container,
                 **frame_kwargs,
             )
 
         list_frame.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        self.list_frame = list_frame
 
         if needs_scrollbar:
             for child in list_frame.winfo_children():
@@ -389,20 +434,26 @@ class ManageQuestionsScreen:
         list_frame.grid_columnconfigure(0, weight=1)
         list_frame.grid_rowconfigure(0, minsize=24)
 
-        self.selected_question_button = None
-
-        if not self.questions:
+        if not questions:
+            search_value = self.search_entry.get() if self.search_entry else ""
+            has_query = bool((search_value or "").strip())
             empty_label = ctk.CTkLabel(
                 list_frame,
-                text="No questions available.",
+                text=(
+                    "No questions match your search."
+                    if has_query
+                    else "No questions available."
+                ),
                 font=self.body_font,
                 text_color="#6B7280",
             )
             empty_label.grid(row=1, column=0, padx=24, pady=(12, 24), sticky="nsew")
             list_frame.grid_rowconfigure(1, weight=1)
+            self.selected_question_button = None
             return
 
-        for index, question in enumerate(self.questions, start=1):
+        self.selected_question_button = None
+        for index, question in enumerate(questions, start=1):
             button = ctk.CTkButton(
                 list_frame,
                 text=question.get("title", ""),
@@ -431,7 +482,61 @@ class ManageQuestionsScreen:
             )
             list_frame.grid_rowconfigure(index, weight=0)
 
+            if selected_visible and question is self.current_question:
+                self.apply_selected_button_style(button)
+                self.selected_question_button = button
+            else:
+                self.apply_default_button_style(button)
+
         list_frame.grid_columnconfigure(0, weight=1)
+
+    def apply_default_button_style(self, button):
+        if not button or not button.winfo_exists():
+            return
+
+        button.configure(
+            fg_color=self.QUESTION_DEFAULT_BG,
+            text_color=self.QUESTION_DEFAULT_TEXT,
+            hover_color=self.QUESTION_DEFAULT_HOVER,
+        )
+
+    def apply_selected_button_style(self, button):
+        if not button or not button.winfo_exists():
+            return
+
+        button.configure(
+            fg_color=self.QUESTION_SELECTED_BG,
+            text_color=self.question_selected_text_color,
+            hover_color=self.QUESTION_SELECTED_BG,
+        )
+
+    def clear_question_details(self):
+        self.tts.stop()
+        self.current_question = None
+        self.current_image_path = ""
+        self.selected_question_button = None
+        self.detail_image = None
+
+        if (
+            self.detail_visible
+            and self.detail_container
+            and self.detail_container.winfo_exists()
+        ):
+            self.detail_container.grid_remove()
+            self.detail_visible = False
+
+        if self.detail_title_label and self.detail_title_label.winfo_exists():
+            self.detail_title_label.configure(text="")
+
+        if self.detail_definition_label and self.detail_definition_label.winfo_exists():
+            self.detail_definition_label.configure(text="")
+
+        if self.definition_audio_button and self.definition_audio_button.winfo_exists():
+            self.definition_audio_button.configure(state="disabled")
+
+        if self.detail_image_label and self.detail_image_label.winfo_exists():
+            self.detail_image_label.configure(image=None, text="Image placeholder")
+            self.detail_image_label.image = None
 
     def on_add_pressed(self):
         # Placeholder for future add-question flow
@@ -552,17 +657,9 @@ class ManageQuestionsScreen:
             self.selected_question_button
             and self.selected_question_button is not button
         ):
-            self.selected_question_button.configure(
-                fg_color=self.QUESTION_DEFAULT_BG,
-                text_color=self.QUESTION_DEFAULT_TEXT,
-                hover_color=self.QUESTION_DEFAULT_HOVER,
-            )
+            self.apply_default_button_style(self.selected_question_button)
 
-        button.configure(
-            fg_color=self.QUESTION_SELECTED_BG,
-            text_color=self.question_selected_text_color,
-            hover_color=self.QUESTION_SELECTED_BG,
-        )
+        self.apply_selected_button_style(button)
         self.selected_question_button = button
 
         # Update detail content
