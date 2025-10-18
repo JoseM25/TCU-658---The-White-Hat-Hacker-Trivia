@@ -703,7 +703,7 @@ class ManageQuestionsScreen:
             container,
             fg_color="transparent",
         )
-        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 12), padx=20)
+        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
         buttons_frame.grid_columnconfigure(0, weight=1)
         buttons_frame.grid_columnconfigure(1, weight=0)
         buttons_frame.grid_columnconfigure(2, weight=0)
@@ -721,7 +721,7 @@ class ManageQuestionsScreen:
             height=46,
             corner_radius=14,
         )
-        cancel_button.grid(row=0, column=1, sticky="e", padx=(0, 26))
+        cancel_button.grid(row=0, column=1, sticky="e", padx=(0, 32))
 
         confirm_button = ctk.CTkButton(
             buttons_frame,
@@ -734,7 +734,7 @@ class ManageQuestionsScreen:
             height=46,
             corner_radius=14,
         )
-        confirm_button.grid(row=0, column=2, sticky="w", padx=(26, 0))
+        confirm_button.grid(row=0, column=2, sticky="w", padx=(32, 0))
 
         self.delete_modal = modal
         modal.protocol("WM_DELETE_WINDOW", self.close_delete_modal)
