@@ -17,6 +17,8 @@ class ManageQuestionsScreen:
     DETAIL_IMAGE_MAX_SIZE = (220, 220)
     AUDIO_ICON_FILENAME = "volume.svg"
     AUDIO_ICON_SIZE = (32, 32)
+    SEARCH_ICON_FILENAME = "search.svg"
+    SEARCH_ICON_SIZE = (16, 16)
     SVG_RASTER_SCALE = 2.0
     QUESTION_DEFAULT_BG = "transparent"
     QUESTION_DEFAULT_TEXT = "#1F2937"
@@ -48,6 +50,7 @@ class ManageQuestionsScreen:
         self.detail_image = None
         self.current_question = None
         self.search_entry = None
+        self.search_icon_image = None
         self.list_container = None
         self.list_frame = None
 
@@ -324,18 +327,46 @@ class ManageQuestionsScreen:
         controls.grid(row=0, column=0, sticky="ew")
         controls.grid_columnconfigure(0, weight=1)
         controls.grid_columnconfigure(1, weight=0)
-        self.search_entry = ctk.CTkEntry(
+
+        search_wrapper = ctk.CTkFrame(
             controls,
+            fg_color="#D1D8E0",
+            corner_radius=18,
+        )
+        search_wrapper.grid(row=0, column=0, padx=(16, 12), pady=16, sticky="ew")
+        search_wrapper.grid_columnconfigure(1, weight=1)
+        search_wrapper.grid_rowconfigure(0, weight=1)
+
+        self.ensure_search_icon()
+        search_icon_kwargs = {
+            "text": "",
+            "image": self.search_icon_image if self.search_icon_image else None,
+            "fg_color": "transparent",
+            "width": 32,
+        }
+        if not self.search_icon_image:
+            search_icon_kwargs["text"] = "S"
+            search_icon_kwargs["text_color"] = "#FFFFFF"
+            search_icon_kwargs["font"] = self.button_font
+
+        search_icon_label = ctk.CTkLabel(
+            search_wrapper,
+            **search_icon_kwargs,
+        )
+        search_icon_label.grid(row=0, column=0, padx=(18, 8), pady=0, sticky="w")
+
+        self.search_entry = ctk.CTkEntry(
+            search_wrapper,
             placeholder_text="Search...",
             placeholder_text_color="#F5F7FA",
-            fg_color="#D1D8E0",
+            fg_color="transparent",
             text_color="#FFFFFF",
             font=self.search_font,
-            corner_radius=18,
+            corner_radius=0,
             height=42,
             border_width=0,
         )
-        self.search_entry.grid(row=0, column=0, padx=(16, 12), pady=16, sticky="ew")
+        self.search_entry.grid(row=0, column=1, padx=(0, 18), pady=4, sticky="nsew")
         self.search_entry.bind("<KeyRelease>", self._handle_search_input_change)
         self.search_entry.bind("<<Paste>>", self._handle_search_input_change)
         self.search_entry.bind("<<Cut>>", self._handle_search_input_change)
@@ -582,6 +613,35 @@ class ManageQuestionsScreen:
                 light_image=pil_image,
                 dark_image=pil_image,
                 size=self.AUDIO_ICON_SIZE,
+            )
+
+    def ensure_search_icon(self):
+        if self.search_icon_image:
+            return
+
+        svg_path = self.IMAGES_DIR / self.SEARCH_ICON_FILENAME
+        pil_image = self.load_svg_image(svg_path, scale=self.SVG_RASTER_SCALE)
+
+        if pil_image:
+            resized_image = pil_image
+            try:
+                alpha_channel = pil_image.getchannel("A")
+                bbox = alpha_channel.getbbox()
+            except (ValueError, OSError, AttributeError):
+                bbox = None
+
+            cropped_image = pil_image.crop(bbox) if bbox else pil_image
+
+            if cropped_image.size != self.SEARCH_ICON_SIZE:
+                resample = getattr(Image.Resampling, "LANCZOS", 1)
+                resized_image = cropped_image.resize(self.SEARCH_ICON_SIZE, resample)
+            else:
+                resized_image = cropped_image
+
+            self.search_icon_image = ctk.CTkImage(
+                light_image=resized_image,
+                dark_image=resized_image,
+                size=self.SEARCH_ICON_SIZE,
             )
 
     def resolve_image_path(self, image_path):
