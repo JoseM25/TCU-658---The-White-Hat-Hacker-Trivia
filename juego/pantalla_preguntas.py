@@ -1,5 +1,6 @@
 import json
 import tkinter as tk
+from tkinter import messagebox
 from pathlib import Path
 
 import customtkinter as ctk
@@ -43,6 +44,7 @@ class ManageQuestionsScreen:
         self.detail_title_label: None
         self.edit_button: None
         self.delete_button: None
+        self.delete_modal = None
         self.detail_image_label: None
         self.detail_definition_label: None
         self.definition_audio_button: None
@@ -81,6 +83,15 @@ class ManageQuestionsScreen:
             family="Poppins ExtraBold",
             size=38,
             weight="bold",
+        )
+        self.dialog_title_font = ctk.CTkFont(
+            family="Poppins SemiBold",
+            size=24,
+            weight="bold",
+        )
+        self.dialog_body_font = ctk.CTkFont(
+            family="Poppins Medium",
+            size=16,
         )
 
         self.build_ui()
@@ -122,6 +133,33 @@ class ManageQuestionsScreen:
             )
 
         return questions
+
+    def save_questions(self, questions):
+        payload = {"questions": questions}
+
+        try:
+            self.QUESTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            self.QUESTIONS_FILE.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError as error:
+            self._show_save_error(error)
+            return False
+
+        return True
+
+    def _show_save_error(self, error):
+        base_message = (
+            "Unable to update the questions file. Please check permissions and try again."
+        )
+        detail = f"\n\nDetails: {error}" if error else ""
+        message = f"{base_message}{detail}"
+
+        try:
+            messagebox.showerror("Save error", message)
+        except tk.TclError:
+            print(f"Save error: {message}")
 
     def build_ui(self):
         self.parent.grid_rowconfigure(0, weight=1)
@@ -578,8 +616,223 @@ class ManageQuestionsScreen:
         pass
 
     def on_delete_pressed(self):
-        # Placeholder for future delete-question flow
-        pass
+        if not self.current_question:
+            return
+
+        self.tts.stop()
+        self.show_delete_confirmation_modal()
+
+    def show_delete_confirmation_modal(self):
+        if not self.current_question:
+            return
+
+        if self.parent and not self.parent.winfo_exists():
+            return
+
+        if self.delete_modal and self.delete_modal.winfo_exists():
+            try:
+                self.delete_modal.lift()
+                self.delete_modal.focus_force()
+            except tk.TclError:
+                pass
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+        modal_parent = root if root else self.parent
+
+        modal = ctk.CTkToplevel(modal_parent)
+        modal.title("Delete Question")
+        if root:
+            modal.transient(root)
+
+        try:
+            modal.grab_set()
+        except tk.TclError:
+            pass
+
+        modal.resizable(False, False)
+        modal.configure(fg_color="#F5F7FA")
+        modal.grid_rowconfigure(0, weight=1)
+        modal.grid_columnconfigure(0, weight=1)
+
+        container = ctk.CTkFrame(
+            modal,
+            fg_color="#F5F7FA",
+            corner_radius=0,
+        )
+        container.grid(row=0, column=0, padx=0, pady=0, sticky="nsew")
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_rowconfigure(1, weight=1)
+
+        header_frame = ctk.CTkFrame(
+            container,
+            fg_color="#202632",
+            corner_radius=0,
+            height=72,
+        )
+        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
+        header_frame.grid_propagate(False)
+        header_frame.grid_columnconfigure(0, weight=1)
+        header_frame.grid_rowconfigure(0, weight=1)
+
+        header_label = ctk.CTkLabel(
+            header_frame,
+            text="Delete Question",
+            font=self.dialog_title_font,
+            text_color="#FFFFFF",
+            anchor="center",
+            justify="center",
+        )
+        header_label.grid(row=0, column=0, sticky="nsew", padx=24)
+
+        message_label = ctk.CTkLabel(
+            container,
+            text=(
+                "Are you sure you want to delete this question? "
+                "This action is irreversible."
+            ),
+            font=self.dialog_body_font,
+            text_color="#111827",
+            justify="center",
+            anchor="center",
+            wraplength=480,
+        )
+        message_label.grid(row=1, column=0, sticky="nsew", pady=(0, 20), padx=20)
+
+        buttons_frame = ctk.CTkFrame(
+            container,
+            fg_color="transparent",
+        )
+        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 12), padx=20)
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=0)
+        buttons_frame.grid_columnconfigure(2, weight=0)
+        buttons_frame.grid_columnconfigure(3, weight=1)
+
+        cancel_button = ctk.CTkButton(
+            buttons_frame,
+            text="Cancel",
+            font=self.button_font,
+            fg_color="#E5E7EB",
+            text_color="#1F2937",
+            hover_color="#CBD5E1",
+            command=self.close_delete_modal,
+            width=130,
+            height=46,
+            corner_radius=14,
+        )
+        cancel_button.grid(row=0, column=1, sticky="e", padx=(0, 26))
+
+        confirm_button = ctk.CTkButton(
+            buttons_frame,
+            text="Delete",
+            font=self.button_font,
+            fg_color="#FF4F60",
+            hover_color="#E53949",
+            command=self.confirm_delete_question,
+            width=130,
+            height=46,
+            corner_radius=14,
+        )
+        confirm_button.grid(row=0, column=2, sticky="w", padx=(26, 0))
+
+        self.delete_modal = modal
+        modal.protocol("WM_DELETE_WINDOW", self.close_delete_modal)
+        modal.bind("<Escape>", self.close_delete_modal)
+
+        modal.update_idletasks()
+        try:
+            confirm_button.focus_set()
+        except tk.TclError:
+            pass
+
+        screen_width = modal.winfo_screenwidth()
+        screen_height = modal.winfo_screenheight()
+
+        parent_width = (
+            root.winfo_width()
+            if root and root.winfo_width() > 1
+            else screen_width
+        )
+        parent_height = (
+            root.winfo_height()
+            if root and root.winfo_height() > 1
+            else screen_height
+        )
+
+        target_width = max(480, int(parent_width * 0.5))
+        target_height = max(340, int(parent_height * 0.5))
+
+        width = min(target_width, screen_width - 80)
+        height = min(target_height, screen_height - 80)
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            root_x = root.winfo_rootx()
+            root_y = root.winfo_rooty()
+            root_w = root.winfo_width()
+            root_h = root.winfo_height()
+            pos_x = root_x + max((root_w - width) // 2, 0)
+            pos_y = root_y + max((root_h - height) // 2, 0)
+        else:
+            pos_x = max((screen_width - width) // 2, 0)
+            pos_y = max((screen_height - height) // 2, 0)
+
+        modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+        message_label.configure(wraplength=max(width - 120, 360))
+
+    def close_delete_modal(self, event=None):
+        if self.delete_modal and self.delete_modal.winfo_exists():
+            try:
+                self.delete_modal.grab_release()
+            except tk.TclError:
+                pass
+            try:
+                self.delete_modal.destroy()
+            except tk.TclError:
+                pass
+
+        self.delete_modal = None
+        if event:
+            return "break"
+
+    def confirm_delete_question(self):
+        if not self.current_question:
+            self.close_delete_modal()
+            return
+
+        question_to_delete = self.current_question
+        target_index = None
+        for index, candidate in enumerate(self.questions):
+            if candidate is question_to_delete:
+                target_index = index
+                break
+
+        if target_index is None:
+            self.close_delete_modal()
+            return
+
+        updated_questions = list(self.questions)
+        updated_questions.pop(target_index)
+
+        if not self.save_questions(updated_questions):
+            if self.delete_modal and self.delete_modal.winfo_exists():
+                try:
+                    self.delete_modal.lift()
+                    self.delete_modal.focus_force()
+                except tk.TclError:
+                    pass
+            return
+
+        self.questions = updated_questions
+        self.current_question = None
+        self.filtered_questions = [
+            question
+            for question in self.filtered_questions
+            if question is not question_to_delete
+        ]
+        self.clear_question_details()
+        self.on_search_change()
+        self.close_delete_modal()
 
     def on_definition_audio_pressed(self):
         if not self.current_question:
