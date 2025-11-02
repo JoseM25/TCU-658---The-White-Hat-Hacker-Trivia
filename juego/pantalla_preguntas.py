@@ -65,8 +65,9 @@ class ManageQuestionsScreen:
         "search_icon": (16, 16),
         "back_icon": (20, 20),
         "question_btn_height": 50,
-        "question_margin": 1,
-        "question_padding": 1,
+        "question_margin": 8,
+        "question_padding": 4,
+        "question_corner_radius": 12,
     }
 
     def __init__(self, parent, on_return_callback=None):
@@ -594,8 +595,10 @@ class ManageQuestionsScreen:
 
         # Render question buttons
         self.selected_question_button = None
-        for index, question in enumerate(questions, start=1):
+        for index, question in enumerate(questions, start=0):
             is_selected = selected_visible and question is self.current_question
+
+            # Create button without command first
             button = ctk.CTkButton(
                 list_frame,
                 text=question.get("title", ""),
@@ -607,19 +610,20 @@ class ManageQuestionsScreen:
                 ),
                 border_width=0,
                 height=s["question_btn_height"],
-                command=lambda q=question, b=None: self.on_question_selected(
-                    q, b or button
-                ),
+                corner_radius=s["question_corner_radius"],
             )
+
+            # Configure command after button is created to properly capture reference
+            button.configure(
+                command=lambda q=question, b=button: self.on_question_selected(q, b)
+            )
+
             button.grid(
                 row=index,
                 column=0,
                 sticky="nsew",
                 padx=s["question_margin"],
-                pady=(
-                    0 if index == 1 else s["question_padding"],
-                    s["question_padding"],
-                ),
+                pady=s["question_padding"],
             )
 
             if is_selected:
@@ -643,12 +647,16 @@ class ManageQuestionsScreen:
         if (
             self.selected_question_button
             and self.selected_question_button is not button
+            and self.selected_question_button.winfo_exists()
         ):
-            self.selected_question_button.configure(
-                fg_color=c["question_bg"],
-                text_color=c["question_text"],
-                hover_color=c["question_hover"],
-            )
+            try:
+                self.selected_question_button.configure(
+                    fg_color=c["question_bg"],
+                    text_color=c["question_text"],
+                    hover_color=c["question_hover"],
+                )
+            except tk.TclError:
+                pass
 
         button.configure(
             fg_color=c["question_selected"],
@@ -771,6 +779,8 @@ class ManageQuestionsScreen:
                 except tk.TclError:
                     pass
             self.render_question_list()
+            # After render_question_list, selected_question_button is updated
+            # Only call on_question_selected if button was found and set during render
             if self.selected_question_button:
                 self.on_question_selected(new_question, self.selected_question_button)
 
@@ -808,6 +818,8 @@ class ManageQuestionsScreen:
         if updated_question:
             self.current_question = updated_question
             self.handle_search()
+            # After handle_search, selected_question_button is updated during render
+            # Only call on_question_selected if button was found and set during render
             if self.selected_question_button:
                 self.on_question_selected(
                     updated_question, self.selected_question_button

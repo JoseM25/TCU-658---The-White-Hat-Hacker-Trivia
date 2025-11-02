@@ -382,6 +382,8 @@ class AddQuestionModal(BaseQuestionModal):
         if self.on_save_callback:
             self.on_save_callback(title, definition, source_path)
 
+        self.close()
+
 
 class EditQuestionModal(BaseQuestionModal):
 
@@ -487,6 +489,8 @@ class EditQuestionModal(BaseQuestionModal):
 
         if self.on_save_callback:
             self.on_save_callback(title, definition, image_path)
+
+        self.close()
 
     def close(self):
         super().close()
@@ -631,6 +635,8 @@ class DeleteConfirmationModal:
     def handle_confirm(self):
         if self.on_confirm_callback:
             self.on_confirm_callback()
+
+        self.close()
 
     def close(self):
         if self.modal and self.modal.winfo_exists():
