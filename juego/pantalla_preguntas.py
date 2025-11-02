@@ -15,62 +15,67 @@ from juego.preguntas_modales import (
 
 
 class ManageQuestionsScreen:
+    """Screen for managing trivia questions with CRUD operations."""
 
     # File and directory paths
-    QUESTIONS_FILE = Path(__file__).resolve().parent.parent / "datos" / "preguntas.json"
-    IMAGES_DIR = Path(__file__).resolve().parent.parent / "recursos" / "imagenes"
-    AUDIO_DIR = Path(__file__).resolve().parent.parent / "recursos" / "audio"
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    QUESTIONS_FILE = BASE_DIR / "datos" / "preguntas.json"
+    IMAGES_DIR = BASE_DIR / "recursos" / "imagenes"
+    AUDIO_DIR = BASE_DIR / "recursos" / "audio"
 
     # Icon filenames
-    AUDIO_ICON_FILENAME = "volume.svg"
-    SEARCH_ICON_FILENAME = "search.svg"
-    BACK_ARROW_FILENAME = "arrow.svg"
+    ICONS = {"audio": "volume.svg", "search": "search.svg", "back": "arrow.svg"}
 
     # UI Colors
-    HEADER_BG = "#1C2534"
-    HEADER_HOVER = "#273246"
-    PRIMARY_BLUE = "#1D6CFF"
-    PRIMARY_BLUE_HOVER = "#0F55C9"
-    SECONDARY_CYAN = "#00CFC5"
-    SECONDARY_CYAN_HOVER = "#04AFA6"
-    DANGER_RED = "#FF4F60"
-    DANGER_RED_HOVER = "#E53949"
-    SUCCESS_GREEN = "#047857"
-    BG_LIGHT = "#F5F7FA"
-    BG_WHITE = "#FFFFFF"
-    BORDER_LIGHT = "#D2DAE6"
-    BORDER_MEDIUM = "#CBD5E1"
-    SEARCH_BG = "#D1D8E0"
-    TEXT_DARK = "#111827"
-    TEXT_MEDIUM = "#1F2937"
-    TEXT_LIGHT = "#4B5563"
-    TEXT_LIGHTER = "#6B7280"
-    TEXT_WHITE = "#FFFFFF"
-    TEXT_PLACEHOLDER = "#F5F7FA"
-    TEXT_ERROR = "#DC2626"
-    BUTTON_CANCEL_BG = "#E5E7EB"
-    BUTTON_CANCEL_HOVER = "#CBD5E1"
-    QUESTION_DEFAULT_BG = "transparent"
-    QUESTION_DEFAULT_TEXT = "#1F2937"
-    QUESTION_DEFAULT_HOVER = "#E2E8F0"
-    QUESTION_SELECTED_BG = "#1D6CFF"
+    COLORS = {
+        "header_bg": "#1C2534",
+        "header_hover": "#273246",
+        "primary": "#1D6CFF",
+        "primary_hover": "#0F55C9",
+        "secondary": "#00CFC5",
+        "secondary_hover": "#04AFA6",
+        "danger": "#FF4F60",
+        "danger_hover": "#E53949",
+        "success": "#047857",
+        "bg_light": "#F5F7FA",
+        "bg_white": "#FFFFFF",
+        "bg_modal": "#202632",
+        "border_light": "#D2DAE6",
+        "border_medium": "#CBD5E1",
+        "search_bg": "#D1D8E0",
+        "text_dark": "#111827",
+        "text_medium": "#1F2937",
+        "text_light": "#4B5563",
+        "text_lighter": "#6B7280",
+        "text_white": "#FFFFFF",
+        "text_placeholder": "#F5F7FA",
+        "text_error": "#DC2626",
+        "btn_cancel": "#E5E7EB",
+        "btn_cancel_hover": "#CBD5E1",
+        "question_bg": "transparent",
+        "question_text": "#1F2937",
+        "question_hover": "#E2E8F0",
+        "question_selected": "#1D6CFF",
+    }
 
     # UI Sizes
-    MAX_VISIBLE_QUESTIONS = 8
-    DETAIL_IMAGE_MAX_SIZE = (220, 220)
-    AUDIO_ICON_SIZE = (32, 32)
-    SEARCH_ICON_SIZE = (16, 16)
-    BACK_ARROW_SIZE = (20, 20)
-    QUESTION_BUTTON_HEIGHT = 50
-    QUESTION_BUTTON_SIDE_MARGIN = 1
-    QUESTION_BUTTON_VERTICAL_PADDING = 1
+    SIZES = {
+        "max_questions": 8,
+        "detail_image": (220, 220),
+        "audio_icon": (32, 32),
+        "search_icon": (16, 16),
+        "back_icon": (20, 20),
+        "question_btn_height": 50,
+        "question_margin": 1,
+        "question_padding": 1,
+    }
 
     def __init__(self, parent, on_return_callback=None):
         self.parent = parent
         self.on_return_callback = on_return_callback
 
         # Initialize fonts
-        self.init_fonts()
+        self._init_fonts()
 
         # Initialize services
         self.tts = TTSService(self.AUDIO_DIR)
@@ -95,217 +100,206 @@ class ManageQuestionsScreen:
         self.detail_image_label = None
         self.definition_audio_button = None
 
-        # Cached images
+        # Cache icons
         self.detail_image_placeholder = (
             self.image_handler.create_transparent_placeholder()
         )
         self.audio_icon = self.image_handler.create_ctk_icon(
-            self.AUDIO_ICON_FILENAME, self.AUDIO_ICON_SIZE
+            self.ICONS["audio"], self.SIZES["audio_icon"]
         )
         self.search_icon = self.image_handler.create_ctk_icon(
-            self.SEARCH_ICON_FILENAME, self.SEARCH_ICON_SIZE
+            self.ICONS["search"], self.SIZES["search_icon"]
         )
         self.back_arrow_icon = self.image_handler.create_ctk_icon(
-            self.BACK_ARROW_FILENAME, self.BACK_ARROW_SIZE
+            self.ICONS["back"], self.SIZES["back_icon"]
         )
 
         # Clear parent and build UI
         for widget in self.parent.winfo_children():
             widget.destroy()
-
         self.build_ui()
 
-    def init_fonts(self):
-        self.title_font = ctk.CTkFont(
-            family="Poppins ExtraBold", size=38, weight="bold"
-        )
-        self.body_font = ctk.CTkFont(family="Poppins Medium", size=18)
-        self.button_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=16, weight="bold"
-        )
-        self.cancel_button_font = ctk.CTkFont(
-            family="Poppins ExtraBold", size=16, weight="bold"
-        )
-        self.search_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=18, weight="bold"
-        )
-        self.question_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=18, weight="bold"
-        )
-        self.detail_title_font = ctk.CTkFont(
-            family="Poppins ExtraBold", size=38, weight="bold"
-        )
-        self.dialog_title_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=24, weight="bold"
-        )
-        self.dialog_body_font = ctk.CTkFont(family="Poppins Medium", size=16)
-        self.dialog_label_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=16, weight="bold"
-        )
+    def _init_fonts(self):
+        """Initialize all fonts used in the UI."""
+        font_specs = {
+            "title": ("Poppins ExtraBold", 38, "bold"),
+            "body": ("Poppins Medium", 18, None),
+            "button": ("Poppins SemiBold", 16, "bold"),
+            "cancel_button": ("Poppins ExtraBold", 16, "bold"),
+            "search": ("Poppins SemiBold", 18, "bold"),
+            "question": ("Poppins SemiBold", 18, "bold"),
+            "detail_title": ("Poppins ExtraBold", 38, "bold"),
+            "dialog_title": ("Poppins SemiBold", 24, "bold"),
+            "dialog_body": ("Poppins Medium", 16, None),
+            "dialog_label": ("Poppins SemiBold", 16, "bold"),
+        }
+        for name, (family, size, weight) in font_specs.items():
+            setattr(
+                self,
+                f"{name}_font",
+                (
+                    ctk.CTkFont(family=family, size=size, weight=weight)
+                    if weight
+                    else ctk.CTkFont(family=family, size=size)
+                ),
+            )
+
+    def create_modal_ui_config(self, keys):
+        """Create UI config object for modals with specified keys."""
+        color_map = {
+            "BG_LIGHT": "bg_light",
+            "BG_WHITE": "bg_white",
+            "BG_MODAL_HEADER": "bg_modal",
+            "BORDER_MEDIUM": "border_medium",
+            "PRIMARY_BLUE": "primary",
+            "PRIMARY_BLUE_HOVER": "primary_hover",
+            "BUTTON_CANCEL_BG": "btn_cancel",
+            "BUTTON_CANCEL_HOVER": "btn_cancel_hover",
+            "TEXT_DARK": "text_dark",
+            "TEXT_WHITE": "text_white",
+            "TEXT_LIGHT": "text_light",
+            "TEXT_ERROR": "text_error",
+            "SUCCESS_GREEN": "success",
+            "DANGER_RED": "danger",
+            "DANGER_RED_HOVER": "danger_hover",
+        }
+
+        config_dict = {k: self.COLORS[v] for k, v in color_map.items() if k in keys}
+
+        font_keys = [
+            "dialog_title_font",
+            "dialog_label_font",
+            "dialog_body_font",
+            "body_font",
+            "button_font",
+            "cancel_button_font",
+        ]
+        config_dict.update({k: getattr(self, k) for k in font_keys if k in keys})
+
+        return type("UIConfig", (), config_dict)()
 
     def load_questions(self):
+        """Load questions from JSON file."""
         if not self.QUESTIONS_FILE.exists():
-            self.questions = []
-            self.filtered_questions = []
+            self.questions = self.filtered_questions = []
             return
 
         try:
             data = json.loads(self.QUESTIONS_FILE.read_text(encoding="utf-8"))
+            raw_questions = (
+                data.get("questions", []) if isinstance(data, dict) else data
+            )
         except json.JSONDecodeError:
-            self.questions = []
-            self.filtered_questions = []
+            self.questions = self.filtered_questions = []
             return
 
-        raw_questions = data.get("questions", []) if isinstance(data, dict) else data
-
-        questions = []
-        for item in raw_questions:
-            if not isinstance(item, dict):
-                continue
-
-            title = (item.get("title") or "").strip()
-            if not title:
-                continue
-
-            definition = (item.get("definition") or "").strip()
-            image = (item.get("image") or "").strip()
-            questions.append(
-                {
-                    "title": title,
-                    "definition": definition,
-                    "image": image,
-                }
-            )
-
-        self.questions = questions
-        self.filtered_questions = list(questions)
+        self.questions = [
+            {"title": title, "definition": definition, "image": image}
+            for item in raw_questions
+            if isinstance(item, dict) and (title := (item.get("title") or "").strip())
+            for definition in [(item.get("definition") or "").strip()]
+            for image in [(item.get("image") or "").strip()]
+        ]
+        self.filtered_questions = list(self.questions)
 
     def save_questions(self, questions):
-        payload = {"questions": questions}
-
+        """Save questions to JSON file."""
         try:
             self.QUESTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
             self.QUESTIONS_FILE.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2),
+                json.dumps({"questions": questions}, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+            self.questions = questions
+            return True
         except OSError as error:
-            self.show_save_error(error)
+            self._show_save_error(error)
             return False
 
-        self.questions = questions
-        return True
-
-    def show_save_error(self, error):
-        base_message = (
+    def _show_save_error(self, error):
+        """Display save error message."""
+        message = (
             "Unable to update the questions file. "
-            "Please check permissions and try again."
+            f"Please check permissions and try again.\n\nDetails: {error}"
         )
-        detail = f"\n\nDetails: {error}" if error else ""
-        message = f"{base_message}{detail}"
-
         try:
             messagebox.showerror("Save error", message)
         except tk.TclError:
             print(f"Save error: {message}")
 
     def filter_questions(self, query):
+        """Filter questions by title search query."""
         query = (query or "").strip().lower()
-
-        if query:
-            self.filtered_questions = [
-                question
-                for question in self.questions
-                if query in (question.get("title") or "").lower()
-            ]
-        else:
-            self.filtered_questions = list(self.questions)
+        self.filtered_questions = (
+            [q for q in self.questions if query in q.get("title", "").lower()]
+            if query
+            else list(self.questions)
+        )
 
     def add_question(self, title, definition, image_path):
-        new_question = {
-            "title": title,
-            "definition": definition,
-            "image": image_path,
-        }
+        """Add new question to the list."""
+        new_question = {"title": title, "definition": definition, "image": image_path}
+        updated_questions = self.questions + [new_question]
 
-        updated_questions = list(self.questions)
-        updated_questions.append(new_question)
-
-        if not self.save_questions(updated_questions):
-            return None
-
-        self.filtered_questions = list(self.questions)
-        return new_question
+        if self.save_questions(updated_questions):
+            self.filtered_questions = list(self.questions)
+            return new_question
+        return None
 
     def update_question(self, old_question, title, definition, image_path):
-        new_question = {
-            "title": title,
-            "definition": definition,
-            "image": image_path,
-        }
+        """Update existing question, preserving its position."""
+        new_question = {"title": title, "definition": definition, "image": image_path}
 
         try:
-            current_index = self.questions.index(old_question)
+            index = self.questions.index(old_question)
         except ValueError:
-            current_index = None
+            index = None
 
-        updated_questions = [
-            question for question in self.questions if question is not old_question
-        ]
-
-        insert_index = (
-            current_index if current_index is not None else len(updated_questions)
-        )
+        updated_questions = [q for q in self.questions if q is not old_question]
+        insert_index = index if index is not None else len(updated_questions)
         updated_questions.insert(insert_index, new_question)
 
-        if not self.save_questions(updated_questions):
-            return None
-
-        return self.questions[insert_index]
+        return (
+            self.questions[insert_index]
+            if self.save_questions(updated_questions)
+            else None
+        )
 
     def delete_question(self, question):
-        target_index = None
-        for index, candidate in enumerate(self.questions):
-            if candidate is question:
-                target_index = index
-                break
-
-        if target_index is None:
+        """Delete question from the list."""
+        try:
+            index = self.questions.index(question)
+        except ValueError:
             return False
 
-        updated_questions = list(self.questions)
-        updated_questions.pop(target_index)
+        updated_questions = self.questions[:index] + self.questions[index + 1 :]
 
-        if not self.save_questions(updated_questions):
-            return False
-
-        self.filtered_questions = [
-            q for q in self.filtered_questions if q is not question
-        ]
-        return True
+        if self.save_questions(updated_questions):
+            self.filtered_questions = [
+                q for q in self.filtered_questions if q is not question
+            ]
+            return True
+        return False
 
     def validate_title_unique(self, title, exclude_question=None):
-        normalized_title = title.lower()
-        for existing in self.questions:
-            if existing is exclude_question:
-                continue
-
-            existing_title = (existing.get("title") or "").strip().lower()
-            if existing_title == normalized_title:
-                return False
-
-        return True
+        """Check if question title is unique."""
+        normalized = title.lower()
+        return not any(
+            q.get("title", "").strip().lower() == normalized
+            for q in self.questions
+            if q is not exclude_question
+        )
 
     def build_ui(self):
+        """Build the complete UI layout."""
         self.parent.grid_rowconfigure(0, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
 
         main = ctk.CTkFrame(self.parent, fg_color="transparent")
         main.grid(row=0, column=0, sticky="nsew")
         main.grid_rowconfigure(1, weight=1)
-        main.grid_columnconfigure(0, weight=0)
-        main.grid_columnconfigure(1, weight=0, minsize=2)
-        main.grid_columnconfigure(2, weight=1)
+        for col, (weight, minsize) in enumerate([(0, 0), (0, 2), (1, 0)]):
+            main.grid_columnconfigure(col, weight=weight, minsize=minsize)
 
         self.build_header(main)
         self.build_sidebar(main)
@@ -313,21 +307,22 @@ class ManageQuestionsScreen:
         self.build_detail_panel(main)
 
     def build_header(self, parent):
-        header = ctk.CTkFrame(parent, fg_color=self.HEADER_BG, corner_radius=0)
+        """Build the header with back button and title."""
+        c = self.COLORS
+        header = ctk.CTkFrame(parent, fg_color=c["header_bg"], corner_radius=0)
         header.grid(row=0, column=0, columnspan=3, sticky="ew")
-        header.grid_columnconfigure(0, weight=0)
         header.grid_columnconfigure(1, weight=1)
 
         ctk.CTkButton(
             header,
             text="Menu",
             font=self.button_font,
-            text_color=self.TEXT_WHITE,
+            text_color=c["text_white"],
             image=self.back_arrow_icon,
             compound="left",
             anchor="w",
             fg_color="transparent",
-            hover_color=self.HEADER_HOVER,
+            hover_color=c["header_hover"],
             command=self.return_to_menu,
             corner_radius=8,
             width=110,
@@ -338,7 +333,7 @@ class ManageQuestionsScreen:
             header,
             text="Manage Questions",
             font=self.title_font,
-            text_color=self.TEXT_WHITE,
+            text_color=c["text_white"],
             anchor="center",
         ).grid(row=0, column=1, padx=32, pady=(28, 32), sticky="nsew")
 
@@ -352,30 +347,32 @@ class ManageQuestionsScreen:
         self.build_question_list_container(sidebar)
 
     def build_controls(self, parent):
+        """Build search bar and add button."""
+        c = self.COLORS
         controls = ctk.CTkFrame(parent, fg_color="transparent")
         controls.grid(row=0, column=0, sticky="ew")
         controls.grid_columnconfigure(0, weight=1)
 
         # Search bar
         search_wrapper = ctk.CTkFrame(
-            controls, fg_color=self.SEARCH_BG, corner_radius=18
+            controls, fg_color=c["search_bg"], corner_radius=18
         )
         search_wrapper.grid(row=0, column=0, padx=(16, 12), pady=16, sticky="ew")
         search_wrapper.grid_columnconfigure(1, weight=1)
 
         # Search icon
-        icon_kwargs = {
+        icon_config = {
             "text": "",
             "image": self.search_icon,
             "fg_color": "transparent",
             "width": 32,
         }
         if not self.search_icon:
-            icon_kwargs.update(
-                {"text": "S", "text_color": self.TEXT_WHITE, "font": self.button_font}
+            icon_config.update(
+                {"text": "S", "text_color": c["text_white"], "font": self.button_font}
             )
 
-        ctk.CTkLabel(search_wrapper, **icon_kwargs).grid(
+        ctk.CTkLabel(search_wrapper, **icon_config).grid(
             row=0, column=0, padx=(18, 8), sticky="w"
         )
 
@@ -383,26 +380,25 @@ class ManageQuestionsScreen:
         self.search_entry = ctk.CTkEntry(
             search_wrapper,
             placeholder_text="Search...",
-            placeholder_text_color=self.TEXT_PLACEHOLDER,
+            placeholder_text_color=c["text_placeholder"],
             fg_color="transparent",
-            text_color=self.TEXT_WHITE,
+            text_color=c["text_white"],
             font=self.search_font,
             corner_radius=0,
             height=42,
             border_width=0,
         )
         self.search_entry.grid(row=0, column=1, padx=(0, 18), pady=4, sticky="nsew")
-        self.search_entry.bind("<KeyRelease>", lambda e: self.handle_search())
-        self.search_entry.bind("<<Paste>>", lambda e: self.handle_search())
-        self.search_entry.bind("<<Cut>>", lambda e: self.handle_search())
+        for event in ("<KeyRelease>", "<<Paste>>", "<<Cut>>"):
+            self.search_entry.bind(event, lambda e: self.handle_search())
 
         # Add button
         ctk.CTkButton(
             controls,
             text="Add",
             font=self.button_font,
-            fg_color=self.PRIMARY_BLUE,
-            hover_color=self.PRIMARY_BLUE_HOVER,
+            fg_color=c["primary"],
+            hover_color=c["primary_hover"],
             command=self.on_add_clicked,
             width=96,
             height=42,
@@ -420,18 +416,19 @@ class ManageQuestionsScreen:
     def build_divider(self, parent):
         ctk.CTkFrame(
             parent,
-            fg_color=self.BORDER_LIGHT,
+            fg_color=self.COLORS["border_light"],
             corner_radius=0,
             width=2,
         ).grid(row=1, column=1, sticky="ns", pady=32)
 
     def build_detail_panel(self, parent):
+        c = self.COLORS
         self.detail_container = ctk.CTkFrame(
             parent,
-            fg_color=self.BG_LIGHT,
+            fg_color=c["bg_light"],
             corner_radius=16,
             border_width=1,
-            border_color=self.BORDER_LIGHT,
+            border_color=c["border_light"],
         )
         self.detail_container.grid(
             row=1, column=2, sticky="nsew", padx=(12, 32), pady=32
@@ -447,6 +444,8 @@ class ManageQuestionsScreen:
         self.detail_visible = False
 
     def build_detail_header(self):
+        """Build detail panel header with title and action buttons."""
+        c = self.COLORS
         header = ctk.CTkFrame(self.detail_container, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 12))
         header.grid_columnconfigure(0, weight=1)
@@ -455,36 +454,34 @@ class ManageQuestionsScreen:
             header,
             text="",
             font=self.detail_title_font,
-            text_color=self.TEXT_DARK,
+            text_color=c["text_dark"],
             anchor="w",
         )
         self.detail_title_label.grid(row=0, column=0, sticky="w", padx=(12, 0))
 
-        ctk.CTkButton(
-            header,
-            text="Edit",
-            font=self.question_font,
-            fg_color=self.SECONDARY_CYAN,
-            hover_color=self.SECONDARY_CYAN_HOVER,
-            command=self.on_edit_clicked,
-            width=110,
-            height=44,
-            corner_radius=12,
-        ).grid(row=0, column=1, padx=(12, 12), sticky="e")
-
-        ctk.CTkButton(
-            header,
-            text="Delete",
-            font=self.question_font,
-            fg_color=self.DANGER_RED,
-            hover_color=self.DANGER_RED_HOVER,
-            command=self.on_delete_clicked,
-            width=110,
-            height=44,
-            corner_radius=12,
-        ).grid(row=0, column=2, sticky="e")
+        # Action buttons
+        for col, (text, fg, hover, cmd) in enumerate(
+            [
+                ("Edit", c["secondary"], c["secondary_hover"], self.on_edit_clicked),
+                ("Delete", c["danger"], c["danger_hover"], self.on_delete_clicked),
+            ],
+            start=1,
+        ):
+            ctk.CTkButton(
+                header,
+                text=text,
+                font=self.question_font,
+                fg_color=fg,
+                hover_color=hover,
+                command=cmd,
+                width=110,
+                height=44,
+                corner_radius=12,
+            ).grid(row=0, column=col, padx=(12, 12 if col == 1 else 0), sticky="e")
 
     def build_detail_body(self):
+        """Build detail panel body with image and definition."""
+        c = self.COLORS
         body = ctk.CTkFrame(self.detail_container, fg_color="transparent")
         body.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
         body.grid_rowconfigure(0, weight=1)
@@ -499,7 +496,7 @@ class ManageQuestionsScreen:
             content,
             text="Image placeholder",
             font=self.search_font,
-            text_color=self.TEXT_LIGHT,
+            text_color=c["text_light"],
             fg_color="transparent",
             width=220,
             height=220,
@@ -519,7 +516,7 @@ class ManageQuestionsScreen:
         definition_row.grid(row=1, column=0, sticky="ew", padx=32, pady=(32, 0))
         definition_row.grid_columnconfigure(1, weight=1)
 
-        audio_kwargs = {
+        audio_config = {
             "text": "" if self.audio_icon else "Audio",
             "image": self.audio_icon,
             "fg_color": "transparent",
@@ -531,18 +528,18 @@ class ManageQuestionsScreen:
             "corner_radius": 22,
         }
         if not self.audio_icon:
-            audio_kwargs.update(
-                {"font": self.body_font, "text_color": self.TEXT_MEDIUM}
+            audio_config.update(
+                {"font": self.body_font, "text_color": c["text_medium"]}
             )
 
-        self.definition_audio_button = ctk.CTkButton(definition_row, **audio_kwargs)
+        self.definition_audio_button = ctk.CTkButton(definition_row, **audio_config)
         self.definition_audio_button.grid(row=0, column=0, sticky="nw", padx=(0, 16))
 
         self.detail_definition_label = ctk.CTkLabel(
             definition_row,
             text="",
             font=self.body_font,
-            text_color=self.TEXT_MEDIUM,
+            text_color=c["text_medium"],
             justify="left",
             anchor="w",
             wraplength=540,
@@ -550,6 +547,7 @@ class ManageQuestionsScreen:
         self.detail_definition_label.grid(row=0, column=1, sticky="nw")
 
     def render_question_list(self):
+        """Render the list of questions with optional scrollbar."""
         if not self.list_container or not self.list_container.winfo_exists():
             return
 
@@ -557,6 +555,7 @@ class ManageQuestionsScreen:
         for child in self.list_container.winfo_children():
             child.destroy()
 
+        c, s = self.COLORS, self.SIZES
         questions = self.filtered_questions
 
         # Check if selected question is visible
@@ -566,22 +565,19 @@ class ManageQuestionsScreen:
         if not selected_visible and self.current_question:
             self.clear_detail_panel()
 
-        # Determine if scrollbar is needed
-        needs_scrollbar = len(questions) > self.MAX_VISIBLE_QUESTIONS
-
-        # Create frame
-        frame_kwargs = {
-            "fg_color": self.BG_LIGHT,
+        # Create frame with or without scrollbar
+        frame_config = {
+            "fg_color": c["bg_light"],
             "border_width": 1,
-            "border_color": self.BORDER_LIGHT,
+            "border_color": c["border_light"],
             "corner_radius": 24,
         }
-
-        if needs_scrollbar:
-            list_frame = ctk.CTkScrollableFrame(self.list_container, **frame_kwargs)
-        else:
-            list_frame = ctk.CTkFrame(self.list_container, **frame_kwargs)
-
+        FrameClass = (
+            ctk.CTkScrollableFrame
+            if len(questions) > s["max_questions"]
+            else ctk.CTkFrame
+        )
+        list_frame = FrameClass(self.list_container, **frame_config)
         list_frame.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
         list_frame.grid_columnconfigure(0, weight=1)
 
@@ -597,46 +593,41 @@ class ManageQuestionsScreen:
                 list_frame,
                 text=empty_text,
                 font=self.body_font,
-                text_color=self.TEXT_LIGHTER,
+                text_color=c["text_lighter"],
             ).grid(row=1, column=0, padx=24, pady=(12, 24))
             return
 
         # Render question buttons
         self.selected_question_button = None
         for index, question in enumerate(questions, start=1):
+            is_selected = selected_visible and question is self.current_question
             button = ctk.CTkButton(
                 list_frame,
                 text=question.get("title", ""),
                 font=self.question_font,
-                text_color=self.QUESTION_DEFAULT_TEXT,
-                fg_color=self.QUESTION_DEFAULT_BG,
-                hover_color=self.QUESTION_DEFAULT_HOVER,
+                text_color=c["text_white"] if is_selected else c["question_text"],
+                fg_color=c["question_selected"] if is_selected else c["question_bg"],
+                hover_color=(
+                    c["question_selected"] if is_selected else c["question_hover"]
+                ),
                 border_width=0,
-                height=self.QUESTION_BUTTON_HEIGHT,
+                height=s["question_btn_height"],
+                command=lambda q=question, b=None: self.on_question_selected(
+                    q, b or button
+                ),
             )
-            # Update command to pass button reference
-            button.configure(
-                command=lambda q=question, b=button: self.on_question_selected(q, b)
-            )
-
             button.grid(
                 row=index,
                 column=0,
                 sticky="nsew",
-                padx=self.QUESTION_BUTTON_SIDE_MARGIN,
+                padx=s["question_margin"],
                 pady=(
-                    0 if index == 1 else self.QUESTION_BUTTON_VERTICAL_PADDING,
-                    self.QUESTION_BUTTON_VERTICAL_PADDING,
+                    0 if index == 1 else s["question_padding"],
+                    s["question_padding"],
                 ),
             )
 
-            # Highlight if selected
-            if selected_visible and question is self.current_question:
-                button.configure(
-                    fg_color=self.QUESTION_SELECTED_BG,
-                    text_color=self.TEXT_WHITE,
-                    hover_color=self.QUESTION_SELECTED_BG,
-                )
+            if is_selected:
                 self.selected_question_button = button
 
     def handle_search(self):
@@ -645,6 +636,7 @@ class ManageQuestionsScreen:
         self.render_question_list()
 
     def on_question_selected(self, question, button):
+        """Handle question selection and update detail panel."""
         self.tts.stop()
 
         # Show detail panel if hidden
@@ -652,21 +644,22 @@ class ManageQuestionsScreen:
             self.detail_container.grid()
             self.detail_visible = True
 
+        c = self.COLORS
         # Update button selection
         if (
             self.selected_question_button
             and self.selected_question_button is not button
         ):
             self.selected_question_button.configure(
-                fg_color=self.QUESTION_DEFAULT_BG,
-                text_color=self.QUESTION_DEFAULT_TEXT,
-                hover_color=self.QUESTION_DEFAULT_HOVER,
+                fg_color=c["question_bg"],
+                text_color=c["question_text"],
+                hover_color=c["question_hover"],
             )
 
         button.configure(
-            fg_color=self.QUESTION_SELECTED_BG,
-            text_color=self.TEXT_WHITE,
-            hover_color=self.QUESTION_SELECTED_BG,
+            fg_color=c["question_selected"],
+            text_color=c["text_white"],
+            hover_color=c["question_selected"],
         )
         self.selected_question_button = button
 
@@ -674,8 +667,8 @@ class ManageQuestionsScreen:
         self.current_question = question
         title = question.get("title", "")
         definition = (
-            question.get("definition") or ""
-        ).strip() or "No definition available yet."
+            question.get("definition", "").strip() or "No definition available yet."
+        )
         image_path = question.get("image", "")
 
         self.detail_title_label.configure(text=title)
@@ -683,26 +676,23 @@ class ManageQuestionsScreen:
 
         # Update image
         detail_image = self.image_handler.create_detail_image(
-            image_path, self.DETAIL_IMAGE_MAX_SIZE
+            image_path, self.SIZES["detail_image"]
         )
-
         try:
-            if detail_image:
-                self.detail_image_label.configure(image=detail_image, text="")
-            else:
-                self.detail_image_label.configure(
-                    image=self.detail_image_placeholder, text="Image not available"
-                )
+            self.detail_image_label.configure(
+                image=detail_image or self.detail_image_placeholder,
+                text="" if detail_image else "Image not available",
+            )
         except tk.TclError:
             pass
 
         # Enable/disable audio button
-        has_definition = bool((question.get("definition") or "").strip())
         self.definition_audio_button.configure(
-            state="normal" if has_definition else "disabled"
+            state="normal" if question.get("definition", "").strip() else "disabled"
         )
 
     def clear_detail_panel(self):
+        """Clear and hide the detail panel."""
         self.tts.stop()
         self.current_question = None
         self.selected_question_button = None
@@ -715,14 +705,15 @@ class ManageQuestionsScreen:
             self.detail_container.grid_remove()
             self.detail_visible = False
 
-        if self.detail_title_label and self.detail_title_label.winfo_exists():
-            self.detail_title_label.configure(text="")
-
-        if self.detail_definition_label and self.detail_definition_label.winfo_exists():
-            self.detail_definition_label.configure(text="")
-
-        if self.definition_audio_button and self.definition_audio_button.winfo_exists():
-            self.definition_audio_button.configure(state="disabled")
+        # Reset widgets
+        widgets = [
+            (self.detail_title_label, {"text": ""}),
+            (self.detail_definition_label, {"text": ""}),
+            (self.definition_audio_button, {"state": "disabled"}),
+        ]
+        for widget, config in widgets:
+            if widget and widget.winfo_exists():
+                widget.configure(**config)
 
         if self.detail_image_label and self.detail_image_label.winfo_exists():
             try:
@@ -732,40 +723,38 @@ class ManageQuestionsScreen:
             except tk.TclError:
                 pass
 
-    def on_add_clicked(self):
-        # Create UI config object for modal
-        ui_config = type(
-            "UIConfig",
-            (),
-            {
-                "BG_LIGHT": self.BG_LIGHT,
-                "BG_WHITE": self.BG_WHITE,
-                "BG_MODAL_HEADER": "#202632",
-                "BORDER_MEDIUM": self.BORDER_MEDIUM,
-                "PRIMARY_BLUE": self.PRIMARY_BLUE,
-                "PRIMARY_BLUE_HOVER": self.PRIMARY_BLUE_HOVER,
-                "BUTTON_CANCEL_BG": self.BUTTON_CANCEL_BG,
-                "BUTTON_CANCEL_HOVER": self.BUTTON_CANCEL_HOVER,
-                "TEXT_DARK": self.TEXT_DARK,
-                "TEXT_WHITE": self.TEXT_WHITE,
-                "TEXT_LIGHT": self.TEXT_LIGHT,
-                "TEXT_ERROR": self.TEXT_ERROR,
-                "SUCCESS_GREEN": self.SUCCESS_GREEN,
-                "dialog_title_font": self.dialog_title_font,
-                "dialog_label_font": self.dialog_label_font,
-                "body_font": self.body_font,
-                "button_font": self.button_font,
-                "cancel_button_font": self.cancel_button_font,
-            },
-        )()
+    def _get_standard_modal_keys(self):
+        """Get standard modal config keys."""
+        return [
+            "BG_LIGHT",
+            "BG_WHITE",
+            "BG_MODAL_HEADER",
+            "BORDER_MEDIUM",
+            "PRIMARY_BLUE",
+            "PRIMARY_BLUE_HOVER",
+            "BUTTON_CANCEL_BG",
+            "BUTTON_CANCEL_HOVER",
+            "TEXT_DARK",
+            "TEXT_WHITE",
+            "TEXT_LIGHT",
+            "TEXT_ERROR",
+            "SUCCESS_GREEN",
+            "dialog_title_font",
+            "dialog_label_font",
+            "body_font",
+            "button_font",
+            "cancel_button_font",
+        ]
 
-        modal = AddQuestionModal(
+    def on_add_clicked(self):
+        """Open add question modal."""
+        ui_config = self.create_modal_ui_config(self._get_standard_modal_keys())
+        AddQuestionModal(
             self.parent, ui_config, self.image_handler, self.handle_add_save
-        )
-        modal.show()
+        ).show()
 
     def handle_add_save(self, title, definition, source_image_path):
-        # Validate title uniqueness
+        """Handle saving new question from modal."""
         if not self.validate_title_unique(title):
             messagebox.showwarning(
                 "Duplicate Question",
@@ -778,67 +767,35 @@ class ManageQuestionsScreen:
             source_image_path
         )
         if not relative_image_path:
-            return  # Error already shown by image_handler
-
-        stored_image_path = relative_image_path.as_posix()
-
-        # Add question
-        new_question = self.add_question(title, definition, stored_image_path)
-        if not new_question:
             return  # Error already shown
 
-        # Update UI
-        self.current_question = new_question
-        if self.search_entry:
-            try:
-                self.search_entry.delete(0, tk.END)
-            except tk.TclError:
-                pass
-
-        self.render_question_list()
-
-        if self.selected_question_button:
-            self.on_question_selected(new_question, self.selected_question_button)
+        # Add question and update UI
+        new_question = self.add_question(
+            title, definition, relative_image_path.as_posix()
+        )
+        if new_question:
+            self.current_question = new_question
+            if self.search_entry:
+                try:
+                    self.search_entry.delete(0, tk.END)
+                except tk.TclError:
+                    pass
+            self.render_question_list()
+            if self.selected_question_button:
+                self.on_question_selected(new_question, self.selected_question_button)
 
     def on_edit_clicked(self):
+        """Open edit question modal."""
         if not self.current_question:
             return
-
         self.tts.stop()
-
-        # Create UI config object for modal
-        ui_config = type(
-            "UIConfig",
-            (),
-            {
-                "BG_LIGHT": self.BG_LIGHT,
-                "BG_WHITE": self.BG_WHITE,
-                "BG_MODAL_HEADER": "#202632",
-                "BORDER_MEDIUM": self.BORDER_MEDIUM,
-                "PRIMARY_BLUE": self.PRIMARY_BLUE,
-                "PRIMARY_BLUE_HOVER": self.PRIMARY_BLUE_HOVER,
-                "BUTTON_CANCEL_BG": self.BUTTON_CANCEL_BG,
-                "BUTTON_CANCEL_HOVER": self.BUTTON_CANCEL_HOVER,
-                "TEXT_DARK": self.TEXT_DARK,
-                "TEXT_WHITE": self.TEXT_WHITE,
-                "TEXT_LIGHT": self.TEXT_LIGHT,
-                "TEXT_ERROR": self.TEXT_ERROR,
-                "SUCCESS_GREEN": self.SUCCESS_GREEN,
-                "dialog_title_font": self.dialog_title_font,
-                "dialog_label_font": self.dialog_label_font,
-                "body_font": self.body_font,
-                "button_font": self.button_font,
-                "cancel_button_font": self.cancel_button_font,
-            },
-        )()
-
-        modal = EditQuestionModal(
+        ui_config = self.create_modal_ui_config(self._get_standard_modal_keys())
+        EditQuestionModal(
             self.parent, ui_config, self.image_handler, self.handle_edit_save
-        )
-        modal.show(self.current_question)
+        ).show(self.current_question)
 
     def handle_edit_save(self, title, definition, image_path):
-        # Validate title uniqueness
+        """Handle saving edited question from modal."""
         if not self.validate_title_unique(
             title, exclude_question=self.current_question
         ):
@@ -851,77 +808,63 @@ class ManageQuestionsScreen:
         # Handle image path
         stored_image_path = image_path
         if isinstance(image_path, Path):
-            # New image selected
             relative_image_path = self.image_handler.copy_image_to_project(image_path)
             if not relative_image_path:
                 return  # Error already shown
             stored_image_path = relative_image_path.as_posix()
 
-        # Update question
+        # Update question and UI
         updated_question = self.update_question(
             self.current_question, title, definition, stored_image_path
         )
-        if not updated_question:
-            return  # Error already shown
-
-        # Update UI
-        self.current_question = updated_question
-        self.handle_search()
-
-        if self.selected_question_button:
-            self.on_question_selected(updated_question, self.selected_question_button)
+        if updated_question:
+            self.current_question = updated_question
+            self.handle_search()
+            if self.selected_question_button:
+                self.on_question_selected(
+                    updated_question, self.selected_question_button
+                )
 
     def on_delete_clicked(self):
+        """Open delete confirmation modal."""
         if not self.current_question:
             return
-
         self.tts.stop()
 
-        # Create UI config object for modal
-        ui_config = type(
-            "UIConfig",
-            (),
-            {
-                "BG_LIGHT": self.BG_LIGHT,
-                "BG_MODAL_HEADER": "#202632",
-                "DANGER_RED": self.DANGER_RED,
-                "DANGER_RED_HOVER": self.DANGER_RED_HOVER,
-                "BUTTON_CANCEL_BG": self.BUTTON_CANCEL_BG,
-                "BUTTON_CANCEL_HOVER": self.BUTTON_CANCEL_HOVER,
-                "TEXT_DARK": self.TEXT_DARK,
-                "TEXT_WHITE": self.TEXT_WHITE,
-                "dialog_title_font": self.dialog_title_font,
-                "dialog_body_font": self.dialog_body_font,
-                "button_font": self.button_font,
-                "cancel_button_font": self.cancel_button_font,
-            },
-        )()
-
-        modal = DeleteConfirmationModal(
+        delete_keys = [
+            "BG_LIGHT",
+            "BG_MODAL_HEADER",
+            "DANGER_RED",
+            "DANGER_RED_HOVER",
+            "BUTTON_CANCEL_BG",
+            "BUTTON_CANCEL_HOVER",
+            "TEXT_DARK",
+            "TEXT_WHITE",
+            "dialog_title_font",
+            "dialog_body_font",
+            "button_font",
+            "cancel_button_font",
+        ]
+        ui_config = self.create_modal_ui_config(delete_keys)
+        DeleteConfirmationModal(
             self.parent, ui_config, self.handle_delete_confirm
-        )
-        modal.show()
+        ).show()
 
     def handle_delete_confirm(self):
-        if not self.current_question:
-            return
-
-        if not self.delete_question(self.current_question):
-            return  # Error already shown
-
-        # Update UI
-        self.clear_detail_panel()
-        self.handle_search()
+        """Handle confirmed deletion."""
+        if self.current_question and self.delete_question(self.current_question):
+            self.clear_detail_panel()
+            self.handle_search()
 
     def on_audio_clicked(self):
-        if not self.current_question:
-            return
-
-        definition = (self.current_question.get("definition") or "").strip()
-        if definition:
-            self.tts.speak(definition)
+        """Play audio for current question definition."""
+        if self.current_question:
+            definition = self.current_question.get("definition", "").strip()
+            if definition:
+                self.tts.speak(definition)
 
     def return_to_menu(self):
+        """Return to main menu."""
         self.tts.stop()
         if self.on_return_callback:
             self.on_return_callback()
