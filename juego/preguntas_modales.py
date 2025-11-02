@@ -4,12 +4,10 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
-from juego.image_handler import ImageHandler
-
 
 class BaseQuestionModal:
 
-    def __init__(self, parent, config, image_handler: ImageHandler):
+    def __init__(self, parent, config, image_handler):
         self.parent = parent
         self.config = config
         self.image_handler = image_handler
@@ -20,7 +18,7 @@ class BaseQuestionModal:
         self.image_feedback_label = None
         self.selected_image_source_path = None
 
-    def _create_modal_window(self, title: str):
+    def _create_modal_window(self, title):
         root = self.parent.winfo_toplevel() if self.parent else None
         modal_parent = root if root else self.parent
 
@@ -48,7 +46,7 @@ class BaseQuestionModal:
         container.grid_rowconfigure(1, weight=1)
         return container
 
-    def _create_header(self, container, title: str):
+    def _create_header(self, container, title):
         header_frame = ctk.CTkFrame(
             container,
             fg_color=self.config.BG_MODAL_HEADER,
@@ -317,7 +315,7 @@ class BaseQuestionModal:
 
 class AddQuestionModal(BaseQuestionModal):
 
-    def __init__(self, parent, config, image_handler: ImageHandler, on_save_callback):
+    def __init__(self, parent, config, image_handler, on_save_callback):
         super().__init__(parent, config, image_handler)
         self.on_save_callback = on_save_callback
 
@@ -430,12 +428,12 @@ class AddQuestionModal(BaseQuestionModal):
 
 class EditQuestionModal(BaseQuestionModal):
 
-    def __init__(self, parent, config, image_handler: ImageHandler, on_save_callback):
+    def __init__(self, parent, config, image_handler, on_save_callback):
         super().__init__(parent, config, image_handler)
         self.on_save_callback = on_save_callback
         self.initial_image_path = None
 
-    def show(self, current_question: dict):
+    def show(self, current_question):
         if self.modal and self.modal.winfo_exists():
             try:
                 self.modal.lift()

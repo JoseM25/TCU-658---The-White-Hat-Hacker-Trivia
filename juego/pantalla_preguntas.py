@@ -209,7 +209,7 @@ class ManageQuestionsScreen:
         except tk.TclError:
             print(f"Save error: {message}")
 
-    def _filter_questions(self, query: str):
+    def _filter_questions(self, query):
         query = (query or "").strip().lower()
 
         if query:
@@ -221,7 +221,7 @@ class ManageQuestionsScreen:
         else:
             self.filtered_questions = list(self.questions)
 
-    def _add_question(self, title: str, definition: str, image_path: str):
+    def _add_question(self, title, definition, image_path):
         new_question = {
             "title": title,
             "definition": definition,
@@ -237,9 +237,7 @@ class ManageQuestionsScreen:
         self.filtered_questions = list(self.questions)
         return new_question
 
-    def _update_question(
-        self, old_question: dict, title: str, definition: str, image_path: str
-    ):
+    def _update_question(self, old_question, title, definition, image_path):
         new_question = {
             "title": title,
             "definition": definition,
@@ -265,7 +263,7 @@ class ManageQuestionsScreen:
 
         return self.questions[insert_index]
 
-    def _delete_question(self, question: dict):
+    def _delete_question(self, question):
         target_index = None
         for index, candidate in enumerate(self.questions):
             if candidate is question:
@@ -286,7 +284,7 @@ class ManageQuestionsScreen:
         ]
         return True
 
-    def _validate_title_unique(self, title: str, exclude_question: dict = None) -> bool:
+    def _validate_title_unique(self, title, exclude_question=None):
         normalized_title = title.lower()
         for existing in self.questions:
             if existing is exclude_question:
@@ -646,7 +644,7 @@ class ManageQuestionsScreen:
         self._filter_questions(query)
         self._render_question_list()
 
-    def _on_question_selected(self, question: dict, button):
+    def _on_question_selected(self, question, button):
         self.tts.stop()
 
         # Show detail panel if hidden
@@ -766,7 +764,7 @@ class ManageQuestionsScreen:
         )
         modal.show()
 
-    def _handle_add_save(self, title: str, definition: str, source_image_path: Path):
+    def _handle_add_save(self, title, definition, source_image_path):
         # Validate title uniqueness
         if not self._validate_title_unique(title):
             messagebox.showwarning(
@@ -839,7 +837,7 @@ class ManageQuestionsScreen:
         )
         modal.show(self.current_question)
 
-    def _handle_edit_save(self, title: str, definition: str, image_path):
+    def _handle_edit_save(self, title, definition, image_path):
         # Validate title uniqueness
         if not self._validate_title_unique(
             title, exclude_question=self.current_question

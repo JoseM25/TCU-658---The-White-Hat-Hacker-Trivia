@@ -13,17 +13,17 @@ class ImageHandler:
     MAX_DISPLAY_NAME_LENGTH = 60
     SVG_RASTER_SCALE = 2.0
 
-    def __init__(self, images_dir: Path):
+    def __init__(self, images_dir):
         self.images_dir = images_dir
 
-    def load_svg_image(self, svg_path: Path, scale: float = 1.0):
+    def load_svg_image(self, svg_path, scale=1.0):
         try:
             svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
             return ImageTk.getimage(svg_photo).convert("RGBA")
         except (FileNotFoundError, OSError, ValueError, RuntimeError):
             return None
 
-    def create_ctk_icon(self, svg_filename: str, size: tuple, scale: float = None):
+    def create_ctk_icon(self, svg_filename, size, scale=None):
         if scale is None:
             scale = self.SVG_RASTER_SCALE
 
@@ -55,7 +55,7 @@ class ImageHandler:
             size=size,
         )
 
-    def resolve_image_path(self, image_path: str) -> Path:
+    def resolve_image_path(self, image_path):
         if not image_path:
             return None
 
@@ -67,7 +67,7 @@ class ImageHandler:
 
         return candidate if candidate.exists() else None
 
-    def create_detail_image(self, image_path: str, max_size: tuple):
+    def create_detail_image(self, image_path, max_size):
         resolved_path = self.resolve_image_path(image_path)
         if not resolved_path:
             return None
@@ -97,7 +97,7 @@ class ImageHandler:
             size=prepared_image.size,
         )
 
-    def truncate_filename(self, name: str) -> str:
+    def truncate_filename(self, name):
         if not name:
             return ""
 
@@ -106,10 +106,10 @@ class ImageHandler:
 
         return name
 
-    def validate_image_extension(self, file_path: Path) -> bool:
+    def validate_image_extension(self, file_path):
         return file_path.suffix.lower() in self.ALLOWED_EXTENSIONS
 
-    def copy_image_to_project(self, source_path: Path):
+    def copy_image_to_project(self, source_path):
         try:
             resolved_images_dir = self.images_dir.resolve()
             resolved_source = source_path.resolve()
