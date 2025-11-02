@@ -21,6 +21,8 @@ class ManageQuestionsScreen:
     AUDIO_ICON_SIZE = (32, 32)
     SEARCH_ICON_FILENAME = "search.svg"
     SEARCH_ICON_SIZE = (16, 16)
+    BACK_ARROW_FILENAME = "arrow.svg"
+    BACK_ARROW_SIZE = (20, 20)
     SVG_RASTER_SCALE = 2.0
     QUESTION_DEFAULT_BG = "transparent"
     QUESTION_DEFAULT_TEXT = "#1F2937"
@@ -70,6 +72,7 @@ class ManageQuestionsScreen:
         self.current_question = None
         self.search_entry = None
         self.search_icon_image = None
+        self.back_arrow_image = None
         self.list_container = None
         self.list_frame = None
 
@@ -210,11 +213,16 @@ class ManageQuestionsScreen:
         header.grid_columnconfigure(0, weight=0)
         header.grid_columnconfigure(1, weight=1)
 
+        self.ensure_back_arrow_icon()
+
         back_button = ctk.CTkButton(
             header,
-            text="< Menu",
+            text="Menu",
             font=self.button_font,
             text_color="#FFFFFF",
+            image=self.back_arrow_image,
+            compound="left",
+            anchor="w",
             fg_color="transparent",
             hover_color="#273246",
             command=self.return_to_menu,
@@ -1875,9 +1883,9 @@ class ManageQuestionsScreen:
         cancel_button = ctk.CTkButton(
             buttons_frame,
             text="Cancel",
-            font=self.button_font,
+            font=self.cancel_button_font,
             fg_color="#E5E7EB",
-            text_color="#1F2937",
+            text_color="#FFFFFF",
             hover_color="#CBD5E1",
             command=self.close_delete_modal,
             width=130,
@@ -2054,6 +2062,35 @@ class ManageQuestionsScreen:
                 light_image=resized_image,
                 dark_image=resized_image,
                 size=self.SEARCH_ICON_SIZE,
+            )
+
+    def ensure_back_arrow_icon(self):
+        if self.back_arrow_image:
+            return
+
+        svg_path = self.IMAGES_DIR / self.BACK_ARROW_FILENAME
+        pil_image = self.load_svg_image(svg_path, scale=self.SVG_RASTER_SCALE)
+
+        if pil_image:
+            resized_image = pil_image
+            try:
+                alpha_channel = pil_image.getchannel("A")
+                bbox = alpha_channel.getbbox()
+            except (ValueError, OSError, AttributeError):
+                bbox = None
+
+            cropped_image = pil_image.crop(bbox) if bbox else pil_image
+
+            if cropped_image.size != self.BACK_ARROW_SIZE:
+                resample = getattr(Image.Resampling, "LANCZOS", 1)
+                resized_image = cropped_image.resize(self.BACK_ARROW_SIZE, resample)
+            else:
+                resized_image = cropped_image
+
+            self.back_arrow_image = ctk.CTkImage(
+                light_image=resized_image,
+                dark_image=resized_image,
+                size=self.BACK_ARROW_SIZE,
             )
 
     def resolve_image_path(self, image_path):
