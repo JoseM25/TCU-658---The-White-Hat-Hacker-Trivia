@@ -18,7 +18,7 @@ class BaseQuestionModal:
         self.image_feedback_label = None
         self.selected_image_source_path = None
 
-    def _create_modal_window(self, title):
+    def create_modal_window(self, title):
         root = self.parent.winfo_toplevel() if self.parent else None
         modal_parent = root if root else self.parent
 
@@ -39,14 +39,14 @@ class BaseQuestionModal:
 
         return modal, root
 
-    def _create_container(self, modal):
+    def create_container(self, modal):
         container = ctk.CTkFrame(modal, fg_color=self.config.BG_LIGHT, corner_radius=0)
         container.grid(row=0, column=0, padx=0, pady=0, sticky="nsew")
         container.grid_columnconfigure(0, weight=1)
         container.grid_rowconfigure(1, weight=1)
         return container
 
-    def _create_header(self, container, title):
+    def create_header(self, container, title):
         header_frame = ctk.CTkFrame(
             container,
             fg_color=self.config.BG_MODAL_HEADER,
@@ -67,7 +67,7 @@ class BaseQuestionModal:
         )
         header_label.grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
 
-    def _create_form_fields(self, container):
+    def create_form_fields(self, container):
         form_frame = ctk.CTkFrame(container, fg_color=self.config.BG_LIGHT)
         form_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
         form_frame.grid_columnconfigure(0, weight=1)
@@ -155,7 +155,7 @@ class BaseQuestionModal:
             font=self.config.button_font,
             fg_color=self.config.PRIMARY_BLUE,
             hover_color=self.config.PRIMARY_BLUE_HOVER,
-            command=self._on_select_image,
+            command=self.on_select_image,
             width=140,
             height=36,
             corner_radius=14,
@@ -174,7 +174,7 @@ class BaseQuestionModal:
 
         return form_frame
 
-    def _create_buttons(self, container, on_save_callback, on_cancel_callback):
+    def create_buttons(self, container, on_save_callback, on_cancel_callback):
         buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
         buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
         buttons_frame.grid_columnconfigure(0, weight=1)
@@ -207,7 +207,7 @@ class BaseQuestionModal:
             corner_radius=14,
         ).grid(row=0, column=2, sticky="w", padx=(32, 0))
 
-    def _position_modal(self, modal, root, width, height):
+    def position_modal(self, modal, root, width, height):
         modal.update_idletasks()
 
         screen_width = modal.winfo_screenwidth()
@@ -226,7 +226,7 @@ class BaseQuestionModal:
 
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
-    def _on_select_image(self):
+    def on_select_image(self):
         if not self.modal or not self.modal.winfo_exists():
             return
 
@@ -285,7 +285,7 @@ class BaseQuestionModal:
 
         self.selected_image_source_path = str(source_path)
 
-    def _get_form_data(self):
+    def get_form_data(self):
         if not self.concept_entry or not self.concept_entry.winfo_exists():
             return None
 
@@ -328,13 +328,13 @@ class AddQuestionModal(BaseQuestionModal):
                 pass
             return
 
-        modal, root = self._create_modal_window("Add Question")
+        modal, root = self.create_modal_window("Add Question")
         self.modal = modal
 
-        container = self._create_container(modal)
-        self._create_header(container, "Add Question")
-        self._create_form_fields(container)
-        self._create_buttons(container, self._handle_save, self.close)
+        container = self.create_container(modal)
+        self.create_header(container, "Add Question")
+        self.create_form_fields(container)
+        self.create_buttons(container, self.handle_save, self.close)
 
         modal.protocol("WM_DELETE_WINDOW", self.close)
         modal.bind("<Escape>", lambda e: self.close())
@@ -356,15 +356,15 @@ class AddQuestionModal(BaseQuestionModal):
             max(460, int(parent_height * 0.6)), modal.winfo_screenheight() - 80
         )
 
-        self._position_modal(modal, root, width, height)
+        self.position_modal(modal, root, width, height)
 
         try:
             self.concept_entry.focus_set()
         except tk.TclError:
             pass
 
-    def _handle_save(self):
-        form_data = self._get_form_data()
+    def handle_save(self):
+        form_data = self.get_form_data()
         if not form_data:
             return
 
@@ -442,13 +442,13 @@ class EditQuestionModal(BaseQuestionModal):
                 pass
             return
 
-        modal, root = self._create_modal_window("Edit Question")
+        modal, root = self.create_modal_window("Edit Question")
         self.modal = modal
 
-        container = self._create_container(modal)
-        self._create_header(container, "Edit Question")
-        self._create_form_fields(container)
-        self._create_buttons(container, self._handle_save, self.close)
+        container = self.create_container(modal)
+        self.create_header(container, "Edit Question")
+        self.create_form_fields(container)
+        self.create_buttons(container, self.handle_save, self.close)
 
         # Populate with current values
         current_title = (current_question.get("title") or "").strip()
@@ -505,15 +505,15 @@ class EditQuestionModal(BaseQuestionModal):
             max(460, int(parent_height * 0.6)), modal.winfo_screenheight() - 80
         )
 
-        self._position_modal(modal, root, width, height)
+        self.position_modal(modal, root, width, height)
 
         try:
             self.concept_entry.focus_set()
         except tk.TclError:
             pass
 
-    def _handle_save(self):
-        form_data = self._get_form_data()
+    def handle_save(self):
+        form_data = self.get_form_data()
         if not form_data:
             return
 
@@ -674,7 +674,7 @@ class DeleteConfirmationModal:
             font=self.config.button_font,
             fg_color=self.config.DANGER_RED,
             hover_color=self.config.DANGER_RED_HOVER,
-            command=self._handle_confirm,
+            command=self.handle_confirm,
             width=130,
             height=46,
             corner_radius=14,
@@ -719,7 +719,7 @@ class DeleteConfirmationModal:
         except tk.TclError:
             pass
 
-    def _handle_confirm(self):
+    def handle_confirm(self):
         if self.on_confirm_callback:
             self.on_confirm_callback()
 

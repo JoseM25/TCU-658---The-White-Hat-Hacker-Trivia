@@ -70,7 +70,7 @@ class ManageQuestionsScreen:
         self.on_return_callback = on_return_callback
 
         # Initialize fonts
-        self._init_fonts()
+        self.init_fonts()
 
         # Initialize services
         self.tts = TTSService(self.AUDIO_DIR)
@@ -79,7 +79,7 @@ class ManageQuestionsScreen:
         # Question management state
         self.questions = []
         self.filtered_questions = []
-        self._load_questions()
+        self.load_questions()
 
         # UI State
         self.current_question = None
@@ -115,7 +115,7 @@ class ManageQuestionsScreen:
 
         self.build_ui()
 
-    def _init_fonts(self):
+    def init_fonts(self):
         self.title_font = ctk.CTkFont(
             family="Poppins ExtraBold", size=38, weight="bold"
         )
@@ -143,7 +143,7 @@ class ManageQuestionsScreen:
             family="Poppins SemiBold", size=16, weight="bold"
         )
 
-    def _load_questions(self):
+    def load_questions(self):
         if not self.QUESTIONS_FILE.exists():
             self.questions = []
             self.filtered_questions = []
@@ -180,7 +180,7 @@ class ManageQuestionsScreen:
         self.questions = questions
         self.filtered_questions = list(questions)
 
-    def _save_questions(self, questions):
+    def save_questions(self, questions):
         payload = {"questions": questions}
 
         try:
@@ -190,13 +190,13 @@ class ManageQuestionsScreen:
                 encoding="utf-8",
             )
         except OSError as error:
-            self._show_save_error(error)
+            self.show_save_error(error)
             return False
 
         self.questions = questions
         return True
 
-    def _show_save_error(self, error):
+    def show_save_error(self, error):
         base_message = (
             "Unable to update the questions file. "
             "Please check permissions and try again."
@@ -209,7 +209,7 @@ class ManageQuestionsScreen:
         except tk.TclError:
             print(f"Save error: {message}")
 
-    def _filter_questions(self, query):
+    def filter_questions(self, query):
         query = (query or "").strip().lower()
 
         if query:
@@ -221,7 +221,7 @@ class ManageQuestionsScreen:
         else:
             self.filtered_questions = list(self.questions)
 
-    def _add_question(self, title, definition, image_path):
+    def add_question(self, title, definition, image_path):
         new_question = {
             "title": title,
             "definition": definition,
@@ -231,13 +231,13 @@ class ManageQuestionsScreen:
         updated_questions = list(self.questions)
         updated_questions.append(new_question)
 
-        if not self._save_questions(updated_questions):
+        if not self.save_questions(updated_questions):
             return None
 
         self.filtered_questions = list(self.questions)
         return new_question
 
-    def _update_question(self, old_question, title, definition, image_path):
+    def update_question(self, old_question, title, definition, image_path):
         new_question = {
             "title": title,
             "definition": definition,
@@ -258,12 +258,12 @@ class ManageQuestionsScreen:
         )
         updated_questions.insert(insert_index, new_question)
 
-        if not self._save_questions(updated_questions):
+        if not self.save_questions(updated_questions):
             return None
 
         return self.questions[insert_index]
 
-    def _delete_question(self, question):
+    def delete_question(self, question):
         target_index = None
         for index, candidate in enumerate(self.questions):
             if candidate is question:
@@ -276,7 +276,7 @@ class ManageQuestionsScreen:
         updated_questions = list(self.questions)
         updated_questions.pop(target_index)
 
-        if not self._save_questions(updated_questions):
+        if not self.save_questions(updated_questions):
             return False
 
         self.filtered_questions = [
@@ -284,7 +284,7 @@ class ManageQuestionsScreen:
         ]
         return True
 
-    def _validate_title_unique(self, title, exclude_question=None):
+    def validate_title_unique(self, title, exclude_question=None):
         normalized_title = title.lower()
         for existing in self.questions:
             if existing is exclude_question:
@@ -307,12 +307,12 @@ class ManageQuestionsScreen:
         main.grid_columnconfigure(1, weight=0, minsize=2)
         main.grid_columnconfigure(2, weight=1)
 
-        self._build_header(main)
-        self._build_sidebar(main)
-        self._build_divider(main)
-        self._build_detail_panel(main)
+        self.build_header(main)
+        self.build_sidebar(main)
+        self.build_divider(main)
+        self.build_detail_panel(main)
 
-    def _build_header(self, parent):
+    def build_header(self, parent):
         header = ctk.CTkFrame(parent, fg_color=self.HEADER_BG, corner_radius=0)
         header.grid(row=0, column=0, columnspan=3, sticky="ew")
         header.grid_columnconfigure(0, weight=0)
@@ -342,16 +342,16 @@ class ManageQuestionsScreen:
             anchor="center",
         ).grid(row=0, column=1, padx=32, pady=(28, 32), sticky="nsew")
 
-    def _build_sidebar(self, parent):
+    def build_sidebar(self, parent):
         sidebar = ctk.CTkFrame(parent, fg_color="transparent")
         sidebar.grid(row=1, column=0, sticky="ns", padx=(32, 12), pady=32)
         sidebar.grid_rowconfigure(1, weight=1)
         sidebar.grid_columnconfigure(0, weight=1)
 
-        self._build_controls(sidebar)
-        self._build_question_list_container(sidebar)
+        self.build_controls(sidebar)
+        self.build_question_list_container(sidebar)
 
-    def _build_controls(self, parent):
+    def build_controls(self, parent):
         controls = ctk.CTkFrame(parent, fg_color="transparent")
         controls.grid(row=0, column=0, sticky="ew")
         controls.grid_columnconfigure(0, weight=1)
@@ -392,9 +392,9 @@ class ManageQuestionsScreen:
             border_width=0,
         )
         self.search_entry.grid(row=0, column=1, padx=(0, 18), pady=4, sticky="nsew")
-        self.search_entry.bind("<KeyRelease>", lambda e: self._handle_search())
-        self.search_entry.bind("<<Paste>>", lambda e: self._handle_search())
-        self.search_entry.bind("<<Cut>>", lambda e: self._handle_search())
+        self.search_entry.bind("<KeyRelease>", lambda e: self.handle_search())
+        self.search_entry.bind("<<Paste>>", lambda e: self.handle_search())
+        self.search_entry.bind("<<Cut>>", lambda e: self.handle_search())
 
         # Add button
         ctk.CTkButton(
@@ -403,21 +403,21 @@ class ManageQuestionsScreen:
             font=self.button_font,
             fg_color=self.PRIMARY_BLUE,
             hover_color=self.PRIMARY_BLUE_HOVER,
-            command=self._on_add_clicked,
+            command=self.on_add_clicked,
             width=96,
             height=42,
             corner_radius=12,
         ).grid(row=0, column=1, padx=(0, 16), pady=16)
 
-    def _build_question_list_container(self, parent):
+    def build_question_list_container(self, parent):
         self.list_container = ctk.CTkFrame(parent, fg_color="transparent")
         self.list_container.grid(row=1, column=0, sticky="nsew", pady=(20, 0))
         self.list_container.grid_columnconfigure(0, weight=1)
         self.list_container.grid_rowconfigure(0, weight=1)
 
-        self._render_question_list()
+        self.render_question_list()
 
-    def _build_divider(self, parent):
+    def build_divider(self, parent):
         ctk.CTkFrame(
             parent,
             fg_color=self.BORDER_LIGHT,
@@ -425,7 +425,7 @@ class ManageQuestionsScreen:
             width=2,
         ).grid(row=1, column=1, sticky="ns", pady=32)
 
-    def _build_detail_panel(self, parent):
+    def build_detail_panel(self, parent):
         self.detail_container = ctk.CTkFrame(
             parent,
             fg_color=self.BG_LIGHT,
@@ -439,14 +439,14 @@ class ManageQuestionsScreen:
         self.detail_container.grid_rowconfigure(1, weight=1)
         self.detail_container.grid_columnconfigure(0, weight=1)
 
-        self._build_detail_header()
-        self._build_detail_body()
+        self.build_detail_header()
+        self.build_detail_body()
 
         # Hide initially
         self.detail_container.grid_remove()
         self.detail_visible = False
 
-    def _build_detail_header(self):
+    def build_detail_header(self):
         header = ctk.CTkFrame(self.detail_container, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 12))
         header.grid_columnconfigure(0, weight=1)
@@ -466,7 +466,7 @@ class ManageQuestionsScreen:
             font=self.question_font,
             fg_color=self.SECONDARY_CYAN,
             hover_color=self.SECONDARY_CYAN_HOVER,
-            command=self._on_edit_clicked,
+            command=self.on_edit_clicked,
             width=110,
             height=44,
             corner_radius=12,
@@ -478,13 +478,13 @@ class ManageQuestionsScreen:
             font=self.question_font,
             fg_color=self.DANGER_RED,
             hover_color=self.DANGER_RED_HOVER,
-            command=self._on_delete_clicked,
+            command=self.on_delete_clicked,
             width=110,
             height=44,
             corner_radius=12,
         ).grid(row=0, column=2, sticky="e")
 
-    def _build_detail_body(self):
+    def build_detail_body(self):
         body = ctk.CTkFrame(self.detail_container, fg_color="transparent")
         body.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
         body.grid_rowconfigure(0, weight=1)
@@ -524,7 +524,7 @@ class ManageQuestionsScreen:
             "image": self.audio_icon,
             "fg_color": "transparent",
             "hover_color": "#E5E7EB",
-            "command": self._on_audio_clicked,
+            "command": self.on_audio_clicked,
             "state": "disabled",
             "width": 44,
             "height": 44,
@@ -549,7 +549,7 @@ class ManageQuestionsScreen:
         )
         self.detail_definition_label.grid(row=0, column=1, sticky="nw")
 
-    def _render_question_list(self):
+    def render_question_list(self):
         if not self.list_container or not self.list_container.winfo_exists():
             return
 
@@ -564,7 +564,7 @@ class ManageQuestionsScreen:
             self.current_question in questions if self.current_question else False
         )
         if not selected_visible and self.current_question:
-            self._clear_detail_panel()
+            self.clear_detail_panel()
 
         # Determine if scrollbar is needed
         needs_scrollbar = len(questions) > self.MAX_VISIBLE_QUESTIONS
@@ -616,7 +616,7 @@ class ManageQuestionsScreen:
             )
             # Update command to pass button reference
             button.configure(
-                command=lambda q=question, b=button: self._on_question_selected(q, b)
+                command=lambda q=question, b=button: self.on_question_selected(q, b)
             )
 
             button.grid(
@@ -639,12 +639,12 @@ class ManageQuestionsScreen:
                 )
                 self.selected_question_button = button
 
-    def _handle_search(self):
+    def handle_search(self):
         query = self.search_entry.get() if self.search_entry else ""
-        self._filter_questions(query)
-        self._render_question_list()
+        self.filter_questions(query)
+        self.render_question_list()
 
-    def _on_question_selected(self, question, button):
+    def on_question_selected(self, question, button):
         self.tts.stop()
 
         # Show detail panel if hidden
@@ -702,7 +702,7 @@ class ManageQuestionsScreen:
             state="normal" if has_definition else "disabled"
         )
 
-    def _clear_detail_panel(self):
+    def clear_detail_panel(self):
         self.tts.stop()
         self.current_question = None
         self.selected_question_button = None
@@ -732,7 +732,7 @@ class ManageQuestionsScreen:
             except tk.TclError:
                 pass
 
-    def _on_add_clicked(self):
+    def on_add_clicked(self):
         # Create UI config object for modal
         ui_config = type(
             "UIConfig",
@@ -760,13 +760,13 @@ class ManageQuestionsScreen:
         )()
 
         modal = AddQuestionModal(
-            self.parent, ui_config, self.image_handler, self._handle_add_save
+            self.parent, ui_config, self.image_handler, self.handle_add_save
         )
         modal.show()
 
-    def _handle_add_save(self, title, definition, source_image_path):
+    def handle_add_save(self, title, definition, source_image_path):
         # Validate title uniqueness
-        if not self._validate_title_unique(title):
+        if not self.validate_title_unique(title):
             messagebox.showwarning(
                 "Duplicate Question",
                 "A question with this title already exists. Please use a different title.",
@@ -783,7 +783,7 @@ class ManageQuestionsScreen:
         stored_image_path = relative_image_path.as_posix()
 
         # Add question
-        new_question = self._add_question(title, definition, stored_image_path)
+        new_question = self.add_question(title, definition, stored_image_path)
         if not new_question:
             return  # Error already shown
 
@@ -795,12 +795,12 @@ class ManageQuestionsScreen:
             except tk.TclError:
                 pass
 
-        self._render_question_list()
+        self.render_question_list()
 
         if self.selected_question_button:
-            self._on_question_selected(new_question, self.selected_question_button)
+            self.on_question_selected(new_question, self.selected_question_button)
 
-    def _on_edit_clicked(self):
+    def on_edit_clicked(self):
         if not self.current_question:
             return
 
@@ -833,13 +833,13 @@ class ManageQuestionsScreen:
         )()
 
         modal = EditQuestionModal(
-            self.parent, ui_config, self.image_handler, self._handle_edit_save
+            self.parent, ui_config, self.image_handler, self.handle_edit_save
         )
         modal.show(self.current_question)
 
-    def _handle_edit_save(self, title, definition, image_path):
+    def handle_edit_save(self, title, definition, image_path):
         # Validate title uniqueness
-        if not self._validate_title_unique(
+        if not self.validate_title_unique(
             title, exclude_question=self.current_question
         ):
             messagebox.showwarning(
@@ -858,7 +858,7 @@ class ManageQuestionsScreen:
             stored_image_path = relative_image_path.as_posix()
 
         # Update question
-        updated_question = self._update_question(
+        updated_question = self.update_question(
             self.current_question, title, definition, stored_image_path
         )
         if not updated_question:
@@ -866,12 +866,12 @@ class ManageQuestionsScreen:
 
         # Update UI
         self.current_question = updated_question
-        self._handle_search()
+        self.handle_search()
 
         if self.selected_question_button:
-            self._on_question_selected(updated_question, self.selected_question_button)
+            self.on_question_selected(updated_question, self.selected_question_button)
 
-    def _on_delete_clicked(self):
+    def on_delete_clicked(self):
         if not self.current_question:
             return
 
@@ -898,22 +898,22 @@ class ManageQuestionsScreen:
         )()
 
         modal = DeleteConfirmationModal(
-            self.parent, ui_config, self._handle_delete_confirm
+            self.parent, ui_config, self.handle_delete_confirm
         )
         modal.show()
 
-    def _handle_delete_confirm(self):
+    def handle_delete_confirm(self):
         if not self.current_question:
             return
 
-        if not self._delete_question(self.current_question):
+        if not self.delete_question(self.current_question):
             return  # Error already shown
 
         # Update UI
-        self._clear_detail_panel()
-        self._handle_search()
+        self.clear_detail_panel()
+        self.handle_search()
 
-    def _on_audio_clicked(self):
+    def on_audio_clicked(self):
         if not self.current_question:
             return
 
