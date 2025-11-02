@@ -18,13 +18,13 @@ class BaseQuestionModal:
         self.image_feedback_label = None
         self.selected_image_source_path = None
 
-    def _safe_try(self, func):
+    def safe_try(self, func):
         try:
             func()
         except tk.TclError:
             pass
 
-    def _create_label(self, parent, text, **kwargs):
+    def create_label(self, parent, text, **kwargs):
         defaults = {
             "font": self.config.dialog_label_font,
             "text_color": self.config.TEXT_DARK,
@@ -32,7 +32,7 @@ class BaseQuestionModal:
         }
         return ctk.CTkLabel(parent, text=text, **{**defaults, **kwargs})
 
-    def _create_entry(self, parent, placeholder, **kwargs):
+    def create_entry(self, parent, placeholder, **kwargs):
         defaults = {
             "fg_color": self.config.BG_WHITE,
             "text_color": self.config.TEXT_DARK,
@@ -46,7 +46,7 @@ class BaseQuestionModal:
             parent, placeholder_text=placeholder, **{**defaults, **kwargs}
         )
 
-    def _create_button(self, parent, text, command, is_primary=True, **kwargs):
+    def create_button(self, parent, text, command, is_primary=True, **kwargs):
         if is_primary:
             defaults = {
                 "font": self.config.button_font,
@@ -76,7 +76,7 @@ class BaseQuestionModal:
         modal.title(title)
         if root:
             modal.transient(root)
-        self._safe_try(modal.grab_set)
+        self.safe_try(modal.grab_set)
         modal.resizable(False, False)
         modal.configure(fg_color=self.config.BG_LIGHT)
         modal.grid_rowconfigure(0, weight=1)
@@ -113,21 +113,21 @@ class BaseQuestionModal:
         form_frame.grid_columnconfigure(0, weight=1)
 
         # Concept field
-        self._create_label(form_frame, "Concept").grid(
+        self.create_label(form_frame, "Concept").grid(
             row=0, column=0, sticky="w", pady=(0, 8)
         )
-        self.concept_entry = self._create_entry(form_frame, "Enter concept")
+        self.concept_entry = self.create_entry(form_frame, "Enter concept")
         self.concept_entry.grid(row=1, column=0, sticky="ew", pady=(0, 16))
 
         # Definition field
-        self._create_label(form_frame, "Definition").grid(
+        self.create_label(form_frame, "Definition").grid(
             row=2, column=0, sticky="w", pady=(0, 8)
         )
-        self.definition_textbox = self._create_entry(form_frame, "Enter definition")
+        self.definition_textbox = self.create_entry(form_frame, "Enter definition")
         self.definition_textbox.grid(row=3, column=0, sticky="ew")
 
         # Image field
-        self._create_label(form_frame, "Illustration").grid(
+        self.create_label(form_frame, "Illustration").grid(
             row=4, column=0, sticky="w", pady=(16, 8)
         )
 
@@ -155,7 +155,7 @@ class BaseQuestionModal:
         )
         self.image_display_label.grid(row=0, column=0, sticky="w", padx=(0, 16))
 
-        self._create_button(
+        self.create_button(
             image_picker_frame,
             "Choose File",
             self.on_select_image,
@@ -180,14 +180,14 @@ class BaseQuestionModal:
         for i in range(4):
             buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
 
-        self._create_button(
+        self.create_button(
             buttons_frame, "Cancel", on_cancel_callback, is_primary=False
         ).grid(row=0, column=1, sticky="e", padx=(0, 32))
-        self._create_button(buttons_frame, "Save", on_save_callback).grid(
+        self.create_button(buttons_frame, "Save", on_save_callback).grid(
             row=0, column=2, sticky="w", padx=(32, 0)
         )
 
-    def _calculate_modal_dimensions(
+    def calculate_modal_dimensions(
         self,
         modal,
         root,
@@ -228,12 +228,12 @@ class BaseQuestionModal:
 
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
-    def _update_image_feedback(self, message, is_error=True):
+    def update_image_feedback(self, message, is_error=True):
         if self.image_feedback_label:
             color = self.config.TEXT_ERROR if is_error else self.config.SUCCESS_GREEN
             self.image_feedback_label.configure(text=message, text_color=color)
 
-    def _reset_image_display(self):
+    def reset_image_display(self):
         if self.image_display_label:
             self.image_display_label.configure(
                 text="No image selected", text_color=self.config.TEXT_LIGHT
@@ -271,10 +271,10 @@ class BaseQuestionModal:
 
         source_path = Path(file_path)
         if not self.image_handler.validate_image_extension(source_path):
-            self._update_image_feedback(
+            self.update_image_feedback(
                 "Unsupported file type. Please choose a PNG or JPG image."
             )
-            self._reset_image_display()
+            self.reset_image_display()
             return
 
         display_name = self.image_handler.truncate_filename(source_path.name)
@@ -282,7 +282,7 @@ class BaseQuestionModal:
             self.image_display_label.configure(
                 text=display_name, text_color=self.config.TEXT_DARK
             )
-        self._update_image_feedback("Image ready to import.", is_error=False)
+        self.update_image_feedback("Image ready to import.", is_error=False)
         self.selected_image_source_path = str(source_path)
 
     def get_form_data(self):
@@ -298,7 +298,7 @@ class BaseQuestionModal:
 
     def close(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(self.modal.grab_release)
+            self.safe_try(self.modal.grab_release)
             self.modal.destroy()
 
         self.modal = None
@@ -316,26 +316,24 @@ class AddQuestionModal(BaseQuestionModal):
         self.on_save_callback = on_save_callback
 
     def show(self):
-        if self._show_existing_modal():
+        if self.show_existing_modal():
             return
 
         modal, root = self.create_modal_window("Add Question")
         self.modal = modal
 
-        self._setup_modal_ui(modal, "Add Question")
-        width, height = self._calculate_modal_dimensions(
-            modal, root, 0.5, 0.6, 480, 460
-        )
+        self.setup_modal_ui(modal, "Add Question")
+        width, height = self.calculate_modal_dimensions(modal, root, 0.5, 0.6, 480, 460)
         self.position_modal(modal, root, width, height)
-        self._safe_try(self.concept_entry.focus_set)
+        self.safe_try(self.concept_entry.focus_set)
 
-    def _show_existing_modal(self):
+    def show_existing_modal(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return True
         return False
 
-    def _setup_modal_ui(self, modal, title):
+    def setup_modal_ui(self, modal, title):
         container = self.create_container(modal)
         self.create_header(container, title)
         self.create_form_fields(container)
@@ -343,12 +341,12 @@ class AddQuestionModal(BaseQuestionModal):
         modal.protocol("WM_DELETE_WINDOW", self.close)
         modal.bind("<Escape>", lambda e: self.close())
 
-    def _validate_field(self, value, field_name, widget):
+    def validate_field(self, value, field_name, widget):
         if not value:
             messagebox.showwarning(
                 "Missing Information", f"Please enter a {field_name} for the question."
             )
-            self._safe_try(widget.focus_set)
+            self.safe_try(widget.focus_set)
             return False
         return True
 
@@ -359,16 +357,16 @@ class AddQuestionModal(BaseQuestionModal):
 
         title, definition = form_data["title"], form_data["definition"]
 
-        if not self._validate_field(title, "title", self.concept_entry):
+        if not self.validate_field(title, "title", self.concept_entry):
             return
-        if not self._validate_field(definition, "definition", self.definition_textbox):
+        if not self.validate_field(definition, "definition", self.definition_textbox):
             return
 
         if not self.selected_image_source_path:
             messagebox.showwarning(
                 "Missing Information", "Please choose an illustration for the question."
             )
-            self._update_image_feedback("Select an image before saving.")
+            self.update_image_feedback("Select an image before saving.")
             return
 
         source_path = Path(self.selected_image_source_path)
@@ -377,8 +375,8 @@ class AddQuestionModal(BaseQuestionModal):
                 "Image Not Found",
                 "The selected image could not be located. Please choose a different file.",
             )
-            self._update_image_feedback("Selected file is no longer available.")
-            self._reset_image_display()
+            self.update_image_feedback("Selected file is no longer available.")
+            self.reset_image_display()
             return
 
         if self.on_save_callback:
@@ -393,28 +391,26 @@ class EditQuestionModal(BaseQuestionModal):
         self.initial_image_path = None
 
     def show(self, current_question):
-        if self._show_existing_modal():
+        if self.show_existing_modal():
             return
 
         modal, root = self.create_modal_window("Edit Question")
         self.modal = modal
 
-        self._setup_modal_ui(modal, "Edit Question")
-        self._populate_form(current_question)
+        self.setup_modal_ui(modal, "Edit Question")
+        self.populate_form(current_question)
 
-        width, height = self._calculate_modal_dimensions(
-            modal, root, 0.5, 0.6, 480, 460
-        )
+        width, height = self.calculate_modal_dimensions(modal, root, 0.5, 0.6, 480, 460)
         self.position_modal(modal, root, width, height)
-        self._safe_try(self.concept_entry.focus_set)
+        self.safe_try(self.concept_entry.focus_set)
 
-    def _show_existing_modal(self):
+    def show_existing_modal(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return True
         return False
 
-    def _setup_modal_ui(self, modal, title):
+    def setup_modal_ui(self, modal, title):
         container = self.create_container(modal)
         self.create_header(container, title)
         self.create_form_fields(container)
@@ -422,17 +418,15 @@ class EditQuestionModal(BaseQuestionModal):
         modal.protocol("WM_DELETE_WINDOW", self.close)
         modal.bind("<Escape>", lambda e: self.close())
 
-    def _populate_form(self, current_question):
+    def populate_form(self, current_question):
         current_title = (current_question.get("title") or "").strip()
         current_definition = (current_question.get("definition") or "").strip()
         existing_image_path = (current_question.get("image") or "").strip()
 
         if current_title:
-            self._safe_try(lambda: self.concept_entry.insert(0, current_title))
+            self.safe_try(lambda: self.concept_entry.insert(0, current_title))
         if current_definition:
-            self._safe_try(
-                lambda: self.definition_textbox.insert(0, current_definition)
-            )
+            self.safe_try(lambda: self.definition_textbox.insert(0, current_definition))
 
         if existing_image_path:
             try:
@@ -451,12 +445,12 @@ class EditQuestionModal(BaseQuestionModal):
 
         self.initial_image_path = existing_image_path
 
-    def _validate_field(self, value, field_name, widget):
+    def validate_field(self, value, field_name, widget):
         if not value:
             messagebox.showwarning(
                 "Missing Information", f"Please enter a {field_name} for the question."
             )
-            self._safe_try(widget.focus_set)
+            self.safe_try(widget.focus_set)
             return False
         return True
 
@@ -467,9 +461,9 @@ class EditQuestionModal(BaseQuestionModal):
 
         title, definition = form_data["title"], form_data["definition"]
 
-        if not self._validate_field(title, "title", self.concept_entry):
+        if not self.validate_field(title, "title", self.concept_entry):
             return
-        if not self._validate_field(definition, "definition", self.definition_textbox):
+        if not self.validate_field(definition, "definition", self.definition_textbox):
             return
 
         image_path = self.initial_image_path or ""
@@ -480,7 +474,7 @@ class EditQuestionModal(BaseQuestionModal):
                 messagebox.showerror(
                     "Image Not Found", "The selected image could not be located."
                 )
-                self._update_image_feedback("Selected file is no longer available.")
+                self.update_image_feedback("Selected file is no longer available.")
                 return
 
             if not self.image_handler.validate_image_extension(source_path):
@@ -507,13 +501,13 @@ class DeleteConfirmationModal:
         self.on_confirm_callback = on_confirm_callback
         self.modal = None
 
-    def _safe_try(self, func):
+    def safe_try(self, func):
         try:
             func()
         except tk.TclError:
             pass
 
-    def _calculate_position(self, modal, root, width, height):
+    def calculate_position(self, modal, root, width, height):
         screen_width, screen_height = (
             modal.winfo_screenwidth(),
             modal.winfo_screenheight(),
@@ -529,7 +523,7 @@ class DeleteConfirmationModal:
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return
 
         root = self.parent.winfo_toplevel() if self.parent else None
@@ -537,7 +531,7 @@ class DeleteConfirmationModal:
         modal.title("Delete Question")
         if root:
             modal.transient(root)
-        self._safe_try(modal.grab_set)
+        self.safe_try(modal.grab_set)
         modal.resizable(False, False)
         modal.configure(fg_color=self.config.BG_LIGHT)
         modal.grid_rowconfigure(0, weight=1)
@@ -628,11 +622,11 @@ class DeleteConfirmationModal:
         width = min(max(480, int(parent_width * 0.5)), screen_width - 80)
         height = min(max(340, int(parent_height * 0.5)), screen_height - 80)
 
-        pos_x, pos_y = self._calculate_position(modal, root, width, height)
+        pos_x, pos_y = self.calculate_position(modal, root, width, height)
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         message_label.configure(wraplength=max(width - 120, 360))
 
-        self._safe_try(confirm_button.focus_set)
+        self.safe_try(confirm_button.focus_set)
 
     def handle_confirm(self):
         if self.on_confirm_callback:
@@ -640,6 +634,6 @@ class DeleteConfirmationModal:
 
     def close(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(self.modal.grab_release)
-            self._safe_try(self.modal.destroy)
+            self.safe_try(self.modal.grab_release)
+            self.safe_try(self.modal.destroy)
         self.modal = None

@@ -24,14 +24,14 @@ class ImageHandler:
         except (FileNotFoundError, OSError, ValueError, RuntimeError):
             return None
 
-    def _crop_to_alpha_bounds(self, pil_image):
+    def crop_to_alpha_bounds(self, pil_image):
         try:
             bbox = pil_image.getchannel("A").getbbox()
             return pil_image.crop(bbox) if bbox else pil_image
         except (ValueError, OSError, AttributeError):
             return pil_image
 
-    def _resize_image(self, image, target_size):
+    def resize_image(self, image, target_size):
         if image.size == target_size:
             return image
         resample = getattr(Image.Resampling, "LANCZOS", 1)
@@ -44,8 +44,8 @@ class ImageHandler:
         if not pil_image:
             return None
 
-        cropped = self._crop_to_alpha_bounds(pil_image)
-        resized = self._resize_image(cropped, size)
+        cropped = self.crop_to_alpha_bounds(pil_image)
+        resized = self.resize_image(cropped, size)
 
         return ctk.CTkImage(light_image=resized, dark_image=resized, size=size)
 
@@ -80,7 +80,7 @@ class ImageHandler:
 
         if scale < 1:
             new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
-            prepared_image = self._resize_image(prepared_image, new_size)
+            prepared_image = self.resize_image(prepared_image, new_size)
 
         return ctk.CTkImage(
             light_image=prepared_image,
@@ -96,13 +96,13 @@ class ImageHandler:
     def validate_image_extension(self, file_path):
         return file_path.suffix.lower() in self.ALLOWED_EXTENSIONS
 
-    def _resolve_paths(self, source_path):
+    def resolve_paths(self, source_path):
         try:
             return self.images_dir.resolve(), source_path.resolve()
         except OSError:
             return self.images_dir, source_path
 
-    def _get_unique_destination(self, source_path):
+    def get_unique_destination(self, source_path):
         stem = source_path.stem or "image"
         suffix = source_path.suffix or ".png"
 
@@ -115,7 +115,7 @@ class ImageHandler:
         return destination
 
     def copy_image_to_project(self, source_path):
-        images_dir, source = self._resolve_paths(source_path)
+        images_dir, source = self.resolve_paths(source_path)
 
         # Check if already in images directory
         try:
@@ -135,7 +135,7 @@ class ImageHandler:
             return None
 
         # Copy with unique filename
-        destination = self._get_unique_destination(source_path)
+        destination = self.get_unique_destination(source_path)
         try:
             shutil.copy2(source_path, destination)
             return Path("recursos") / "imagenes" / destination.name

@@ -73,8 +73,20 @@ class ManageQuestionsScreen:
         self.parent = parent
         self.on_return_callback = on_return_callback
 
+        # Declare font attributes (set in init_fonts)
+        self.title_font = None
+        self.body_font = None
+        self.button_font = None
+        self.cancel_button_font = None
+        self.search_font = None
+        self.question_font = None
+        self.detail_title_font = None
+        self.dialog_title_font = None
+        self.dialog_body_font = None
+        self.dialog_label_font = None
+
         # Initialize fonts
-        self._init_fonts()
+        self.init_fonts()
 
         # Initialize services
         self.tts = TTSService(self.AUDIO_DIR)
@@ -118,7 +130,7 @@ class ManageQuestionsScreen:
             widget.destroy()
         self.build_ui()
 
-    def _init_fonts(self):
+    def init_fonts(self):
         font_specs = {
             "title": ("Poppins ExtraBold", 38, "bold"),
             "body": ("Poppins Medium", 18, None),
@@ -182,17 +194,17 @@ class ManageQuestionsScreen:
 
         try:
             data = json.loads(self.QUESTIONS_FILE.read_text(encoding="utf-8"))
-            raw_questions = (
-                data.get("questions", []) if isinstance(data, dict) else data
-            )
+            raw_questions = data.get("questions", []) if hasattr(data, "get") else data
         except json.JSONDecodeError:
             self.questions = self.filtered_questions = []
             return
+        except (AttributeError, TypeError):
+            raw_questions = data if data else []
 
         self.questions = [
             {"title": title, "definition": definition, "image": image}
             for item in raw_questions
-            if isinstance(item, dict) and (title := (item.get("title") or "").strip())
+            if hasattr(item, "get") and (title := (item.get("title") or "").strip())
             for definition in [(item.get("definition") or "").strip()]
             for image in [(item.get("image") or "").strip()]
         ]
@@ -208,10 +220,10 @@ class ManageQuestionsScreen:
             self.questions = questions
             return True
         except OSError as error:
-            self._show_save_error(error)
+            self.show_save_error(error)
             return False
 
-    def _show_save_error(self, error):
+    def show_save_error(self, error):
         message = (
             "Unable to update the questions file. "
             f"Please check permissions and try again.\n\nDetails: {error}"
@@ -704,7 +716,7 @@ class ManageQuestionsScreen:
             except tk.TclError:
                 pass
 
-    def _get_standard_modal_keys(self):
+    def get_standard_modal_keys(self):
         return [
             "BG_LIGHT",
             "BG_WHITE",
@@ -727,7 +739,7 @@ class ManageQuestionsScreen:
         ]
 
     def on_add_clicked(self):
-        ui_config = self.create_modal_ui_config(self._get_standard_modal_keys())
+        ui_config = self.create_modal_ui_config(self.get_standard_modal_keys())
         AddQuestionModal(
             self.parent, ui_config, self.image_handler, self.handle_add_save
         ).show()
@@ -766,7 +778,7 @@ class ManageQuestionsScreen:
         if not self.current_question:
             return
         self.tts.stop()
-        ui_config = self.create_modal_ui_config(self._get_standard_modal_keys())
+        ui_config = self.create_modal_ui_config(self.get_standard_modal_keys())
         EditQuestionModal(
             self.parent, ui_config, self.image_handler, self.handle_edit_save
         ).show(self.current_question)
@@ -783,7 +795,7 @@ class ManageQuestionsScreen:
 
         # Handle image path
         stored_image_path = image_path
-        if isinstance(image_path, Path):
+        if hasattr(image_path, "as_posix"):
             relative_image_path = self.image_handler.copy_image_to_project(image_path)
             if not relative_image_path:
                 return  # Error already shown
