@@ -7,7 +7,7 @@ import customtkinter as ctk
 
 from juego.tts_service import TTSService
 from juego.image_handler import ImageHandler
-from juego.question_modals import (
+from juego.preguntas_modales import (
     AddQuestionModal,
     EditQuestionModal,
     DeleteConfirmationModal,
