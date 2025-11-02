@@ -131,6 +131,9 @@ class ManageQuestionsScreen:
             widget.destroy()
         self.build_ui()
 
+        # Bind click event to remove focus from search when clicking elsewhere
+        self.parent.bind("<Button-1>", self.handle_global_click, add="+")
+
     def init_fonts(self):
         font_specs = {
             "title": ("Poppins ExtraBold", 38, "bold"),
@@ -372,7 +375,7 @@ class ManageQuestionsScreen:
             )
 
         ctk.CTkLabel(search_wrapper, **icon_config).grid(
-            row=0, column=0, padx=(18, 8), sticky="w"
+            row=0, column=0, padx=(12, 4), sticky="w"
         )
 
         # Search entry
@@ -387,7 +390,7 @@ class ManageQuestionsScreen:
             height=42,
             border_width=0,
         )
-        self.search_entry.grid(row=0, column=1, padx=(0, 18), pady=4, sticky="nsew")
+        self.search_entry.grid(row=0, column=1, padx=(4, 18), pady=4, sticky="nsew")
         for event in ("<KeyRelease>", "<<Paste>>", "<<Cut>>"):
             self.search_entry.bind(event, lambda e: self.handle_search())
 
@@ -633,6 +636,31 @@ class ManageQuestionsScreen:
         query = self.search_entry.get() if self.search_entry else ""
         self.filter_questions(query)
         self.render_question_list()
+
+    def handle_global_click(self, event):
+        if not self.search_entry or not self.search_entry.winfo_exists():
+            return
+
+        # Check if the click was outside the search entry
+        widget = event.widget
+
+        # Check if clicked widget is the search entry or any parent widget chain
+        current_widget = widget
+        is_search_entry = False
+
+        # Walk up the widget hierarchy to check if search_entry is an ancestor
+        while current_widget:
+            if current_widget == self.search_entry:
+                is_search_entry = True
+                break
+            try:
+                current_widget = current_widget.master
+            except (AttributeError, tk.TclError):
+                break
+
+        # If not clicked on search entry or its children, remove focus
+        if not is_search_entry:
+            self.parent.focus_set()
 
     def on_question_selected(self, question, button):
         self.tts.stop()
