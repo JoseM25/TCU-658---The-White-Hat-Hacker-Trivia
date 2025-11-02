@@ -15,7 +15,6 @@ from juego.preguntas_modales import (
 
 
 class ManageQuestionsScreen:
-    """Screen for managing trivia questions with CRUD operations."""
 
     # File and directory paths
     BASE_DIR = Path(__file__).resolve().parent.parent
@@ -120,7 +119,6 @@ class ManageQuestionsScreen:
         self.build_ui()
 
     def _init_fonts(self):
-        """Initialize all fonts used in the UI."""
         font_specs = {
             "title": ("Poppins ExtraBold", 38, "bold"),
             "body": ("Poppins Medium", 18, None),
@@ -145,7 +143,6 @@ class ManageQuestionsScreen:
             )
 
     def create_modal_ui_config(self, keys):
-        """Create UI config object for modals with specified keys."""
         color_map = {
             "BG_LIGHT": "bg_light",
             "BG_WHITE": "bg_white",
@@ -179,7 +176,6 @@ class ManageQuestionsScreen:
         return type("UIConfig", (), config_dict)()
 
     def load_questions(self):
-        """Load questions from JSON file."""
         if not self.QUESTIONS_FILE.exists():
             self.questions = self.filtered_questions = []
             return
@@ -203,7 +199,6 @@ class ManageQuestionsScreen:
         self.filtered_questions = list(self.questions)
 
     def save_questions(self, questions):
-        """Save questions to JSON file."""
         try:
             self.QUESTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
             self.QUESTIONS_FILE.write_text(
@@ -217,7 +212,6 @@ class ManageQuestionsScreen:
             return False
 
     def _show_save_error(self, error):
-        """Display save error message."""
         message = (
             "Unable to update the questions file. "
             f"Please check permissions and try again.\n\nDetails: {error}"
@@ -228,7 +222,6 @@ class ManageQuestionsScreen:
             print(f"Save error: {message}")
 
     def filter_questions(self, query):
-        """Filter questions by title search query."""
         query = (query or "").strip().lower()
         self.filtered_questions = (
             [q for q in self.questions if query in q.get("title", "").lower()]
@@ -237,7 +230,6 @@ class ManageQuestionsScreen:
         )
 
     def add_question(self, title, definition, image_path):
-        """Add new question to the list."""
         new_question = {"title": title, "definition": definition, "image": image_path}
         updated_questions = self.questions + [new_question]
 
@@ -247,7 +239,6 @@ class ManageQuestionsScreen:
         return None
 
     def update_question(self, old_question, title, definition, image_path):
-        """Update existing question, preserving its position."""
         new_question = {"title": title, "definition": definition, "image": image_path}
 
         try:
@@ -266,7 +257,6 @@ class ManageQuestionsScreen:
         )
 
     def delete_question(self, question):
-        """Delete question from the list."""
         try:
             index = self.questions.index(question)
         except ValueError:
@@ -282,7 +272,6 @@ class ManageQuestionsScreen:
         return False
 
     def validate_title_unique(self, title, exclude_question=None):
-        """Check if question title is unique."""
         normalized = title.lower()
         return not any(
             q.get("title", "").strip().lower() == normalized
@@ -291,7 +280,6 @@ class ManageQuestionsScreen:
         )
 
     def build_ui(self):
-        """Build the complete UI layout."""
         self.parent.grid_rowconfigure(0, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
 
@@ -307,7 +295,6 @@ class ManageQuestionsScreen:
         self.build_detail_panel(main)
 
     def build_header(self, parent):
-        """Build the header with back button and title."""
         c = self.COLORS
         header = ctk.CTkFrame(parent, fg_color=c["header_bg"], corner_radius=0)
         header.grid(row=0, column=0, columnspan=3, sticky="ew")
@@ -347,7 +334,6 @@ class ManageQuestionsScreen:
         self.build_question_list_container(sidebar)
 
     def build_controls(self, parent):
-        """Build search bar and add button."""
         c = self.COLORS
         controls = ctk.CTkFrame(parent, fg_color="transparent")
         controls.grid(row=0, column=0, sticky="ew")
@@ -444,7 +430,6 @@ class ManageQuestionsScreen:
         self.detail_visible = False
 
     def build_detail_header(self):
-        """Build detail panel header with title and action buttons."""
         c = self.COLORS
         header = ctk.CTkFrame(self.detail_container, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 12))
@@ -480,7 +465,6 @@ class ManageQuestionsScreen:
             ).grid(row=0, column=col, padx=(12, 12 if col == 1 else 0), sticky="e")
 
     def build_detail_body(self):
-        """Build detail panel body with image and definition."""
         c = self.COLORS
         body = ctk.CTkFrame(self.detail_container, fg_color="transparent")
         body.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
@@ -547,7 +531,6 @@ class ManageQuestionsScreen:
         self.detail_definition_label.grid(row=0, column=1, sticky="nw")
 
     def render_question_list(self):
-        """Render the list of questions with optional scrollbar."""
         if not self.list_container or not self.list_container.winfo_exists():
             return
 
@@ -636,7 +619,6 @@ class ManageQuestionsScreen:
         self.render_question_list()
 
     def on_question_selected(self, question, button):
-        """Handle question selection and update detail panel."""
         self.tts.stop()
 
         # Show detail panel if hidden
@@ -692,7 +674,6 @@ class ManageQuestionsScreen:
         )
 
     def clear_detail_panel(self):
-        """Clear and hide the detail panel."""
         self.tts.stop()
         self.current_question = None
         self.selected_question_button = None
@@ -724,7 +705,6 @@ class ManageQuestionsScreen:
                 pass
 
     def _get_standard_modal_keys(self):
-        """Get standard modal config keys."""
         return [
             "BG_LIGHT",
             "BG_WHITE",
@@ -747,14 +727,12 @@ class ManageQuestionsScreen:
         ]
 
     def on_add_clicked(self):
-        """Open add question modal."""
         ui_config = self.create_modal_ui_config(self._get_standard_modal_keys())
         AddQuestionModal(
             self.parent, ui_config, self.image_handler, self.handle_add_save
         ).show()
 
     def handle_add_save(self, title, definition, source_image_path):
-        """Handle saving new question from modal."""
         if not self.validate_title_unique(title):
             messagebox.showwarning(
                 "Duplicate Question",
@@ -785,7 +763,6 @@ class ManageQuestionsScreen:
                 self.on_question_selected(new_question, self.selected_question_button)
 
     def on_edit_clicked(self):
-        """Open edit question modal."""
         if not self.current_question:
             return
         self.tts.stop()
@@ -795,7 +772,6 @@ class ManageQuestionsScreen:
         ).show(self.current_question)
 
     def handle_edit_save(self, title, definition, image_path):
-        """Handle saving edited question from modal."""
         if not self.validate_title_unique(
             title, exclude_question=self.current_question
         ):
@@ -826,7 +802,6 @@ class ManageQuestionsScreen:
                 )
 
     def on_delete_clicked(self):
-        """Open delete confirmation modal."""
         if not self.current_question:
             return
         self.tts.stop()
@@ -851,20 +826,17 @@ class ManageQuestionsScreen:
         ).show()
 
     def handle_delete_confirm(self):
-        """Handle confirmed deletion."""
         if self.current_question and self.delete_question(self.current_question):
             self.clear_detail_panel()
             self.handle_search()
 
     def on_audio_clicked(self):
-        """Play audio for current question definition."""
         if self.current_question:
             definition = self.current_question.get("definition", "").strip()
             if definition:
                 self.tts.speak(definition)
 
     def return_to_menu(self):
-        """Return to main menu."""
         self.tts.stop()
         if self.on_return_callback:
             self.on_return_callback()

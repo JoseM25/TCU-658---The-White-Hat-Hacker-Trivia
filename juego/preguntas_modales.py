@@ -19,14 +19,12 @@ class BaseQuestionModal:
         self.selected_image_source_path = None
 
     def _safe_try(self, func):
-        """Helper to safely execute tkinter operations that may raise TclError."""
         try:
             func()
         except tk.TclError:
             pass
 
     def _create_label(self, parent, text, **kwargs):
-        """Helper to create standardized labels."""
         defaults = {
             "font": self.config.dialog_label_font,
             "text_color": self.config.TEXT_DARK,
@@ -35,7 +33,6 @@ class BaseQuestionModal:
         return ctk.CTkLabel(parent, text=text, **{**defaults, **kwargs})
 
     def _create_entry(self, parent, placeholder, **kwargs):
-        """Helper to create standardized entry fields."""
         defaults = {
             "fg_color": self.config.BG_WHITE,
             "text_color": self.config.TEXT_DARK,
@@ -50,7 +47,6 @@ class BaseQuestionModal:
         )
 
     def _create_button(self, parent, text, command, is_primary=True, **kwargs):
-        """Helper to create standardized buttons."""
         if is_primary:
             defaults = {
                 "font": self.config.button_font,
@@ -200,7 +196,6 @@ class BaseQuestionModal:
         min_width=480,
         min_height=460,
     ):
-        """Calculate modal dimensions based on parent or screen."""
         screen_width = modal.winfo_screenwidth()
         screen_height = modal.winfo_screenheight()
 
@@ -234,13 +229,11 @@ class BaseQuestionModal:
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
     def _update_image_feedback(self, message, is_error=True):
-        """Helper to update image feedback label."""
         if self.image_feedback_label:
             color = self.config.TEXT_ERROR if is_error else self.config.SUCCESS_GREEN
             self.image_feedback_label.configure(text=message, text_color=color)
 
     def _reset_image_display(self):
-        """Helper to reset image display to default state."""
         if self.image_display_label:
             self.image_display_label.configure(
                 text="No image selected", text_color=self.config.TEXT_LIGHT
@@ -337,14 +330,12 @@ class AddQuestionModal(BaseQuestionModal):
         self._safe_try(self.concept_entry.focus_set)
 
     def _show_existing_modal(self):
-        """Check if modal already exists and bring it to front."""
         if self.modal and self.modal.winfo_exists():
             self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return True
         return False
 
     def _setup_modal_ui(self, modal, title):
-        """Common UI setup for modals."""
         container = self.create_container(modal)
         self.create_header(container, title)
         self.create_form_fields(container)
@@ -353,7 +344,6 @@ class AddQuestionModal(BaseQuestionModal):
         modal.bind("<Escape>", lambda e: self.close())
 
     def _validate_field(self, value, field_name, widget):
-        """Validate a form field and show warning if empty."""
         if not value:
             messagebox.showwarning(
                 "Missing Information", f"Please enter a {field_name} for the question."
@@ -419,14 +409,12 @@ class EditQuestionModal(BaseQuestionModal):
         self._safe_try(self.concept_entry.focus_set)
 
     def _show_existing_modal(self):
-        """Check if modal already exists and bring it to front."""
         if self.modal and self.modal.winfo_exists():
             self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return True
         return False
 
     def _setup_modal_ui(self, modal, title):
-        """Setup modal UI components."""
         container = self.create_container(modal)
         self.create_header(container, title)
         self.create_form_fields(container)
@@ -435,7 +423,6 @@ class EditQuestionModal(BaseQuestionModal):
         modal.bind("<Escape>", lambda e: self.close())
 
     def _populate_form(self, current_question):
-        """Populate form with current question data."""
         current_title = (current_question.get("title") or "").strip()
         current_definition = (current_question.get("definition") or "").strip()
         existing_image_path = (current_question.get("image") or "").strip()
@@ -465,7 +452,6 @@ class EditQuestionModal(BaseQuestionModal):
         self.initial_image_path = existing_image_path
 
     def _validate_field(self, value, field_name, widget):
-        """Validate a form field and show warning if empty."""
         if not value:
             messagebox.showwarning(
                 "Missing Information", f"Please enter a {field_name} for the question."
@@ -522,14 +508,12 @@ class DeleteConfirmationModal:
         self.modal = None
 
     def _safe_try(self, func):
-        """Helper to safely execute tkinter operations that may raise TclError."""
         try:
             func()
         except tk.TclError:
             pass
 
     def _calculate_position(self, modal, root, width, height):
-        """Calculate centered position for modal."""
         screen_width, screen_height = (
             modal.winfo_screenwidth(),
             modal.winfo_screenheight(),
