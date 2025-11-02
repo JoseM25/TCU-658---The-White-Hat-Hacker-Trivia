@@ -786,14 +786,14 @@ class ManageQuestionsScreen:
                 "Duplicate Question",
                 "A question with this title already exists. Please use a different title.",
             )
-            return
+            return False  # Return False to prevent modal from closing
 
         # Copy image to project
         relative_image_path = self.image_handler.copy_image_to_project(
             source_image_path
         )
         if not relative_image_path:
-            return  # Error already shown
+            return False  # Error already shown, prevent modal from closing
 
         # Add question and update UI
         new_question = self.add_question(
@@ -812,6 +812,8 @@ class ManageQuestionsScreen:
             if self.selected_question_button:
                 self.on_question_selected(new_question, self.selected_question_button)
 
+        return True  # Success - allow modal to close
+
     def on_edit_clicked(self):
         if not self.current_question:
             return
@@ -829,14 +831,14 @@ class ManageQuestionsScreen:
                 "Duplicate Question",
                 "A question with this title already exists. Please use a different title.",
             )
-            return
+            return False  # Return False to prevent modal from closing
 
         # Handle image path
         stored_image_path = image_path
         if hasattr(image_path, "as_posix"):
             relative_image_path = self.image_handler.copy_image_to_project(image_path)
             if not relative_image_path:
-                return  # Error already shown
+                return False  # Error already shown, prevent modal from closing
             stored_image_path = relative_image_path.as_posix()
 
         # Update question and UI
@@ -852,6 +854,8 @@ class ManageQuestionsScreen:
                 self.on_question_selected(
                     updated_question, self.selected_question_button
                 )
+
+        return True  # Success - allow modal to close
 
     def on_delete_clicked(self):
         if not self.current_question:

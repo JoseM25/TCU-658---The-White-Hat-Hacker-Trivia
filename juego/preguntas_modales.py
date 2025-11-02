@@ -169,6 +169,7 @@ class BaseQuestionModal:
             font=self.config.body_font,
             text_color=self.config.TEXT_ERROR,
             anchor="w",
+            justify="left",
             wraplength=360,
         )
         self.image_feedback_label.grid(row=6, column=0, sticky="w", pady=(8, 0), padx=4)
@@ -379,8 +380,12 @@ class AddQuestionModal(BaseQuestionModal):
             self.reset_image_display()
             return
 
+        # Call the save callback and only close if it returns True (success)
         if self.on_save_callback:
-            self.on_save_callback(title, definition, source_path)
+            result = self.on_save_callback(title, definition, source_path)
+            # If callback returns False, validation failed - keep modal open
+            if result is False:
+                return
 
         self.close()
 
@@ -487,8 +492,12 @@ class EditQuestionModal(BaseQuestionModal):
 
             image_path = source_path
 
+        # Call the save callback and only close if it returns True (success)
         if self.on_save_callback:
-            self.on_save_callback(title, definition, image_path)
+            result = self.on_save_callback(title, definition, image_path)
+            # If callback returns False, validation failed - keep modal open
+            if result is False:
+                return
 
         self.close()
 
