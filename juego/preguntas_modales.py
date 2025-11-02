@@ -18,25 +18,73 @@ class BaseQuestionModal:
         self.image_feedback_label = None
         self.selected_image_source_path = None
 
-    def create_modal_window(self, title):
-        root = self.parent.winfo_toplevel() if self.parent else None
-        modal_parent = root if root else self.parent
-
-        modal = ctk.CTkToplevel(modal_parent)
-        modal.title(title)
-        if root:
-            modal.transient(root)
-
+    def _safe_try(self, func):
+        """Helper to safely execute tkinter operations that may raise TclError."""
         try:
-            modal.grab_set()
+            func()
         except tk.TclError:
             pass
 
+    def _create_label(self, parent, text, **kwargs):
+        """Helper to create standardized labels."""
+        defaults = {
+            "font": self.config.dialog_label_font,
+            "text_color": self.config.TEXT_DARK,
+            "anchor": "w",
+        }
+        return ctk.CTkLabel(parent, text=text, **{**defaults, **kwargs})
+
+    def _create_entry(self, parent, placeholder, **kwargs):
+        """Helper to create standardized entry fields."""
+        defaults = {
+            "fg_color": self.config.BG_WHITE,
+            "text_color": self.config.TEXT_DARK,
+            "border_color": self.config.BORDER_MEDIUM,
+            "border_width": 2,
+            "height": 44,
+            "font": self.config.body_font,
+            "corner_radius": 16,
+        }
+        return ctk.CTkEntry(
+            parent, placeholder_text=placeholder, **{**defaults, **kwargs}
+        )
+
+    def _create_button(self, parent, text, command, is_primary=True, **kwargs):
+        """Helper to create standardized buttons."""
+        if is_primary:
+            defaults = {
+                "font": self.config.button_font,
+                "fg_color": self.config.PRIMARY_BLUE,
+                "hover_color": self.config.PRIMARY_BLUE_HOVER,
+                "width": 130,
+                "height": 46,
+                "corner_radius": 14,
+            }
+        else:
+            defaults = {
+                "font": self.config.cancel_button_font,
+                "fg_color": self.config.BUTTON_CANCEL_BG,
+                "text_color": self.config.TEXT_WHITE,
+                "hover_color": self.config.BUTTON_CANCEL_HOVER,
+                "width": 130,
+                "height": 46,
+                "corner_radius": 14,
+            }
+        return ctk.CTkButton(
+            parent, text=text, command=command, **{**defaults, **kwargs}
+        )
+
+    def create_modal_window(self, title):
+        root = self.parent.winfo_toplevel() if self.parent else None
+        modal = ctk.CTkToplevel(root if root else self.parent)
+        modal.title(title)
+        if root:
+            modal.transient(root)
+        self._safe_try(modal.grab_set)
         modal.resizable(False, False)
         modal.configure(fg_color=self.config.BG_LIGHT)
         modal.grid_rowconfigure(0, weight=1)
         modal.grid_columnconfigure(0, weight=1)
-
         return modal, root
 
     def create_container(self, modal):
@@ -48,24 +96,20 @@ class BaseQuestionModal:
 
     def create_header(self, container, title):
         header_frame = ctk.CTkFrame(
-            container,
-            fg_color=self.config.BG_MODAL_HEADER,
-            corner_radius=0,
-            height=72,
+            container, fg_color=self.config.BG_MODAL_HEADER, corner_radius=0, height=72
         )
         header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
         header_frame.grid_propagate(False)
         header_frame.grid_columnconfigure(0, weight=1)
 
-        header_label = ctk.CTkLabel(
+        ctk.CTkLabel(
             header_frame,
             text=title,
             font=self.config.dialog_title_font,
             text_color=self.config.TEXT_WHITE,
             anchor="center",
             justify="center",
-        )
-        header_label.grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
+        ).grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
 
     def create_form_fields(self, container):
         form_frame = ctk.CTkFrame(container, fg_color=self.config.BG_LIGHT)
@@ -73,57 +117,23 @@ class BaseQuestionModal:
         form_frame.grid_columnconfigure(0, weight=1)
 
         # Concept field
-        ctk.CTkLabel(
-            form_frame,
-            text="Concept",
-            font=self.config.dialog_label_font,
-            text_color=self.config.TEXT_DARK,
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
-
-        self.concept_entry = ctk.CTkEntry(
-            form_frame,
-            placeholder_text="Enter concept",
-            fg_color=self.config.BG_WHITE,
-            text_color=self.config.TEXT_DARK,
-            border_color=self.config.BORDER_MEDIUM,
-            border_width=2,
-            height=44,
-            font=self.config.body_font,
-            corner_radius=16,
+        self._create_label(form_frame, "Concept").grid(
+            row=0, column=0, sticky="w", pady=(0, 8)
         )
+        self.concept_entry = self._create_entry(form_frame, "Enter concept")
         self.concept_entry.grid(row=1, column=0, sticky="ew", pady=(0, 16))
 
         # Definition field
-        ctk.CTkLabel(
-            form_frame,
-            text="Definition",
-            font=self.config.dialog_label_font,
-            text_color=self.config.TEXT_DARK,
-            anchor="w",
-        ).grid(row=2, column=0, sticky="w", pady=(0, 8))
-
-        self.definition_textbox = ctk.CTkEntry(
-            form_frame,
-            fg_color=self.config.BG_WHITE,
-            text_color=self.config.TEXT_DARK,
-            border_color=self.config.BORDER_MEDIUM,
-            border_width=2,
-            height=44,
-            font=self.config.body_font,
-            placeholder_text="Enter definition",
-            corner_radius=16,
+        self._create_label(form_frame, "Definition").grid(
+            row=2, column=0, sticky="w", pady=(0, 8)
         )
+        self.definition_textbox = self._create_entry(form_frame, "Enter definition")
         self.definition_textbox.grid(row=3, column=0, sticky="ew")
 
         # Image field
-        ctk.CTkLabel(
-            form_frame,
-            text="Illustration",
-            font=self.config.dialog_label_font,
-            text_color=self.config.TEXT_DARK,
-            anchor="w",
-        ).grid(row=4, column=0, sticky="w", pady=(16, 8))
+        self._create_label(form_frame, "Illustration").grid(
+            row=4, column=0, sticky="w", pady=(16, 8)
+        )
 
         image_input_frame = ctk.CTkFrame(
             form_frame,
@@ -149,18 +159,13 @@ class BaseQuestionModal:
         )
         self.image_display_label.grid(row=0, column=0, sticky="w", padx=(0, 16))
 
-        image_select_button = ctk.CTkButton(
+        self._create_button(
             image_picker_frame,
-            text="Choose File",
-            font=self.config.button_font,
-            fg_color=self.config.PRIMARY_BLUE,
-            hover_color=self.config.PRIMARY_BLUE_HOVER,
-            command=self.on_select_image,
+            "Choose File",
+            self.on_select_image,
             width=140,
             height=36,
-            corner_radius=14,
-        )
-        image_select_button.grid(row=0, column=1, sticky="e")
+        ).grid(row=0, column=1, sticky="e")
 
         self.image_feedback_label = ctk.CTkLabel(
             form_frame,
@@ -171,60 +176,76 @@ class BaseQuestionModal:
             wraplength=360,
         )
         self.image_feedback_label.grid(row=6, column=0, sticky="w", pady=(8, 0), padx=4)
-
         return form_frame
 
     def create_buttons(self, container, on_save_callback, on_cancel_callback):
         buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
         buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
-        buttons_frame.grid_columnconfigure(0, weight=1)
-        buttons_frame.grid_columnconfigure(1, weight=0)
-        buttons_frame.grid_columnconfigure(2, weight=0)
-        buttons_frame.grid_columnconfigure(3, weight=1)
+        for i in range(4):
+            buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
 
-        ctk.CTkButton(
-            buttons_frame,
-            text="Cancel",
-            font=self.config.cancel_button_font,
-            fg_color=self.config.BUTTON_CANCEL_BG,
-            text_color=self.config.TEXT_WHITE,
-            hover_color=self.config.BUTTON_CANCEL_HOVER,
-            command=on_cancel_callback,
-            width=130,
-            height=46,
-            corner_radius=14,
+        self._create_button(
+            buttons_frame, "Cancel", on_cancel_callback, is_primary=False
         ).grid(row=0, column=1, sticky="e", padx=(0, 32))
+        self._create_button(buttons_frame, "Save", on_save_callback).grid(
+            row=0, column=2, sticky="w", padx=(32, 0)
+        )
 
-        ctk.CTkButton(
-            buttons_frame,
-            text="Save",
-            font=self.config.button_font,
-            fg_color=self.config.PRIMARY_BLUE,
-            hover_color=self.config.PRIMARY_BLUE_HOVER,
-            command=on_save_callback,
-            width=130,
-            height=46,
-            corner_radius=14,
-        ).grid(row=0, column=2, sticky="w", padx=(32, 0))
-
-    def position_modal(self, modal, root, width, height):
-        modal.update_idletasks()
-
+    def _calculate_modal_dimensions(
+        self,
+        modal,
+        root,
+        width_ratio=0.5,
+        height_ratio=0.6,
+        min_width=480,
+        min_height=460,
+    ):
+        """Calculate modal dimensions based on parent or screen."""
         screen_width = modal.winfo_screenwidth()
         screen_height = modal.winfo_screenheight()
 
+        parent_width = (
+            root.winfo_width() if root and root.winfo_width() > 1 else screen_width
+        )
+        parent_height = (
+            root.winfo_height() if root and root.winfo_height() > 1 else screen_height
+        )
+
+        width = min(max(min_width, int(parent_width * width_ratio)), screen_width - 80)
+        height = min(
+            max(min_height, int(parent_height * height_ratio)), screen_height - 80
+        )
+        return width, height
+
+    def position_modal(self, modal, root, width, height):
+        modal.update_idletasks()
+        screen_width, screen_height = (
+            modal.winfo_screenwidth(),
+            modal.winfo_screenheight(),
+        )
+
         if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            root_x = root.winfo_rootx()
-            root_y = root.winfo_rooty()
-            root_w = root.winfo_width()
-            root_h = root.winfo_height()
-            pos_x = root_x + max((root_w - width) // 2, 0)
-            pos_y = root_y + max((root_h - height) // 2, 0)
+            pos_x = root.winfo_rootx() + max((root.winfo_width() - width) // 2, 0)
+            pos_y = root.winfo_rooty() + max((root.winfo_height() - height) // 2, 0)
         else:
             pos_x = max((screen_width - width) // 2, 0)
             pos_y = max((screen_height - height) // 2, 0)
 
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+    def _update_image_feedback(self, message, is_error=True):
+        """Helper to update image feedback label."""
+        if self.image_feedback_label:
+            color = self.config.TEXT_ERROR if is_error else self.config.SUCCESS_GREEN
+            self.image_feedback_label.configure(text=message, text_color=color)
+
+    def _reset_image_display(self):
+        """Helper to reset image display to default state."""
+        if self.image_display_label:
+            self.image_display_label.configure(
+                text="No image selected", text_color=self.config.TEXT_LIGHT
+            )
+        self.selected_image_source_path = None
 
     def on_select_image(self):
         if not self.modal or not self.modal.winfo_exists():
@@ -256,53 +277,35 @@ class BaseQuestionModal:
             return
 
         source_path = Path(file_path)
-
         if not self.image_handler.validate_image_extension(source_path):
-            if self.image_feedback_label:
-                self.image_feedback_label.configure(
-                    text="Unsupported file type. Please choose a PNG or JPG image.",
-                    text_color=self.config.TEXT_ERROR,
-                )
-            if self.image_display_label:
-                self.image_display_label.configure(
-                    text="No image selected", text_color=self.config.TEXT_LIGHT
-                )
-            self.selected_image_source_path = None
+            self._update_image_feedback(
+                "Unsupported file type. Please choose a PNG or JPG image."
+            )
+            self._reset_image_display()
             return
 
         display_name = self.image_handler.truncate_filename(source_path.name)
-
         if self.image_display_label:
             self.image_display_label.configure(
                 text=display_name, text_color=self.config.TEXT_DARK
             )
-
-        if self.image_feedback_label:
-            self.image_feedback_label.configure(
-                text="Image ready to import.",
-                text_color=self.config.SUCCESS_GREEN,
-            )
-
+        self._update_image_feedback("Image ready to import.", is_error=False)
         self.selected_image_source_path = str(source_path)
 
     def get_form_data(self):
         if not self.concept_entry or not self.concept_entry.winfo_exists():
             return None
-
         if not self.definition_textbox or not self.definition_textbox.winfo_exists():
             return None
 
-        title = (self.concept_entry.get() or "").strip()
-        definition = (self.definition_textbox.get() or "").strip()
-
-        return {"title": title, "definition": definition}
+        return {
+            "title": (self.concept_entry.get() or "").strip(),
+            "definition": (self.definition_textbox.get() or "").strip(),
+        }
 
     def close(self):
         if self.modal and self.modal.winfo_exists():
-            try:
-                self.modal.grab_release()
-            except tk.TclError:
-                pass
+            self._safe_try(self.modal.grab_release)
             self.modal.destroy()
 
         self.modal = None
@@ -320,87 +323,62 @@ class AddQuestionModal(BaseQuestionModal):
         self.on_save_callback = on_save_callback
 
     def show(self):
-        if self.modal and self.modal.winfo_exists():
-            try:
-                self.modal.lift()
-                self.modal.focus_force()
-            except tk.TclError:
-                pass
+        if self._show_existing_modal():
             return
 
         modal, root = self.create_modal_window("Add Question")
         self.modal = modal
 
+        self._setup_modal_ui(modal, "Add Question")
+        width, height = self._calculate_modal_dimensions(
+            modal, root, 0.5, 0.6, 480, 460
+        )
+        self.position_modal(modal, root, width, height)
+        self._safe_try(self.concept_entry.focus_set)
+
+    def _show_existing_modal(self):
+        """Check if modal already exists and bring it to front."""
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return True
+        return False
+
+    def _setup_modal_ui(self, modal, title):
+        """Common UI setup for modals."""
         container = self.create_container(modal)
-        self.create_header(container, "Add Question")
+        self.create_header(container, title)
         self.create_form_fields(container)
         self.create_buttons(container, self.handle_save, self.close)
-
         modal.protocol("WM_DELETE_WINDOW", self.close)
         modal.bind("<Escape>", lambda e: self.close())
 
-        # Calculate modal size and position
-        parent_width = (
-            root.winfo_width()
-            if root and root.winfo_width() > 1
-            else modal.winfo_screenwidth()
-        )
-        parent_height = (
-            root.winfo_height()
-            if root and root.winfo_height() > 1
-            else modal.winfo_screenheight()
-        )
-
-        width = min(max(480, int(parent_width * 0.5)), modal.winfo_screenwidth() - 80)
-        height = min(
-            max(460, int(parent_height * 0.6)), modal.winfo_screenheight() - 80
-        )
-
-        self.position_modal(modal, root, width, height)
-
-        try:
-            self.concept_entry.focus_set()
-        except tk.TclError:
-            pass
+    def _validate_field(self, value, field_name, widget):
+        """Validate a form field and show warning if empty."""
+        if not value:
+            messagebox.showwarning(
+                "Missing Information", f"Please enter a {field_name} for the question."
+            )
+            self._safe_try(widget.focus_set)
+            return False
+        return True
 
     def handle_save(self):
         form_data = self.get_form_data()
         if not form_data:
             return
 
-        title = form_data["title"]
-        definition = form_data["definition"]
+        title, definition = form_data["title"], form_data["definition"]
 
-        if not title:
-            messagebox.showwarning(
-                "Missing Information", "Please enter a title for the question."
-            )
-            try:
-                self.concept_entry.focus_set()
-            except tk.TclError:
-                pass
+        if not self._validate_field(title, "title", self.concept_entry):
             return
-
-        if not definition:
-            messagebox.showwarning(
-                "Missing Information", "Please provide a definition for the question."
-            )
-            try:
-                self.definition_textbox.focus_set()
-            except tk.TclError:
-                pass
+        if not self._validate_field(definition, "definition", self.definition_textbox):
             return
 
         if not self.selected_image_source_path:
             messagebox.showwarning(
-                "Missing Information",
-                "Please choose an illustration for the question.",
+                "Missing Information", "Please choose an illustration for the question."
             )
-            if self.image_feedback_label:
-                self.image_feedback_label.configure(
-                    text="Select an image before saving.",
-                    text_color=self.config.TEXT_ERROR,
-                )
+            self._update_image_feedback("Select an image before saving.")
             return
 
         source_path = Path(self.selected_image_source_path)
@@ -409,19 +387,10 @@ class AddQuestionModal(BaseQuestionModal):
                 "Image Not Found",
                 "The selected image could not be located. Please choose a different file.",
             )
-            if self.image_feedback_label:
-                self.image_feedback_label.configure(
-                    text="Selected file is no longer available.",
-                    text_color=self.config.TEXT_ERROR,
-                )
-            self.selected_image_source_path = None
-            if self.image_display_label:
-                self.image_display_label.configure(
-                    text="No image selected", text_color=self.config.TEXT_LIGHT
-                )
+            self._update_image_feedback("Selected file is no longer available.")
+            self._reset_image_display()
             return
 
-        # Delegate to callback
         if self.on_save_callback:
             self.on_save_callback(title, definition, source_path)
 
@@ -434,40 +403,50 @@ class EditQuestionModal(BaseQuestionModal):
         self.initial_image_path = None
 
     def show(self, current_question):
-        if self.modal and self.modal.winfo_exists():
-            try:
-                self.modal.lift()
-                self.modal.focus_force()
-            except tk.TclError:
-                pass
+        if self._show_existing_modal():
             return
 
         modal, root = self.create_modal_window("Edit Question")
         self.modal = modal
 
+        self._setup_modal_ui(modal, "Edit Question")
+        self._populate_form(current_question)
+
+        width, height = self._calculate_modal_dimensions(
+            modal, root, 0.5, 0.6, 480, 460
+        )
+        self.position_modal(modal, root, width, height)
+        self._safe_try(self.concept_entry.focus_set)
+
+    def _show_existing_modal(self):
+        """Check if modal already exists and bring it to front."""
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return True
+        return False
+
+    def _setup_modal_ui(self, modal, title):
+        """Setup modal UI components."""
         container = self.create_container(modal)
-        self.create_header(container, "Edit Question")
+        self.create_header(container, title)
         self.create_form_fields(container)
         self.create_buttons(container, self.handle_save, self.close)
+        modal.protocol("WM_DELETE_WINDOW", self.close)
+        modal.bind("<Escape>", lambda e: self.close())
 
-        # Populate with current values
+    def _populate_form(self, current_question):
+        """Populate form with current question data."""
         current_title = (current_question.get("title") or "").strip()
         current_definition = (current_question.get("definition") or "").strip()
         existing_image_path = (current_question.get("image") or "").strip()
 
         if current_title:
-            try:
-                self.concept_entry.insert(0, current_title)
-            except tk.TclError:
-                pass
-
+            self._safe_try(lambda: self.concept_entry.insert(0, current_title))
         if current_definition:
-            try:
-                self.definition_textbox.insert(0, current_definition)
-            except tk.TclError:
-                pass
+            self._safe_try(
+                lambda: self.definition_textbox.insert(0, current_definition)
+            )
 
-        # Update image display
         if existing_image_path:
             try:
                 display_source = Path(existing_image_path).name or existing_image_path
@@ -485,89 +464,47 @@ class EditQuestionModal(BaseQuestionModal):
 
         self.initial_image_path = existing_image_path
 
-        modal.protocol("WM_DELETE_WINDOW", self.close)
-        modal.bind("<Escape>", lambda e: self.close())
-
-        # Calculate modal size and position
-        parent_width = (
-            root.winfo_width()
-            if root and root.winfo_width() > 1
-            else modal.winfo_screenwidth()
-        )
-        parent_height = (
-            root.winfo_height()
-            if root and root.winfo_height() > 1
-            else modal.winfo_screenheight()
-        )
-
-        width = min(max(480, int(parent_width * 0.5)), modal.winfo_screenwidth() - 80)
-        height = min(
-            max(460, int(parent_height * 0.6)), modal.winfo_screenheight() - 80
-        )
-
-        self.position_modal(modal, root, width, height)
-
-        try:
-            self.concept_entry.focus_set()
-        except tk.TclError:
-            pass
+    def _validate_field(self, value, field_name, widget):
+        """Validate a form field and show warning if empty."""
+        if not value:
+            messagebox.showwarning(
+                "Missing Information", f"Please enter a {field_name} for the question."
+            )
+            self._safe_try(widget.focus_set)
+            return False
+        return True
 
     def handle_save(self):
         form_data = self.get_form_data()
         if not form_data:
             return
 
-        title = form_data["title"]
-        definition = form_data["definition"]
+        title, definition = form_data["title"], form_data["definition"]
 
-        if not title:
-            messagebox.showwarning(
-                "Missing Information", "Please enter a title for the question."
-            )
-            try:
-                self.concept_entry.focus_set()
-            except tk.TclError:
-                pass
+        if not self._validate_field(title, "title", self.concept_entry):
+            return
+        if not self._validate_field(definition, "definition", self.definition_textbox):
             return
 
-        if not definition:
-            messagebox.showwarning(
-                "Missing Information", "Please provide a definition for the question."
-            )
-            try:
-                self.definition_textbox.focus_set()
-            except tk.TclError:
-                pass
-            return
-
-        # Determine image path
         image_path = self.initial_image_path or ""
 
         if self.selected_image_source_path:
             source_path = Path(self.selected_image_source_path)
             if not source_path.exists():
                 messagebox.showerror(
-                    "Image Not Found",
-                    "The selected image could not be located.",
+                    "Image Not Found", "The selected image could not be located."
                 )
-                if self.image_feedback_label:
-                    self.image_feedback_label.configure(
-                        text="Selected file is no longer available.",
-                        text_color=self.config.TEXT_ERROR,
-                    )
+                self._update_image_feedback("Selected file is no longer available.")
                 return
 
             if not self.image_handler.validate_image_extension(source_path):
                 messagebox.showwarning(
-                    "Unsupported File",
-                    "Please choose a PNG or JPG image.",
+                    "Unsupported File", "Please choose a PNG or JPG image."
                 )
                 return
 
-            # Will be processed by callback
             image_path = source_path
 
-        # Delegate to callback
         if self.on_save_callback:
             self.on_save_callback(title, definition, image_path)
 
@@ -584,28 +521,39 @@ class DeleteConfirmationModal:
         self.on_confirm_callback = on_confirm_callback
         self.modal = None
 
-    def show(self):
-        if self.modal and self.modal.winfo_exists():
-            try:
-                self.modal.lift()
-                self.modal.focus_force()
-            except tk.TclError:
-                pass
-            return
-
-        root = self.parent.winfo_toplevel() if self.parent else None
-        modal_parent = root if root else self.parent
-
-        modal = ctk.CTkToplevel(modal_parent)
-        modal.title("Delete Question")
-        if root:
-            modal.transient(root)
-
+    def _safe_try(self, func):
+        """Helper to safely execute tkinter operations that may raise TclError."""
         try:
-            modal.grab_set()
+            func()
         except tk.TclError:
             pass
 
+    def _calculate_position(self, modal, root, width, height):
+        """Calculate centered position for modal."""
+        screen_width, screen_height = (
+            modal.winfo_screenwidth(),
+            modal.winfo_screenheight(),
+        )
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            pos_x = root.winfo_rootx() + max((root.winfo_width() - width) // 2, 0)
+            pos_y = root.winfo_rooty() + max((root.winfo_height() - height) // 2, 0)
+        else:
+            pos_x = max((screen_width - width) // 2, 0)
+            pos_y = max((screen_height - height) // 2, 0)
+        return pos_x, pos_y
+
+    def show(self):
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+        modal = ctk.CTkToplevel(root if root else self.parent)
+        modal.title("Delete Question")
+        if root:
+            modal.transient(root)
+        self._safe_try(modal.grab_set)
         modal.resizable(False, False)
         modal.configure(fg_color=self.config.BG_LIGHT)
         modal.grid_rowconfigure(0, weight=1)
@@ -618,10 +566,7 @@ class DeleteConfirmationModal:
 
         # Header
         header_frame = ctk.CTkFrame(
-            container,
-            fg_color=self.config.BG_MODAL_HEADER,
-            corner_radius=0,
-            height=72,
+            container, fg_color=self.config.BG_MODAL_HEADER, corner_radius=0, height=72
         )
         header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
         header_frame.grid_propagate(False)
@@ -650,10 +595,8 @@ class DeleteConfirmationModal:
         # Buttons
         buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
         buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
-        buttons_frame.grid_columnconfigure(0, weight=1)
-        buttons_frame.grid_columnconfigure(1, weight=0)
-        buttons_frame.grid_columnconfigure(2, weight=0)
-        buttons_frame.grid_columnconfigure(3, weight=1)
+        for i in range(4):
+            buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
 
         ctk.CTkButton(
             buttons_frame,
@@ -687,9 +630,10 @@ class DeleteConfirmationModal:
 
         # Position modal
         modal.update_idletasks()
-        screen_width = modal.winfo_screenwidth()
-        screen_height = modal.winfo_screenheight()
-
+        screen_width, screen_height = (
+            modal.winfo_screenwidth(),
+            modal.winfo_screenheight(),
+        )
         parent_width = (
             root.winfo_width() if root and root.winfo_width() > 1 else screen_width
         )
@@ -700,24 +644,11 @@ class DeleteConfirmationModal:
         width = min(max(480, int(parent_width * 0.5)), screen_width - 80)
         height = min(max(340, int(parent_height * 0.5)), screen_height - 80)
 
-        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            root_x = root.winfo_rootx()
-            root_y = root.winfo_rooty()
-            root_w = root.winfo_width()
-            root_h = root.winfo_height()
-            pos_x = root_x + max((root_w - width) // 2, 0)
-            pos_y = root_y + max((root_h - height) // 2, 0)
-        else:
-            pos_x = max((screen_width - width) // 2, 0)
-            pos_y = max((screen_height - height) // 2, 0)
-
+        pos_x, pos_y = self._calculate_position(modal, root, width, height)
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         message_label.configure(wraplength=max(width - 120, 360))
 
-        try:
-            confirm_button.focus_set()
-        except tk.TclError:
-            pass
+        self._safe_try(confirm_button.focus_set)
 
     def handle_confirm(self):
         if self.on_confirm_callback:
@@ -725,13 +656,6 @@ class DeleteConfirmationModal:
 
     def close(self):
         if self.modal and self.modal.winfo_exists():
-            try:
-                self.modal.grab_release()
-            except tk.TclError:
-                pass
-            try:
-                self.modal.destroy()
-            except tk.TclError:
-                pass
-
+            self._safe_try(self.modal.grab_release)
+            self._safe_try(self.modal.destroy)
         self.modal = None
