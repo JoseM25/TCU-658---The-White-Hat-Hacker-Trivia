@@ -30,6 +30,8 @@ class ManageQuestionsScreen:
     QUESTION_BUTTON_HEIGHT = 50
     QUESTION_BUTTON_VERTICAL_PADDING = 1
     AUDIO_DIR = Path(__file__).resolve().parent.parent / "recursos" / "audio"
+    ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
+    MAX_IMAGE_DISPLAY_LENGTH = 60
 
     def __init__(self, parent, on_return_callback=None):
         self.parent = parent
@@ -52,7 +54,15 @@ class ManageQuestionsScreen:
         self.add_image_display_label = None
         self.add_image_feedback_label = None
         self.add_selected_image_source_path = None
+        self.edit_modal = None
+        self.edit_concept_entry = None
+        self.edit_definition_textbox = None
+        self.edit_image_display_label = None
+        self.edit_image_feedback_label = None
+        self.edit_selected_image_source_path = None
+        self.edit_initial_image_path = None
         self.detail_image_label: None
+        self.detail_image_placeholder = None
         self.detail_definition_label: None
         self.definition_audio_button: None
         self.definition_audio_image = None
@@ -164,7 +174,10 @@ class ManageQuestionsScreen:
         return True
 
     def _show_save_error(self, error):
-        base_message = "Unable to update the questions file. Please check permissions and try again."
+        base_message = (
+            "Unable to update the questions file. "
+            "Please check permissions and try again."
+        )
         detail = f"\n\nDetails: {error}" if error else ""
         message = f"{base_message}{detail}"
 
@@ -325,6 +338,16 @@ class ManageQuestionsScreen:
         self.detail_image_label.grid(
             row=0, column=0, pady=(28, 48), padx=12, sticky="n"
         )
+        if self.detail_image_placeholder is None:
+            # Reusable transparent image avoids Tk errors when clearing content.
+            invisible_pixel = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+            self.detail_image_placeholder = ctk.CTkImage(
+                light_image=invisible_pixel, dark_image=invisible_pixel, size=(1, 1)
+            )
+        try:
+            self.detail_image_label.configure(image=self.detail_image_placeholder)
+        except tk.TclError:
+            pass
 
         definition_row = ctk.CTkFrame(
             detail_content,
@@ -616,15 +639,26 @@ class ManageQuestionsScreen:
             self.definition_audio_button.configure(state="disabled")
 
         if self.detail_image_label and self.detail_image_label.winfo_exists():
-            self.detail_image_label.configure(image=None, text="Image placeholder")
-            self.detail_image_label.image = None
+            try:
+                self.detail_image_label.configure(
+                    image=self.detail_image_placeholder, text="Image placeholder"
+                )
+            except tk.TclError:
+                try:
+                    self.detail_image_label.configure(text="Image placeholder")
+                except tk.TclError:
+                    pass
+            self.detail_image_label.image = self.detail_image_placeholder
 
     def on_add_pressed(self):
         self.show_add_question_modal()
 
     def on_edit_pressed(self):
-        # Placeholder for future edit-question flow
-        pass
+        if not self.current_question:
+            return
+
+        self.tts.stop()
+        self.show_edit_question_modal()
 
     def on_delete_pressed(self):
         if not self.current_question:
@@ -891,6 +925,298 @@ class ManageQuestionsScreen:
 
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
+    def show_edit_question_modal(self):
+        if not self.current_question:
+            return
+
+        if self.parent and not self.parent.winfo_exists():
+            return
+
+        if self.edit_modal and self.edit_modal.winfo_exists():
+            try:
+                self.edit_modal.lift()
+                self.edit_modal.focus_force()
+            except tk.TclError:
+                pass
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+        modal_parent = root if root else self.parent
+
+        modal = ctk.CTkToplevel(modal_parent)
+        modal.title("Edit Question")
+        if root:
+            modal.transient(root)
+
+        try:
+            modal.grab_set()
+        except tk.TclError:
+            pass
+
+        modal.resizable(False, False)
+        modal.configure(fg_color="#F5F7FA")
+        modal.grid_rowconfigure(0, weight=1)
+        modal.grid_columnconfigure(0, weight=1)
+
+        container = ctk.CTkFrame(
+            modal,
+            fg_color="#F5F7FA",
+            corner_radius=0,
+        )
+        container.grid(row=0, column=0, padx=0, pady=0, sticky="nsew")
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_rowconfigure(1, weight=1)
+
+        header_frame = ctk.CTkFrame(
+            container,
+            fg_color="#202632",
+            corner_radius=0,
+            height=72,
+        )
+        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
+        header_frame.grid_propagate(False)
+        header_frame.grid_columnconfigure(0, weight=1)
+
+        header_label = ctk.CTkLabel(
+            header_frame,
+            text="Edit Question",
+            font=self.dialog_title_font,
+            text_color="#FFFFFF",
+            anchor="center",
+            justify="center",
+        )
+        header_label.grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
+
+        form_frame = ctk.CTkFrame(
+            container,
+            fg_color="#F5F7FA",
+        )
+        form_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
+        form_frame.grid_columnconfigure(0, weight=1)
+        form_frame.grid_rowconfigure(3, weight=0)
+
+        concept_label = ctk.CTkLabel(
+            form_frame,
+            text="Concept",
+            font=self.dialog_label_font,
+            text_color="#111827",
+            anchor="w",
+            justify="left",
+        )
+        concept_label.grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        concept_entry = ctk.CTkEntry(
+            form_frame,
+            placeholder_text="Enter concept",
+            fg_color="#FFFFFF",
+            text_color="#111827",
+            border_color="#CBD5E1",
+            border_width=2,
+            height=44,
+            font=self.body_font,
+            corner_radius=16,
+        )
+        concept_entry.grid(row=1, column=0, sticky="ew", pady=(0, 16))
+
+        current_title = (self.current_question.get("title") or "").strip()
+        if current_title:
+            try:
+                concept_entry.insert(0, current_title)
+            except tk.TclError:
+                pass
+
+        definition_label = ctk.CTkLabel(
+            form_frame,
+            text="Definition",
+            font=self.dialog_label_font,
+            text_color="#111827",
+            anchor="w",
+            justify="left",
+        )
+        definition_label.grid(row=2, column=0, sticky="w", pady=(0, 8))
+
+        definition_textbox = ctk.CTkEntry(
+            form_frame,
+            fg_color="#FFFFFF",
+            text_color="#111827",
+            border_color="#CBD5E1",
+            border_width=2,
+            height=44,
+            font=self.body_font,
+            placeholder_text="Enter definition",
+            corner_radius=16,
+        )
+        definition_textbox.grid(row=3, column=0, sticky="ew")
+
+        current_definition = (self.current_question.get("definition") or "").strip()
+        if current_definition:
+            try:
+                definition_textbox.insert(0, current_definition)
+            except tk.TclError:
+                pass
+
+        image_label = ctk.CTkLabel(
+            form_frame,
+            text="Illustration",
+            font=self.dialog_label_font,
+            text_color="#111827",
+            anchor="w",
+            justify="left",
+        )
+        image_label.grid(row=4, column=0, sticky="w", pady=(16, 8))
+
+        image_input_frame = ctk.CTkFrame(
+            form_frame,
+            fg_color="#FFFFFF",
+            border_color="#CBD5E1",
+            border_width=2,
+            corner_radius=16,
+        )
+        image_input_frame.grid(row=5, column=0, sticky="ew")
+        image_input_frame.grid_columnconfigure(0, weight=1)
+
+        image_picker_frame = ctk.CTkFrame(
+            image_input_frame,
+            fg_color="transparent",
+        )
+        image_picker_frame.grid(row=0, column=0, sticky="ew", padx=12, pady=8)
+        image_picker_frame.grid_columnconfigure(0, weight=1)
+        image_picker_frame.grid_columnconfigure(1, weight=0)
+
+        existing_image_path = (self.current_question.get("image") or "").strip()
+        display_name = "No image selected"
+        display_color = "#4B5563"
+        if existing_image_path:
+            try:
+                display_source = Path(existing_image_path).name or existing_image_path
+            except OSError:
+                display_source = existing_image_path
+            truncated_name = self.truncate_display_name(display_source)
+            display_name = truncated_name or display_source
+            display_color = "#111827"
+
+        image_status_label = ctk.CTkLabel(
+            image_picker_frame,
+            text=display_name,
+            font=self.body_font,
+            text_color=display_color,
+            anchor="w",
+            justify="left",
+            wraplength=260,
+        )
+        image_status_label.grid(row=0, column=0, sticky="w", padx=(0, 16))
+
+        image_select_button = ctk.CTkButton(
+            image_picker_frame,
+            text="Choose File",
+            font=self.button_font,
+            fg_color="#1D6CFF",
+            hover_color="#0F55C9",
+            command=self.on_edit_select_image,
+            width=140,
+            height=36,
+            corner_radius=14,
+        )
+        image_select_button.grid(row=0, column=1, sticky="e")
+
+        image_feedback_label = ctk.CTkLabel(
+            form_frame,
+            text="",
+            font=self.body_font,
+            text_color="#DC2626",
+            anchor="w",
+            justify="left",
+            wraplength=360,
+        )
+        image_feedback_label.grid(row=6, column=0, sticky="w", pady=(8, 0), padx=4)
+
+        if existing_image_path:
+            intro_text = "Current image will be kept unless you choose a new file."
+            image_feedback_label.configure(text=intro_text, text_color="#4B5563")
+
+        buttons_frame = ctk.CTkFrame(
+            container,
+            fg_color="transparent",
+        )
+        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=0)
+        buttons_frame.grid_columnconfigure(2, weight=0)
+        buttons_frame.grid_columnconfigure(3, weight=1)
+
+        cancel_button = ctk.CTkButton(
+            buttons_frame,
+            text="Cancel",
+            font=self.cancel_button_font,
+            fg_color="#E5E7EB",
+            text_color="#FFFFFF",
+            hover_color="#CBD5E1",
+            command=self.close_edit_modal,
+            width=130,
+            height=46,
+            corner_radius=14,
+        )
+        cancel_button.grid(row=0, column=1, sticky="e", padx=(0, 32))
+
+        save_button = ctk.CTkButton(
+            buttons_frame,
+            text="Save",
+            font=self.button_font,
+            fg_color="#1D6CFF",
+            hover_color="#0F55C9",
+            command=self.handle_edit_question_save,
+            width=130,
+            height=46,
+            corner_radius=14,
+        )
+        save_button.grid(row=0, column=2, sticky="w", padx=(32, 0))
+
+        self.edit_modal = modal
+        self.edit_concept_entry = concept_entry
+        self.edit_definition_textbox = definition_textbox
+        self.edit_image_display_label = image_status_label
+        self.edit_image_feedback_label = image_feedback_label
+        self.edit_selected_image_source_path = None
+        self.edit_initial_image_path = existing_image_path
+
+        modal.protocol("WM_DELETE_WINDOW", self.close_edit_modal)
+        modal.bind("<Escape>", self.close_edit_modal)
+
+        modal.update_idletasks()
+        try:
+            concept_entry.focus_set()
+        except tk.TclError:
+            pass
+
+        screen_width = modal.winfo_screenwidth()
+        screen_height = modal.winfo_screenheight()
+
+        parent_width = (
+            root.winfo_width() if root and root.winfo_width() > 1 else screen_width
+        )
+        parent_height = (
+            root.winfo_height() if root and root.winfo_height() > 1 else screen_height
+        )
+
+        target_width = max(480, int(parent_width * 0.5))
+        target_height = max(460, int(parent_height * 0.6))
+
+        width = min(target_width, screen_width - 80)
+        height = min(target_height, screen_height - 80)
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            root_x = root.winfo_rootx()
+            root_y = root.winfo_rooty()
+            root_w = root.winfo_width()
+            root_h = root.winfo_height()
+            pos_x = root_x + max((root_w - width) // 2, 0)
+            pos_y = root_y + max((root_h - height) // 2, 0)
+        else:
+            pos_x = max((screen_width - width) // 2, 0)
+            pos_y = max((screen_height - height) // 2, 0)
+
+        modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
     def on_add_select_image(self):
         if not self.add_modal or not self.add_modal.winfo_exists():
             return
@@ -920,7 +1246,7 @@ class ManageQuestionsScreen:
 
         source_path = Path(file_path)
         extension = source_path.suffix.lower()
-        allowed_extensions = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
+        allowed_extensions = self.ALLOWED_IMAGE_EXTENSIONS
 
         feedback_label = (
             self.add_image_feedback_label
@@ -946,10 +1272,9 @@ class ManageQuestionsScreen:
             self.add_selected_image_source_path = None
             return
 
-        display_name = source_path.name
-        max_display_length = 60
-        if len(display_name) > max_display_length:
-            display_name = f"{display_name[:28]}...{display_name[-24:]}"
+        display_name = self.truncate_display_name(source_path.name)
+        if not display_name:
+            display_name = source_path.name
 
         if status_label:
             status_label.configure(text=display_name, text_color="#111827")
@@ -961,6 +1286,76 @@ class ManageQuestionsScreen:
             )
 
         self.add_selected_image_source_path = str(source_path)
+
+    def on_edit_select_image(self):
+        if not self.edit_modal or not self.edit_modal.winfo_exists():
+            return
+
+        try:
+            initial_dir = (
+                str(self.IMAGES_DIR) if self.IMAGES_DIR.exists() else str(Path.home())
+            )
+        except (OSError, RuntimeError):
+            initial_dir = None
+
+        try:
+            file_path = filedialog.askopenfilename(
+                parent=self.edit_modal,
+                title="Select illustration",
+                initialdir=initial_dir,
+                filetypes=[
+                    ("Image files", "*.png;*.jpg;*.jpeg;*.gif;*.bmp"),
+                    ("All files", "*.*"),
+                ],
+            )
+        except tk.TclError:
+            return
+
+        if not file_path:
+            return
+
+        source_path = Path(file_path)
+        extension = source_path.suffix.lower()
+        allowed_extensions = self.ALLOWED_IMAGE_EXTENSIONS
+
+        feedback_label = (
+            self.edit_image_feedback_label
+            if self.edit_image_feedback_label
+            and self.edit_image_feedback_label.winfo_exists()
+            else None
+        )
+        status_label = (
+            self.edit_image_display_label
+            if self.edit_image_display_label
+            and self.edit_image_display_label.winfo_exists()
+            else None
+        )
+
+        if extension not in allowed_extensions:
+            if feedback_label:
+                feedback_label.configure(
+                    text="Unsupported file type selected. Please choose a PNG or JPG image.",
+                    text_color="#DC2626",
+                )
+            if status_label:
+                status_label.configure(text="No image selected", text_color="#4B5563")
+            self.edit_selected_image_source_path = None
+            return
+
+        display_name = self.truncate_display_name(source_path.name)
+        if not display_name:
+            display_name = source_path.name
+
+        if status_label:
+            status_label.configure(text=display_name, text_color="#111827")
+
+        if feedback_label:
+            feedback_label.configure(
+                text="Image ready to import.",
+                text_color="#047857",
+            )
+
+        self.edit_selected_image_source_path = str(source_path)
 
     def close_add_modal(self):
         if self.add_modal and self.add_modal.winfo_exists():
@@ -975,6 +1370,21 @@ class ManageQuestionsScreen:
         self.add_image_display_label = None
         self.add_image_feedback_label = None
         self.add_selected_image_source_path = None
+
+    def close_edit_modal(self, *_):
+        if self.edit_modal and self.edit_modal.winfo_exists():
+            try:
+                self.edit_modal.grab_release()
+            except tk.TclError:
+                pass
+            self.edit_modal.destroy()
+        self.edit_modal = None
+        self.edit_concept_entry = None
+        self.edit_definition_textbox = None
+        self.edit_image_display_label = None
+        self.edit_image_feedback_label = None
+        self.edit_selected_image_source_path = None
+        self.edit_initial_image_path = None
 
     def handle_add_question_save(self):
         if not self.add_concept_entry or not self.add_concept_entry.winfo_exists():
@@ -1164,6 +1574,216 @@ class ManageQuestionsScreen:
             )
 
         self.close_add_modal()
+
+    def handle_edit_question_save(self):
+        if not self.current_question:
+            return
+
+        if not self.edit_concept_entry or not self.edit_concept_entry.winfo_exists():
+            return
+
+        if (
+            not self.edit_definition_textbox
+            or not self.edit_definition_textbox.winfo_exists()
+        ):
+            return
+
+        title = (self.edit_concept_entry.get() or "").strip()
+
+        definition_widget = self.edit_definition_textbox
+        definition_value = ""
+
+        if definition_widget:
+            try:
+                definition_value = definition_widget.get()
+            except (TypeError, tk.TclError):
+                definition_value = ""
+
+        definition = (definition_value or "").strip()
+
+        if not title:
+            messagebox.showwarning(
+                "Missing Information", "Please enter a title for the question."
+            )
+            try:
+                self.edit_concept_entry.focus_set()
+            except tk.TclError:
+                pass
+            return
+
+        if not definition:
+            messagebox.showwarning(
+                "Missing Information", "Please provide a definition for the question."
+            )
+            try:
+                self.edit_definition_textbox.focus_set()
+            except tk.TclError:
+                pass
+            return
+
+        normalized_title = title.lower()
+        for existing in self.questions:
+            if existing is self.current_question:
+                continue
+
+            existing_title = (existing.get("title") or "").strip().lower()
+            if existing_title == normalized_title:
+                messagebox.showwarning(
+                    "Duplicate Question",
+                    "A question with this title already exists. Please use a different title.",
+                )
+                try:
+                    self.edit_concept_entry.focus_set()
+                    self.edit_concept_entry.select_range(0, tk.END)
+                except tk.TclError:
+                    pass
+                return
+
+        new_image_source = self.edit_selected_image_source_path
+        stored_image_path = self.edit_initial_image_path or ""
+
+        if new_image_source:
+            source_path = Path(new_image_source)
+            if not source_path.exists():
+                messagebox.showerror(
+                    "Image Not Found",
+                    "The selected image could not be located. Please choose a different file.",
+                )
+                if (
+                    self.edit_image_feedback_label
+                    and self.edit_image_feedback_label.winfo_exists()
+                ):
+                    self.edit_image_feedback_label.configure(
+                        text="Selected file is no longer available.",
+                        text_color="#DC2626",
+                    )
+                self.edit_selected_image_source_path = None
+                if (
+                    self.edit_image_display_label
+                    and self.edit_image_display_label.winfo_exists()
+                ):
+                    self.edit_image_display_label.configure(
+                        text="No image selected", text_color="#4B5563"
+                    )
+                return
+
+            extension = source_path.suffix.lower()
+            allowed_extensions = self.ALLOWED_IMAGE_EXTENSIONS
+            if extension not in allowed_extensions:
+                messagebox.showwarning(
+                    "Unsupported File",
+                    "Unsupported file type selected. Please choose a PNG or JPG image.",
+                )
+                if (
+                    self.edit_image_feedback_label
+                    and self.edit_image_feedback_label.winfo_exists()
+                ):
+                    self.edit_image_feedback_label.configure(
+                        text="Please select a PNG or JPG image.",
+                        text_color="#DC2626",
+                    )
+                return
+
+            try:
+                resolved_images_dir = self.IMAGES_DIR.resolve()
+                resolved_source = source_path.resolve()
+            except OSError:
+                resolved_images_dir = self.IMAGES_DIR
+                resolved_source = source_path
+
+            relative_image_path = None
+            destination_path = None
+
+            try:
+                relative_sub_path = resolved_source.relative_to(resolved_images_dir)
+                destination_path = resolved_source
+                relative_image_path = Path("recursos") / "imagenes" / relative_sub_path
+            except ValueError:
+                destination_dir = self.IMAGES_DIR
+                try:
+                    destination_dir.mkdir(parents=True, exist_ok=True)
+                except OSError as error:
+                    messagebox.showerror(
+                        "Image Folder Error",
+                        f"Unable to create the images directory.\n\nDetails: {error}",
+                    )
+                    return
+
+                candidate_name = source_path.name or "image.png"
+                candidate_stem = source_path.stem or "image"
+                candidate_suffix = source_path.suffix or ".png"
+
+                destination_path = destination_dir / candidate_name
+                copy_index = 1
+                while destination_path.exists():
+                    destination_path = (
+                        destination_dir
+                        / f"{candidate_stem}_{copy_index}{candidate_suffix}"
+                    )
+                    copy_index += 1
+
+                try:
+                    shutil.copy2(source_path, destination_path)
+                except OSError as error:
+                    messagebox.showerror(
+                        "Image Copy Failed",
+                        f"Unable to copy the selected image into the project.\n\nDetails: {error}",
+                    )
+                    return
+
+                relative_image_path = (
+                    Path("recursos") / "imagenes" / destination_path.name
+                )
+
+            stored_image_path = (
+                relative_image_path.as_posix()
+                if relative_image_path is not None
+                else destination_path.as_posix()
+            )
+
+        new_question = {
+            "title": title,
+            "definition": definition,
+            "image": stored_image_path,
+        }
+
+        try:
+            current_index = self.questions.index(self.current_question)
+        except ValueError:
+            current_index = None
+
+        updated_questions = [
+            question
+            for question in self.questions
+            if question is not self.current_question
+        ]
+
+        insert_index = (
+            current_index if current_index is not None else len(updated_questions)
+        )
+        updated_questions.insert(insert_index, new_question)
+
+        if not self.save_questions(updated_questions):
+            if self.edit_modal and self.edit_modal.winfo_exists():
+                try:
+                    self.edit_modal.lift()
+                    self.edit_modal.focus_force()
+                except tk.TclError:
+                    pass
+            return
+
+        self.questions = updated_questions
+        self.current_question = self.questions[insert_index]
+        self.current_image_path = stored_image_path
+
+        self.on_search_change()
+
+        if self.selected_question_button:
+            self.show_question_details(
+                self.current_question, self.selected_question_button
+            )
+
+        self.close_edit_modal()
 
     def show_delete_confirmation_modal(self):
         if not self.current_question:
@@ -1446,6 +2066,16 @@ class ManageQuestionsScreen:
 
         return candidate if candidate.exists() else None
 
+    def truncate_display_name(self, name):
+        # Shorten long filenames so they fit within status labels.
+        if not name:
+            return ""
+
+        if len(name) > self.MAX_IMAGE_DISPLAY_LENGTH:
+            return f"{name[:28]}...{name[-24:]}"
+
+        return name
+
     def create_detail_ctk_image(self, image_file):
         try:
             with Image.open(image_file) as img:
@@ -1489,10 +2119,10 @@ class ManageQuestionsScreen:
                 self.detail_image_label.image = loaded_image
             else:
                 self.detail_image_label.configure(
-                    image=None, text="Image not available"
+                    image=self.detail_image_placeholder, text="Image not available"
                 )
                 self.detail_image = None
-                self.detail_image_label.image = None
+                self.detail_image_label.image = self.detail_image_placeholder
         except tk.TclError:
             pass
 
