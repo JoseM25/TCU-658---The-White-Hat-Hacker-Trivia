@@ -126,6 +126,18 @@ class ManageQuestionsScreen:
         (3840, 0.75),
     ]
 
+    SIDEBAR_WIDTH_PROFILE = [
+        (720, 0.26),
+        (960, 0.27),
+        (1280, 0.28),
+        (1440, 0.30),
+        (1600, 0.31),
+        (1920, 0.33),
+        (2560, 0.34),
+        (3200, 0.35),
+        (3840, 0.36),
+    ]
+
     LOW_RES_SCALE_PROFILE = [
         (360, 0.62),
         (480, 0.72),
@@ -1133,6 +1145,18 @@ class ManageQuestionsScreen:
             pad = max(6, pad)
         return self.clamp_value(pad, min_pad, max_pad)
 
+    def get_sidebar_share(self, window_width):
+        if not window_width or window_width <= 0:
+            window_width = self.BASE_DIMENSIONS[0]
+        profile_share = self.interpolate_profile(
+            window_width, self.SIDEBAR_WIDTH_PROFILE
+        )
+        total_weight = self.SIDEBAR_WEIGHT + self.DETAIL_WEIGHT
+        base_share = (
+            self.SIDEBAR_WEIGHT / total_weight if total_weight else 0.26
+        )
+        return self.clamp_value(profile_share, base_share, 0.36)
+
     def apply_title_wraplength(self):
         if not self.detail_title_label or not self.detail_title_label.winfo_exists():
             return
@@ -1326,11 +1350,9 @@ class ManageQuestionsScreen:
         sidebar_minsize = self.scale_value(sidebar_base, scale, 200, 520)
         raw_detail_min = self.scale_value(detail_base, scale, 220, 1400)
         gutter = self.scale_value(84, scale, 48, 140)
-        total_weight = self.SIDEBAR_WEIGHT + self.DETAIL_WEIGHT
-        detail_share = self.DETAIL_WEIGHT / total_weight if total_weight else 0.7
-        sidebar_share = 1 - detail_share
         estimated_sidebar_width = max(
-            sidebar_minsize, int(window_width * max(0.18, min(0.32, sidebar_share)))
+            sidebar_minsize,
+            int(round(window_width * self.get_sidebar_share(window_width))),
         )
         available_width = max(220, window_width - estimated_sidebar_width - gutter)
         detail_minsize = min(raw_detail_min, available_width)
