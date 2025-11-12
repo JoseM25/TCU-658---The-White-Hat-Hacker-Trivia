@@ -17,9 +17,9 @@ from juego.preguntas_modales import (
 class ManageQuestionsScreen:
 
     BASE_DIMENSIONS = (1280, 720)
-    SCALE_LIMITS = (0.40, 1.90)
+    SCALE_LIMITS = (0.18, 1.90)
     RESIZE_DELAY = 80
-    GLOBAL_SCALE_FACTOR = 0.80
+    GLOBAL_SCALE_FACTOR = 0.55
     SIDEBAR_WEIGHT = 26
     DETAIL_WEIGHT = 74
 
@@ -78,16 +78,16 @@ class ManageQuestionsScreen:
     }
 
     FONT_SPECS = {
-        "title": ("Poppins ExtraBold", 38, "bold", 24),
-        "body": ("Poppins Medium", 18, None, 12),
-        "button": ("Poppins SemiBold", 16, "bold", 12),
-        "cancel_button": ("Poppins ExtraBold", 16, "bold", 12),
-        "search": ("Poppins SemiBold", 18, "bold", 12),
-        "question": ("Poppins SemiBold", 18, "bold", 12),
-        "detail_title": ("Poppins ExtraBold", 38, "bold", 24),
-        "dialog_title": ("Poppins SemiBold", 24, "bold", 16),
-        "dialog_body": ("Poppins Medium", 16, None, 12),
-        "dialog_label": ("Poppins SemiBold", 16, "bold", 12),
+        "title": ("Poppins ExtraBold", 38, "bold", 14),
+        "body": ("Poppins Medium", 18, None, 9),
+        "button": ("Poppins SemiBold", 16, "bold", 9),
+        "cancel_button": ("Poppins ExtraBold", 16, "bold", 9),
+        "search": ("Poppins SemiBold", 18, "bold", 9),
+        "question": ("Poppins SemiBold", 18, "bold", 9),
+        "detail_title": ("Poppins ExtraBold", 38, "bold", 12),
+        "dialog_title": ("Poppins SemiBold", 24, "bold", 12),
+        "dialog_body": ("Poppins Medium", 16, None, 9),
+        "dialog_label": ("Poppins SemiBold", 16, "bold", 9),
     }
 
     def __init__(self, parent, on_return_callback=None):
@@ -160,6 +160,8 @@ class ManageQuestionsScreen:
         self.detail_scrollbar_visible = True
         self.definition_pad = 0
         self.definition_button_width = 0
+        self.header_pad = 0
+        self.body_pad = 0
 
         # Cache icons
         self.detail_image_placeholder = (
@@ -515,6 +517,7 @@ class ManageQuestionsScreen:
             font=self.detail_title_font,
             text_color=c["text_dark"],
             anchor="w",
+            wraplength=600,
         )
         self.detail_title_label.grid(row=0, column=0, sticky="w", padx=(12, 0))
 
@@ -610,6 +613,7 @@ class ManageQuestionsScreen:
             wraplength=self.definition_wraplength,
         )
         self.detail_definition_label.grid(row=0, column=1, sticky="nsew")
+        self.update_detail_scrollbar_visibility()
 
     def render_question_list(self):
         if not self.list_container or not self.list_container.winfo_exists():
@@ -791,7 +795,15 @@ class ManageQuestionsScreen:
         self.detail_title_label.configure(text=title)
         self.detail_definition_label.configure(text=definition)
         if self.detail_definition_label and self.detail_definition_label.winfo_exists():
-            self.detail_definition_label.after_idle(self.apply_definition_wraplength)
+            try:
+                self.detail_definition_label.after_idle(self.apply_definition_wraplength)
+            except tk.TclError:
+                self.apply_definition_wraplength()
+        if self.detail_title_label and self.detail_title_label.winfo_exists():
+            try:
+                self.detail_title_label.after_idle(self.apply_title_wraplength)
+            except tk.TclError:
+                self.apply_title_wraplength()
 
         # Update image
         self.update_detail_image(image_path)
@@ -880,10 +892,24 @@ class ManageQuestionsScreen:
             self.size_state["scrollbar_offset_active"] = 0
             return
 
-        self.detail_content_frame.update_idletasks()
-        content_height = self.detail_content_frame.winfo_reqheight()
-        viewport_height = self.detail_content_frame._parent_canvas.winfo_height()
-        needs_scrollbar = content_height > viewport_height + 2
+        canvas = getattr(self.detail_content_frame, "_parent_canvas", None)
+        if canvas:
+            try:
+                canvas.update_idletasks()
+            except tk.TclError:
+                pass
+            bbox = canvas.bbox("all")
+            content_height = (bbox[3] - bbox[1]) if bbox else self.detail_content_frame.winfo_reqheight()
+            viewport_height = canvas.winfo_height()
+        else:
+            try:
+                self.detail_content_frame.update_idletasks()
+            except tk.TclError:
+                pass
+            content_height = self.detail_content_frame.winfo_reqheight()
+            viewport_height = self.detail_content_frame.winfo_height()
+
+        needs_scrollbar = content_height > viewport_height + 4
 
         if needs_scrollbar and not self.detail_scrollbar_visible:
             try:
@@ -908,29 +934,37 @@ class ManageQuestionsScreen:
             except tk.TclError:
                 self.apply_definition_wraplength()
 
+    def measure_widget_width(self, widget, fallback):
+        if widget and widget.winfo_exists():
+            try:
+                widget.update_idletasks()
+            except tk.TclError:
+                pass
+            width = widget.winfo_width()
+            if width > 1:
+                return width
+        return fallback
+
+    def apply_title_wraplength(self):
+        if not self.detail_title_label or not self.detail_title_label.winfo_exists():
+            return
+        fallback = self.size_state.get("detail_width_estimate", 600)
+        width = self.measure_widget_width(self.detail_header_frame, fallback)
+        width -= max(40, self.header_pad or 0)
+        wrap_target = max(120, width)
+        self.detail_title_label.configure(wraplength=wrap_target)
+
     def apply_definition_wraplength(self):
         if not self.detail_definition_label or not self.detail_definition_label.winfo_exists():
             return
-        row = self.definition_row if self.definition_row and self.definition_row.winfo_exists() else None
-        for widget in (row, self.detail_body_frame, self.detail_container, self.parent):
-            if widget and widget.winfo_exists():
-                try:
-                    widget.update_idletasks()
-                except tk.TclError:
-                    pass
-        container_width = 0
-        targets = [row, self.detail_body_frame, self.detail_container]
-        for widget in targets:
-            if widget and widget.winfo_exists():
-                container_width = widget.winfo_width()
-                if container_width > 1:
-                    break
-        if container_width <= 1:
-            container_width = self.size_state.get("detail_width_estimate", 600)
+        fallback = self.size_state.get("detail_width_estimate", 600)
+        body_width = self.measure_widget_width(self.detail_body_frame, fallback)
+        row_width = self.measure_widget_width(self.definition_row, body_width)
+        container_width = min(body_width, row_width)
         pad_total = (
             self.definition_pad
             if self.definition_pad
-            else self.scale_value(32, self.current_scale or 1, 12, 64) * 2
+            else self.scale_value(32, self.current_scale or 1, 12, 54) * 2
         )
         button_width = (
             self.definition_button_width
@@ -938,14 +972,15 @@ class ManageQuestionsScreen:
             else self.scale_value(44, self.current_scale or 1, 30, 76)
             + self.scale_value(16, self.current_scale or 1, 8, 20)
         )
-        text_width = container_width - pad_total - button_width
+        text_width = container_width - button_width - pad_total
         text_width -= self.size_state.get(
             "scrollbar_offset_active",
             self.size_state.get("scrollbar_offset_base", 0),
         )
-        text_width -= self.scale_value(12, self.current_scale or 1, 8, 32)
+        text_width -= self.scale_value(12, self.current_scale or 1, 6, 24)
+        text_width = max(80, text_width)
         wrap_target = max(
-            220, min(self.definition_wraplength, text_width)
+            80, min(self.definition_wraplength, text_width)
         )
         self.detail_definition_label.configure(wraplength=wrap_target)
 
@@ -958,17 +993,17 @@ class ManageQuestionsScreen:
         return int(round(value))
 
     def update_size_state(self, scale, window_width):
-        self.size_state["question_btn_height"] = self.scale_value(50, scale, 36, 92)
-        self.size_state["question_margin"] = self.scale_value(8, scale, 4, 22)
+        self.size_state["question_btn_height"] = self.scale_value(50, scale, 26, 86)
+        self.size_state["question_margin"] = self.scale_value(8, scale, 3, 18)
         self.size_state["question_padding"] = self.scale_value(4, scale, 2, 14)
-        self.size_state["question_corner_radius"] = self.scale_value(12, scale, 6, 24)
+        self.size_state["question_corner_radius"] = self.scale_value(12, scale, 5, 20)
         self.size_state["max_questions"] = max(
             4, min(12, int(round(self.SIZES["max_questions"] * scale)))
         )
 
         detail_size = (
-            self.scale_value(220, scale, 140, 420),
-            self.scale_value(220, scale, 140, 420),
+            self.scale_value(220, scale, 110, 420),
+            self.scale_value(220, scale, 110, 420),
         )
         self.size_state["detail_image"] = detail_size
         panel_height = self.scale_value(520, scale, 320, 880)
@@ -1146,8 +1181,10 @@ class ManageQuestionsScreen:
         if not self.detail_container or not self.detail_container.winfo_exists():
             return
 
-        pad_left = self.scale_value(12, scale, 8, 48)
-        pad_right = self.scale_value(32, scale, 16, 80)
+        base_pad_left = 12
+        base_pad_right = 32
+        pad_left = self.scale_value(base_pad_left, scale, 6, 40)
+        pad_right = self.scale_value(base_pad_right, scale, 12, 70)
         pad_vertical = self.scale_value(32, scale, 12, 76)
 
         self.detail_container.grid_configure(
@@ -1157,7 +1194,7 @@ class ManageQuestionsScreen:
             corner_radius=self.scale_value(16, scale, 10, 32)
         )
         panel_height = self.size_state.get("detail_panel_height", 520)
-        scroll_height = self.size_state.get("detail_scroll_height", max(200, panel_height - 140))
+        scroll_height = self.size_state.get("detail_scroll_height", max(180, panel_height - 140))
         self.detail_container.grid_rowconfigure(1, minsize=panel_height)
 
         body_padx = self.scale_value(24, scale, 12, 56)
@@ -1165,6 +1202,7 @@ class ManageQuestionsScreen:
         if self.detail_body_frame and self.detail_body_frame.winfo_exists():
             self.detail_body_frame.grid_configure(padx=body_padx, pady=(0, body_pady))
             self.detail_body_frame.configure(height=panel_height)
+            self.body_pad = body_padx * 2
 
         image_pad_top = self.scale_value(28, scale, 12, 56)
         image_pad_bottom = self.scale_value(48, scale, 16, 96)
@@ -1173,6 +1211,10 @@ class ManageQuestionsScreen:
         if self.detail_content_frame and self.detail_content_frame.winfo_exists():
             self.detail_content_frame.configure(height=scroll_height)
         self.update_detail_scrollbar_visibility()
+        header_padx = self.scale_value(24, scale, 12, 56)
+        if self.detail_header_frame and self.detail_header_frame.winfo_exists():
+            self.detail_header_frame.grid_configure(padx=header_padx)
+            self.header_pad = header_padx * 2
 
         if self.detail_image_label and self.detail_image_label.winfo_exists():
             width, height = self.size_state.get(
@@ -1184,7 +1226,11 @@ class ManageQuestionsScreen:
             self.detail_image_label.configure(width=width, height=height)
 
         if self.definition_row and self.definition_row.winfo_exists():
-            definition_pad = self.scale_value(32, scale, 12, 64)
+            base_pad = 32
+            definition_pad = max(
+                self.scale_value(base_pad, scale, 12, 64),
+                min(48, int(width * 0.015)),
+            )
             self.definition_row.grid_configure(
                 padx=definition_pad,
                 pady=(self.scale_value(32, scale, 12, 60), 0),
@@ -1215,6 +1261,13 @@ class ManageQuestionsScreen:
                 )
 
         self.refresh_detail_image()
+        if self.parent and self.parent.winfo_exists():
+            try:
+                self.parent.after_idle(self.apply_title_wraplength)
+                self.parent.after_idle(self.apply_definition_wraplength)
+            except tk.TclError:
+                self.apply_title_wraplength()
+                self.apply_definition_wraplength()
 
     def apply_responsive(self):
         if not self.parent or not self.parent.winfo_exists():
@@ -1226,11 +1279,8 @@ class ManageQuestionsScreen:
 
         raw_scale = min(width / base_w, height / base_h)
         min_scale, max_scale = self.SCALE_LIMITS
-        scale = max(min_scale, min(max_scale, raw_scale))
-        scale = max(
-            min_scale,
-            min(max_scale, scale * self.GLOBAL_SCALE_FACTOR),
-        )
+        scaled = raw_scale * self.GLOBAL_SCALE_FACTOR
+        scale = max(min_scale, min(max_scale, scaled))
         self.current_scale = scale
 
         self.update_size_state(scale, width)
