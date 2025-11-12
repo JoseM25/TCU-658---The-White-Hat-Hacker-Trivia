@@ -16,6 +16,13 @@ from juego.preguntas_modales import (
 
 class ManageQuestionsScreen:
 
+    BASE_DIMENSIONS = (1280, 720)
+    SCALE_LIMITS = (0.40, 1.90)
+    RESIZE_DELAY = 80
+    GLOBAL_SCALE_FACTOR = 0.80
+    SIDEBAR_WEIGHT = 26
+    DETAIL_WEIGHT = 74
+
     # File and directory paths
     BASE_DIR = Path(__file__).resolve().parent.parent
     QUESTIONS_FILE = BASE_DIR / "datos" / "preguntas.json"
@@ -70,6 +77,19 @@ class ManageQuestionsScreen:
         "question_corner_radius": 12,
     }
 
+    FONT_SPECS = {
+        "title": ("Poppins ExtraBold", 38, "bold", 24),
+        "body": ("Poppins Medium", 18, None, 12),
+        "button": ("Poppins SemiBold", 16, "bold", 12),
+        "cancel_button": ("Poppins ExtraBold", 16, "bold", 12),
+        "search": ("Poppins SemiBold", 18, "bold", 12),
+        "question": ("Poppins SemiBold", 18, "bold", 12),
+        "detail_title": ("Poppins ExtraBold", 38, "bold", 24),
+        "dialog_title": ("Poppins SemiBold", 24, "bold", 16),
+        "dialog_body": ("Poppins Medium", 16, None, 12),
+        "dialog_label": ("Poppins SemiBold", 16, "bold", 12),
+    }
+
     def __init__(self, parent, on_return_callback=None):
         self.parent = parent
         self.on_return_callback = on_return_callback
@@ -86,6 +106,9 @@ class ManageQuestionsScreen:
         self.dialog_body_font = None
         self.dialog_label_font = None
 
+        self.font_base_sizes = {}
+        self.font_min_sizes = {}
+
         # Initialize fonts
         self.init_fonts()
 
@@ -99,7 +122,7 @@ class ManageQuestionsScreen:
         self.load_questions()
 
         # UI State
-        self.current_question = None
+        self.current_question = self.filtered_questions[0] if self.filtered_questions else None
         self.selected_question_button = None
         self.detail_visible = False
 
@@ -111,6 +134,32 @@ class ManageQuestionsScreen:
         self.detail_definition_label = None
         self.detail_image_label = None
         self.definition_audio_button = None
+
+        # Layout references
+        self.main_frame = None
+        self.header_frame = None
+        self.menu_button = None
+        self.header_title_label = None
+        self.sidebar_frame = None
+        self.controls_frame = None
+        self.search_wrapper = None
+        self.search_icon_label = None
+        self.add_button = None
+        self.list_frame_padding = 8
+        self.list_frame_corner_radius = 24
+        self.detail_header_frame = None
+        self.detail_body_frame = None
+        self.detail_content_frame = None
+        self.definition_row = None
+        self.detail_action_buttons = []
+        self.divider_frame = None
+        self.definition_wraplength = 540
+        self.current_detail_image = None
+        self.render_metric_snapshot = None
+        self.detail_scroll_height = 0
+        self.detail_scrollbar_visible = True
+        self.definition_pad = 0
+        self.definition_button_width = 0
 
         # Cache icons
         self.detail_image_placeholder = (
@@ -126,37 +175,38 @@ class ManageQuestionsScreen:
             self.ICONS["back"], self.SIZES["back_icon"]
         )
 
+        self.icon_base_sizes = {
+            "audio": self.SIZES["audio_icon"],
+            "search": self.SIZES["search_icon"],
+            "back": self.SIZES["back_icon"],
+        }
+        self.icon_cache = {}
+
+        self.size_state = dict(self.SIZES)
+        self.current_scale = 1.0
+        self._resize_job = None
+
         # Clear parent and build UI
         for widget in self.parent.winfo_children():
             widget.destroy()
         self.build_ui()
 
+        self.apply_responsive()
+
         # Bind click event to remove focus from search when clicking elsewhere
         self.parent.bind("<Button-1>", self.handle_global_click, add="+")
+        self.parent.bind("<Configure>", self.on_resize)
 
     def init_fonts(self):
-        font_specs = {
-            "title": ("Poppins ExtraBold", 38, "bold"),
-            "body": ("Poppins Medium", 18, None),
-            "button": ("Poppins SemiBold", 16, "bold"),
-            "cancel_button": ("Poppins ExtraBold", 16, "bold"),
-            "search": ("Poppins SemiBold", 18, "bold"),
-            "question": ("Poppins SemiBold", 18, "bold"),
-            "detail_title": ("Poppins ExtraBold", 38, "bold"),
-            "dialog_title": ("Poppins SemiBold", 24, "bold"),
-            "dialog_body": ("Poppins Medium", 16, None),
-            "dialog_label": ("Poppins SemiBold", 16, "bold"),
-        }
-        for name, (family, size, weight) in font_specs.items():
-            setattr(
-                self,
-                f"{name}_font",
-                (
-                    ctk.CTkFont(family=family, size=size, weight=weight)
-                    if weight
-                    else ctk.CTkFont(family=family, size=size)
-                ),
+        for name, (family, size, weight, min_size) in self.FONT_SPECS.items():
+            font = (
+                ctk.CTkFont(family=family, size=size, weight=weight)
+                if weight
+                else ctk.CTkFont(family=family, size=size)
             )
+            setattr(self, f"{name}_font", font)
+            self.font_base_sizes[name] = size
+            self.font_min_sizes[name] = min_size or 10
 
     def create_modal_ui_config(self, keys):
         color_map = {
@@ -299,25 +349,30 @@ class ManageQuestionsScreen:
         self.parent.grid_rowconfigure(0, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
 
-        main = ctk.CTkFrame(self.parent, fg_color="transparent")
-        main.grid(row=0, column=0, sticky="nsew")
-        main.grid_rowconfigure(1, weight=1)
-        for col, (weight, minsize) in enumerate([(0, 0), (0, 2), (1, 0)]):
-            main.grid_columnconfigure(col, weight=weight, minsize=minsize)
+        self.main_frame = ctk.CTkFrame(self.parent, fg_color="transparent")
+        self.main_frame.grid(row=0, column=0, sticky="nsew")
+        self.main_frame.grid_rowconfigure(1, weight=1)
+        column_layout = {
+            0: {"weight": self.SIDEBAR_WEIGHT, "minsize": 260},
+            1: {"weight": 0, "minsize": 2},
+            2: {"weight": self.DETAIL_WEIGHT, "minsize": 400},
+        }
+        for col, cfg in column_layout.items():
+            self.main_frame.grid_columnconfigure(col, **cfg)
 
-        self.build_header(main)
-        self.build_sidebar(main)
-        self.build_divider(main)
-        self.build_detail_panel(main)
+        self.build_header(self.main_frame)
+        self.build_detail_panel(self.main_frame)
+        self.build_sidebar(self.main_frame)
+        self.build_divider(self.main_frame)
 
     def build_header(self, parent):
         c = self.COLORS
-        header = ctk.CTkFrame(parent, fg_color=c["header_bg"], corner_radius=0)
-        header.grid(row=0, column=0, columnspan=3, sticky="ew")
-        header.grid_columnconfigure(1, weight=1)
+        self.header_frame = ctk.CTkFrame(parent, fg_color=c["header_bg"], corner_radius=0)
+        self.header_frame.grid(row=0, column=0, columnspan=3, sticky="ew")
+        self.header_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkButton(
-            header,
+        self.menu_button = ctk.CTkButton(
+            self.header_frame,
             text="Menu",
             font=self.button_font,
             text_color=c["text_white"],
@@ -330,37 +385,39 @@ class ManageQuestionsScreen:
             corner_radius=8,
             width=110,
             height=44,
-        ).grid(row=0, column=0, padx=(24, 16), pady=(28, 32), sticky="w")
+        )
+        self.menu_button.grid(row=0, column=0, padx=(24, 16), pady=(28, 32), sticky="w")
 
-        ctk.CTkLabel(
-            header,
+        self.header_title_label = ctk.CTkLabel(
+            self.header_frame,
             text="Manage Questions",
             font=self.title_font,
             text_color=c["text_white"],
             anchor="center",
-        ).grid(row=0, column=1, padx=32, pady=(28, 32), sticky="nsew")
+        )
+        self.header_title_label.grid(row=0, column=1, padx=32, pady=(28, 32), sticky="nsew")
 
     def build_sidebar(self, parent):
-        sidebar = ctk.CTkFrame(parent, fg_color="transparent")
-        sidebar.grid(row=1, column=0, sticky="ns", padx=(32, 12), pady=32)
-        sidebar.grid_rowconfigure(1, weight=1)
-        sidebar.grid_columnconfigure(0, weight=1)
+        self.sidebar_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.sidebar_frame.grid(row=1, column=0, sticky="ns", padx=(32, 12), pady=32)
+        self.sidebar_frame.grid_rowconfigure(1, weight=1)
+        self.sidebar_frame.grid_columnconfigure(0, weight=1)
 
-        self.build_controls(sidebar)
-        self.build_question_list_container(sidebar)
+        self.build_controls(self.sidebar_frame)
+        self.build_question_list_container(self.sidebar_frame)
 
     def build_controls(self, parent):
         c = self.COLORS
-        controls = ctk.CTkFrame(parent, fg_color="transparent")
-        controls.grid(row=0, column=0, sticky="ew")
-        controls.grid_columnconfigure(0, weight=1)
+        self.controls_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.controls_frame.grid(row=0, column=0, sticky="ew")
+        self.controls_frame.grid_columnconfigure(0, weight=1)
 
         # Search bar
-        search_wrapper = ctk.CTkFrame(
-            controls, fg_color=c["search_bg"], corner_radius=18
+        self.search_wrapper = ctk.CTkFrame(
+            self.controls_frame, fg_color=c["search_bg"], corner_radius=18
         )
-        search_wrapper.grid(row=0, column=0, padx=(16, 12), pady=16, sticky="ew")
-        search_wrapper.grid_columnconfigure(1, weight=1)
+        self.search_wrapper.grid(row=0, column=0, padx=(16, 12), pady=16, sticky="ew")
+        self.search_wrapper.grid_columnconfigure(1, weight=1)
 
         # Search icon
         icon_config = {
@@ -374,13 +431,12 @@ class ManageQuestionsScreen:
                 {"text": "S", "text_color": c["text_white"], "font": self.button_font}
             )
 
-        ctk.CTkLabel(search_wrapper, **icon_config).grid(
-            row=0, column=0, padx=(12, 4), sticky="w"
-        )
+        self.search_icon_label = ctk.CTkLabel(self.search_wrapper, **icon_config)
+        self.search_icon_label.grid(row=0, column=0, padx=(12, 4), sticky="w")
 
         # Search entry
         self.search_entry = ctk.CTkEntry(
-            search_wrapper,
+            self.search_wrapper,
             placeholder_text="Search...",
             placeholder_text_color=c["text_placeholder"],
             fg_color="transparent",
@@ -395,8 +451,8 @@ class ManageQuestionsScreen:
             self.search_entry.bind(event, lambda e: self.handle_search())
 
         # Add button
-        ctk.CTkButton(
-            controls,
+        self.add_button = ctk.CTkButton(
+            self.controls_frame,
             text="Add",
             font=self.button_font,
             fg_color=c["primary"],
@@ -405,7 +461,8 @@ class ManageQuestionsScreen:
             width=96,
             height=42,
             corner_radius=12,
-        ).grid(row=0, column=1, padx=(0, 16), pady=16)
+        )
+        self.add_button.grid(row=0, column=1, padx=(0, 16), pady=16)
 
     def build_question_list_container(self, parent):
         self.list_container = ctk.CTkFrame(parent, fg_color="transparent")
@@ -416,12 +473,13 @@ class ManageQuestionsScreen:
         self.render_question_list()
 
     def build_divider(self, parent):
-        ctk.CTkFrame(
+        self.divider_frame = ctk.CTkFrame(
             parent,
             fg_color=self.COLORS["border_light"],
             corner_radius=0,
             width=2,
-        ).grid(row=1, column=1, sticky="ns", pady=32)
+        )
+        self.divider_frame.grid(row=1, column=1, sticky="ns", pady=32)
 
     def build_detail_panel(self, parent):
         c = self.COLORS
@@ -447,12 +505,12 @@ class ManageQuestionsScreen:
 
     def build_detail_header(self):
         c = self.COLORS
-        header = ctk.CTkFrame(self.detail_container, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 12))
-        header.grid_columnconfigure(0, weight=1)
+        self.detail_header_frame = ctk.CTkFrame(self.detail_container, fg_color="transparent")
+        self.detail_header_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 12))
+        self.detail_header_frame.grid_columnconfigure(0, weight=1)
 
         self.detail_title_label = ctk.CTkLabel(
-            header,
+            self.detail_header_frame,
             text="",
             font=self.detail_title_font,
             text_color=c["text_dark"],
@@ -461,6 +519,7 @@ class ManageQuestionsScreen:
         self.detail_title_label.grid(row=0, column=0, sticky="w", padx=(12, 0))
 
         # Action buttons
+        self.detail_action_buttons = []
         for col, (text, fg, hover, cmd) in enumerate(
             [
                 ("Edit", c["secondary"], c["secondary_hover"], self.on_edit_clicked),
@@ -468,8 +527,8 @@ class ManageQuestionsScreen:
             ],
             start=1,
         ):
-            ctk.CTkButton(
-                header,
+            button = ctk.CTkButton(
+                self.detail_header_frame,
                 text=text,
                 font=self.question_font,
                 fg_color=fg,
@@ -478,22 +537,28 @@ class ManageQuestionsScreen:
                 width=110,
                 height=44,
                 corner_radius=12,
-            ).grid(row=0, column=col, padx=(12, 12 if col == 1 else 0), sticky="e")
+            )
+            button.grid(row=0, column=col, padx=(12, 12 if col == 1 else 0), sticky="e")
+            self.detail_action_buttons.append(button)
 
     def build_detail_body(self):
         c = self.COLORS
-        body = ctk.CTkFrame(self.detail_container, fg_color="transparent")
-        body.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
-        body.grid_rowconfigure(0, weight=1)
-        body.grid_columnconfigure(0, weight=1)
+        self.detail_body_frame = ctk.CTkFrame(self.detail_container, fg_color="transparent")
+        self.detail_body_frame.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
+        self.detail_body_frame.grid_rowconfigure(0, weight=1)
+        self.detail_body_frame.grid_columnconfigure(0, weight=1)
 
-        content = ctk.CTkFrame(body, fg_color="transparent")
-        content.grid(row=0, column=0, sticky="n")
-        content.grid_columnconfigure(0, weight=1)
+        self.detail_content_frame = ctk.CTkScrollableFrame(
+            self.detail_body_frame, fg_color="transparent", height=520
+        )
+        self.detail_content_frame.grid(row=0, column=0, sticky="nsew")
+        self.detail_content_frame.grid_columnconfigure(0, weight=1)
+        self.detail_scrollbar = getattr(self.detail_content_frame, "_scrollbar", None)
+        self.detail_scrollbar_visible = True
 
         # Image label
         self.detail_image_label = ctk.CTkLabel(
-            content,
+            self.detail_content_frame,
             text="Image placeholder",
             font=self.search_font,
             text_color=c["text_light"],
@@ -512,9 +577,9 @@ class ManageQuestionsScreen:
             pass
 
         # Definition row with audio button
-        definition_row = ctk.CTkFrame(content, fg_color="transparent")
-        definition_row.grid(row=1, column=0, sticky="ew", padx=32, pady=(32, 0))
-        definition_row.grid_columnconfigure(1, weight=1)
+        self.definition_row = ctk.CTkFrame(self.detail_content_frame, fg_color="transparent")
+        self.definition_row.grid(row=1, column=0, sticky="ew", padx=32, pady=(32, 0))
+        self.definition_row.grid_columnconfigure(1, weight=1)
 
         audio_config = {
             "text": "" if self.audio_icon else "Audio",
@@ -532,19 +597,19 @@ class ManageQuestionsScreen:
                 {"font": self.body_font, "text_color": c["text_medium"]}
             )
 
-        self.definition_audio_button = ctk.CTkButton(definition_row, **audio_config)
+        self.definition_audio_button = ctk.CTkButton(self.definition_row, **audio_config)
         self.definition_audio_button.grid(row=0, column=0, sticky="nw", padx=(0, 16))
 
         self.detail_definition_label = ctk.CTkLabel(
-            definition_row,
+            self.definition_row,
             text="",
             font=self.body_font,
             text_color=c["text_medium"],
             justify="left",
             anchor="w",
-            wraplength=540,
+            wraplength=self.definition_wraplength,
         )
-        self.detail_definition_label.grid(row=0, column=1, sticky="nw")
+        self.detail_definition_label.grid(row=0, column=1, sticky="nsew")
 
     def render_question_list(self):
         if not self.list_container or not self.list_container.winfo_exists():
@@ -554,7 +619,8 @@ class ManageQuestionsScreen:
         for child in self.list_container.winfo_children():
             child.destroy()
 
-        c, s = self.COLORS, self.SIZES
+        c = self.COLORS
+        s = self.size_state
         questions = self.filtered_questions
 
         # Check if selected question is visible
@@ -569,15 +635,22 @@ class ManageQuestionsScreen:
             "fg_color": c["bg_light"],
             "border_width": 1,
             "border_color": c["border_light"],
-            "corner_radius": 24,
+            "corner_radius": self.list_frame_corner_radius,
         }
         FrameClass = (
             ctk.CTkScrollableFrame
-            if len(questions) > s["max_questions"]
+            if len(questions)
+            > s.get("max_questions", self.SIZES["max_questions"])
             else ctk.CTkFrame
         )
         list_frame = FrameClass(self.list_container, **frame_config)
-        list_frame.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        list_frame.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=self.list_frame_padding,
+            pady=self.list_frame_padding,
+        )
         list_frame.grid_columnconfigure(0, weight=1)
 
         if not questions:
@@ -598,6 +671,13 @@ class ManageQuestionsScreen:
 
         # Render question buttons
         self.selected_question_button = None
+        button_height = s.get("question_btn_height", self.SIZES["question_btn_height"])
+        button_margin = s.get("question_margin", self.SIZES["question_margin"])
+        button_padding = s.get("question_padding", self.SIZES["question_padding"])
+        corner_radius = s.get(
+            "question_corner_radius", self.SIZES["question_corner_radius"]
+        )
+
         for index, question in enumerate(questions, start=0):
             is_selected = selected_visible and question is self.current_question
 
@@ -612,8 +692,8 @@ class ManageQuestionsScreen:
                     c["question_selected"] if is_selected else c["question_hover"]
                 ),
                 border_width=0,
-                height=s["question_btn_height"],
-                corner_radius=s["question_corner_radius"],
+                height=button_height,
+                corner_radius=corner_radius,
             )
 
             # Configure command after button is created to properly capture reference
@@ -625,12 +705,19 @@ class ManageQuestionsScreen:
                 row=index,
                 column=0,
                 sticky="nsew",
-                padx=s["question_margin"],
-                pady=s["question_padding"],
+                padx=button_margin,
+                pady=button_padding,
             )
 
             if is_selected:
                 self.selected_question_button = button
+
+        if (
+            self.current_question
+            and self.selected_question_button
+            and not self.detail_visible
+        ):
+            self.on_question_selected(self.current_question, self.selected_question_button)
 
     def handle_search(self):
         query = self.search_entry.get() if self.search_entry else ""
@@ -703,18 +790,11 @@ class ManageQuestionsScreen:
 
         self.detail_title_label.configure(text=title)
         self.detail_definition_label.configure(text=definition)
+        if self.detail_definition_label and self.detail_definition_label.winfo_exists():
+            self.detail_definition_label.after_idle(self.apply_definition_wraplength)
 
         # Update image
-        detail_image = self.image_handler.create_detail_image(
-            image_path, self.SIZES["detail_image"]
-        )
-        try:
-            self.detail_image_label.configure(
-                image=detail_image or self.detail_image_placeholder,
-                text="" if detail_image else "Image not available",
-            )
-        except tk.TclError:
-            pass
+        self.update_detail_image(image_path)
 
         # Enable/disable audio button
         self.definition_audio_button.configure(
@@ -734,6 +814,8 @@ class ManageQuestionsScreen:
             self.detail_container.grid_remove()
             self.detail_visible = False
 
+        self.current_detail_image = None
+
         # Reset widgets
         widgets = [
             (self.detail_title_label, {"text": ""}),
@@ -751,6 +833,441 @@ class ManageQuestionsScreen:
                 )
             except tk.TclError:
                 pass
+
+    def update_detail_image(self, image_path):
+        if not self.detail_image_label or not self.detail_image_label.winfo_exists():
+            return
+
+        size = self.size_state.get("detail_image", self.SIZES["detail_image"])
+        try:
+            self.detail_image_placeholder.configure(size=size)
+        except tk.TclError:
+            pass
+
+        detail_image = (
+            self.image_handler.create_detail_image(image_path, size)
+            if image_path
+            else None
+        )
+        self.current_detail_image = detail_image
+
+        fallback_text = ""
+        if not detail_image:
+            fallback_text = "Image not available" if image_path else "Image placeholder"
+
+        try:
+            self.detail_image_label.configure(
+                image=detail_image or self.detail_image_placeholder, text=fallback_text
+            )
+        except tk.TclError:
+            pass
+
+    def refresh_detail_image(self):
+        image_path = ""
+        if self.current_question:
+            image_path = self.current_question.get("image", "")
+        self.update_detail_image(image_path)
+
+    def update_detail_scrollbar_visibility(self):
+        if (
+            not self.detail_content_frame
+            or not self.detail_content_frame.winfo_exists()
+        ):
+            return
+
+        scrollbar = getattr(self.detail_content_frame, "_scrollbar", None)
+        if not scrollbar:
+            self.size_state["scrollbar_offset_active"] = 0
+            return
+
+        self.detail_content_frame.update_idletasks()
+        content_height = self.detail_content_frame.winfo_reqheight()
+        viewport_height = self.detail_content_frame._parent_canvas.winfo_height()
+        needs_scrollbar = content_height > viewport_height + 2
+
+        if needs_scrollbar and not self.detail_scrollbar_visible:
+            try:
+                scrollbar.grid()
+            except tk.TclError:
+                pass
+            self.detail_scrollbar_visible = True
+        elif not needs_scrollbar and self.detail_scrollbar_visible:
+            try:
+                scrollbar.grid_remove()
+            except tk.TclError:
+                pass
+            self.detail_scrollbar_visible = False
+
+        base_offset = self.size_state.get("scrollbar_offset_base", 0)
+        self.size_state["scrollbar_offset_active"] = (
+            base_offset if self.detail_scrollbar_visible else 0
+        )
+        if self.detail_definition_label and self.detail_definition_label.winfo_exists():
+            try:
+                self.detail_definition_label.after_idle(self.apply_definition_wraplength)
+            except tk.TclError:
+                self.apply_definition_wraplength()
+
+    def apply_definition_wraplength(self):
+        if not self.detail_definition_label or not self.detail_definition_label.winfo_exists():
+            return
+        row = self.definition_row if self.definition_row and self.definition_row.winfo_exists() else None
+        for widget in (row, self.detail_body_frame, self.detail_container, self.parent):
+            if widget and widget.winfo_exists():
+                try:
+                    widget.update_idletasks()
+                except tk.TclError:
+                    pass
+        container_width = 0
+        targets = [row, self.detail_body_frame, self.detail_container]
+        for widget in targets:
+            if widget and widget.winfo_exists():
+                container_width = widget.winfo_width()
+                if container_width > 1:
+                    break
+        if container_width <= 1:
+            container_width = self.size_state.get("detail_width_estimate", 600)
+        pad_total = (
+            self.definition_pad
+            if self.definition_pad
+            else self.scale_value(32, self.current_scale or 1, 12, 64) * 2
+        )
+        button_width = (
+            self.definition_button_width
+            if self.definition_button_width
+            else self.scale_value(44, self.current_scale or 1, 30, 76)
+            + self.scale_value(16, self.current_scale or 1, 8, 20)
+        )
+        text_width = container_width - pad_total - button_width
+        text_width -= self.size_state.get(
+            "scrollbar_offset_active",
+            self.size_state.get("scrollbar_offset_base", 0),
+        )
+        text_width -= self.scale_value(12, self.current_scale or 1, 8, 32)
+        wrap_target = max(
+            220, min(self.definition_wraplength, text_width)
+        )
+        self.detail_definition_label.configure(wraplength=wrap_target)
+
+    def scale_value(self, base, scale, min_value=None, max_value=None):
+        value = base * scale
+        if min_value is not None:
+            value = max(min_value, value)
+        if max_value is not None:
+            value = min(max_value, value)
+        return int(round(value))
+
+    def update_size_state(self, scale, window_width):
+        self.size_state["question_btn_height"] = self.scale_value(50, scale, 36, 92)
+        self.size_state["question_margin"] = self.scale_value(8, scale, 4, 22)
+        self.size_state["question_padding"] = self.scale_value(4, scale, 2, 14)
+        self.size_state["question_corner_radius"] = self.scale_value(12, scale, 6, 24)
+        self.size_state["max_questions"] = max(
+            4, min(12, int(round(self.SIZES["max_questions"] * scale)))
+        )
+
+        detail_size = (
+            self.scale_value(220, scale, 140, 420),
+            self.scale_value(220, scale, 140, 420),
+        )
+        self.size_state["detail_image"] = detail_size
+        panel_height = self.scale_value(520, scale, 320, 880)
+        scroll_height = max(200, panel_height - self.scale_value(150, scale, 90, 260))
+        self.size_state["detail_panel_height"] = panel_height
+        self.size_state["detail_scroll_height"] = scroll_height
+
+        self.list_frame_padding = self.scale_value(8, scale, 4, 24)
+        self.list_frame_corner_radius = self.scale_value(24, scale, 12, 40)
+
+        sidebar_base = 280
+        detail_base = 820
+        sidebar_minsize = self.scale_value(sidebar_base, scale, 220, 560)
+        detail_minsize = self.scale_value(detail_base, scale, 400, 1400)
+        total_weight = self.SIDEBAR_WEIGHT + self.DETAIL_WEIGHT
+        detail_share = self.DETAIL_WEIGHT / total_weight if total_weight else 0.7
+        estimated_detail_width = max(
+            detail_minsize, int(window_width * detail_share)
+        )
+        scrollbar_offset = self.scale_value(22, scale, 12, 36)
+        detail_guess = (
+            estimated_detail_width
+            - self.scale_value(160, scale, 120, 320)
+            - scrollbar_offset
+        )
+        self.definition_wraplength = max(260, min(1100, detail_guess))
+        self.size_state["scrollbar_offset_base"] = scrollbar_offset
+        self.size_state["scrollbar_offset_active"] = scrollbar_offset
+
+        if self.main_frame and self.main_frame.winfo_exists():
+            self.main_frame.grid_columnconfigure(0, minsize=sidebar_minsize)
+            self.main_frame.grid_columnconfigure(2, minsize=detail_minsize)
+        self.size_state["detail_width_estimate"] = estimated_detail_width
+
+    def update_fonts(self, scale):
+        for name, base_size in self.font_base_sizes.items():
+            font = getattr(self, f"{name}_font", None)
+            if not font:
+                continue
+            min_size = self.font_min_sizes.get(name, 10)
+            max_size = base_size * 2.2
+            font.configure(
+                size=self.scale_value(base_size, scale, min_size, max_size)
+            )
+
+    def refresh_icons(self, scale):
+        limits = {
+            "audio": (18, 64),
+            "search": (12, 32),
+            "back": (16, 40),
+        }
+        for key, base_size in self.icon_base_sizes.items():
+            min_limit, max_limit = limits.get(key, (12, 48))
+            size = (
+                self.scale_value(base_size[0], scale, min_limit, max_limit),
+                self.scale_value(base_size[1], scale, min_limit, max_limit),
+            )
+            cached = self.icon_cache.get(key)
+            if cached and cached["size"] == size:
+                image = cached["image"]
+            else:
+                image = self.image_handler.create_ctk_icon(self.ICONS[key], size)
+                self.icon_cache[key] = {"size": size, "image": image}
+
+            if key == "audio":
+                self.audio_icon = image
+                if self.definition_audio_button and self.definition_audio_button.winfo_exists():
+                    if image:
+                        self.definition_audio_button.configure(image=image, text="")
+                    else:
+                        self.definition_audio_button.configure(image=None, text="Audio")
+            elif key == "search":
+                self.search_icon = image
+                if self.search_icon_label and self.search_icon_label.winfo_exists():
+                    if image:
+                        self.search_icon_label.configure(image=image, text="", width=size[0])
+                    else:
+                        self.search_icon_label.configure(
+                            image=None,
+                            text="S",
+                            font=self.button_font,
+                            text_color=self.COLORS["text_white"],
+                        )
+            elif key == "back":
+                self.back_arrow_icon = image
+                if self.menu_button and self.menu_button.winfo_exists():
+                    self.menu_button.configure(image=image)
+
+    def update_header_layout(self, scale):
+        if not self.menu_button or not self.menu_button.winfo_exists():
+            return
+
+        pad_top = self.scale_value(20, scale, 10, 52)
+        pad_bottom = self.scale_value(24, scale, 12, 60)
+        pad_left = self.scale_value(24, scale, 8, 72)
+        pad_right = self.scale_value(16, scale, 8, 48)
+
+        self.menu_button.grid_configure(
+            padx=(pad_left, pad_right), pady=(pad_top, pad_bottom)
+        )
+        self.menu_button.configure(
+            width=self.scale_value(110, scale, 72, 240),
+            height=self.scale_value(40, scale, 28, 76),
+            corner_radius=self.scale_value(8, scale, 6, 20),
+        )
+
+        if self.header_title_label and self.header_title_label.winfo_exists():
+            self.header_title_label.grid_configure(
+                padx=self.scale_value(32, scale, 12, 84),
+                pady=(pad_top, pad_bottom),
+            )
+
+        if self.divider_frame and self.divider_frame.winfo_exists():
+            self.divider_frame.grid_configure(
+                pady=self.scale_value(32, scale, 12, 72)
+            )
+            self.divider_frame.configure(width=self.scale_value(2, scale, 1, 4))
+
+    def update_sidebar_layout(self, scale):
+        if not self.sidebar_frame or not self.sidebar_frame.winfo_exists():
+            return
+
+        pad_left = self.scale_value(28, scale, 10, 60)
+        pad_right = self.scale_value(10, scale, 6, 40)
+        pad_vertical = self.scale_value(32, scale, 12, 76)
+
+        self.sidebar_frame.grid_configure(
+            padx=(pad_left, pad_right), pady=pad_vertical
+        )
+
+        search_padx_left = self.scale_value(14, scale, 6, 32)
+        search_padx_right = self.scale_value(10, scale, 6, 28)
+        search_pady = self.scale_value(16, scale, 6, 36)
+        if self.search_wrapper and self.search_wrapper.winfo_exists():
+            self.search_wrapper.grid_configure(
+                padx=(search_padx_left, search_padx_right), pady=search_pady
+            )
+            self.search_wrapper.configure(
+                corner_radius=self.scale_value(18, scale, 10, 32)
+            )
+
+        if self.search_entry and self.search_entry.winfo_exists():
+            self.search_entry.grid_configure(
+                padx=(self.scale_value(4, scale, 2, 18), self.scale_value(18, scale, 8, 32)),
+                pady=self.scale_value(4, scale, 2, 18),
+            )
+            self.search_entry.configure(height=self.scale_value(42, scale, 28, 66))
+
+        if self.search_icon_label and self.search_icon_label.winfo_exists():
+            self.search_icon_label.grid_configure(
+                padx=(self.scale_value(12, scale, 6, 24), self.scale_value(4, scale, 2, 16))
+            )
+
+        if self.add_button and self.add_button.winfo_exists():
+            self.add_button.grid_configure(
+                padx=(self.scale_value(0, scale, 0, 8), self.scale_value(16, scale, 8, 36)),
+                pady=search_pady,
+            )
+            self.add_button.configure(
+                width=self.scale_value(96, scale, 72, 200),
+                height=self.scale_value(42, scale, 30, 72),
+                corner_radius=self.scale_value(12, scale, 8, 24),
+            )
+
+        self.update_list_container_layout(scale)
+
+    def update_list_container_layout(self, scale):
+        if not self.list_container or not self.list_container.winfo_exists():
+            return
+        self.list_container.grid_configure(
+            pady=(self.scale_value(20, scale, 8, 40), 0)
+        )
+
+    def update_detail_layout(self, scale):
+        if not self.detail_container or not self.detail_container.winfo_exists():
+            return
+
+        pad_left = self.scale_value(12, scale, 8, 48)
+        pad_right = self.scale_value(32, scale, 16, 80)
+        pad_vertical = self.scale_value(32, scale, 12, 76)
+
+        self.detail_container.grid_configure(
+            padx=(pad_left, pad_right), pady=pad_vertical
+        )
+        self.detail_container.configure(
+            corner_radius=self.scale_value(16, scale, 10, 32)
+        )
+        panel_height = self.size_state.get("detail_panel_height", 520)
+        scroll_height = self.size_state.get("detail_scroll_height", max(200, panel_height - 140))
+        self.detail_container.grid_rowconfigure(1, minsize=panel_height)
+
+        body_padx = self.scale_value(24, scale, 12, 56)
+        body_pady = self.scale_value(24, scale, 12, 64)
+        if self.detail_body_frame and self.detail_body_frame.winfo_exists():
+            self.detail_body_frame.grid_configure(padx=body_padx, pady=(0, body_pady))
+            self.detail_body_frame.configure(height=panel_height)
+
+        image_pad_top = self.scale_value(28, scale, 12, 56)
+        image_pad_bottom = self.scale_value(48, scale, 16, 96)
+        image_padx = self.scale_value(12, scale, 6, 32)
+
+        if self.detail_content_frame and self.detail_content_frame.winfo_exists():
+            self.detail_content_frame.configure(height=scroll_height)
+        self.update_detail_scrollbar_visibility()
+
+        if self.detail_image_label and self.detail_image_label.winfo_exists():
+            width, height = self.size_state.get(
+                "detail_image", self.SIZES["detail_image"]
+            )
+            self.detail_image_label.grid_configure(
+                pady=(image_pad_top, image_pad_bottom), padx=image_padx
+            )
+            self.detail_image_label.configure(width=width, height=height)
+
+        if self.definition_row and self.definition_row.winfo_exists():
+            definition_pad = self.scale_value(32, scale, 12, 64)
+            self.definition_row.grid_configure(
+                padx=definition_pad,
+                pady=(self.scale_value(32, scale, 12, 60), 0),
+            )
+            self.definition_pad = definition_pad * 2
+
+        if (
+            self.definition_audio_button
+            and self.definition_audio_button.winfo_exists()
+        ):
+            button_width = self.scale_value(44, scale, 30, 76)
+            self.definition_audio_button.configure(
+                width=button_width,
+                height=self.scale_value(44, scale, 30, 76),
+                corner_radius=self.scale_value(22, scale, 14, 40),
+            )
+            self.definition_button_width = button_width + self.scale_value(16, scale, 8, 20)
+
+        if self.detail_definition_label and self.detail_definition_label.winfo_exists():
+            self.apply_definition_wraplength()
+
+        for button in self.detail_action_buttons:
+            if button and button.winfo_exists():
+                button.configure(
+                    width=self.scale_value(110, scale, 80, 240),
+                    height=self.scale_value(44, scale, 30, 80),
+                    corner_radius=self.scale_value(12, scale, 8, 24),
+                )
+
+        self.refresh_detail_image()
+
+    def apply_responsive(self):
+        if not self.parent or not self.parent.winfo_exists():
+            return
+
+        width = max(self.parent.winfo_width(), 1)
+        height = max(self.parent.winfo_height(), 1)
+        base_w, base_h = self.BASE_DIMENSIONS
+
+        raw_scale = min(width / base_w, height / base_h)
+        min_scale, max_scale = self.SCALE_LIMITS
+        scale = max(min_scale, min(max_scale, raw_scale))
+        scale = max(
+            min_scale,
+            min(max_scale, scale * self.GLOBAL_SCALE_FACTOR),
+        )
+        self.current_scale = scale
+
+        self.update_size_state(scale, width)
+        self.update_fonts(scale)
+        self.refresh_icons(scale)
+        self.update_header_layout(scale)
+        self.update_sidebar_layout(scale)
+        self.update_detail_layout(scale)
+
+        metrics_snapshot = (
+            self.size_state.get("question_btn_height"),
+            self.size_state.get("question_margin"),
+            self.size_state.get("question_padding"),
+            self.size_state.get("question_corner_radius"),
+            self.size_state.get("max_questions"),
+            self.list_frame_padding,
+            self.list_frame_corner_radius,
+            self.size_state.get("detail_panel_height"),
+            self.size_state.get("detail_scroll_height"),
+        )
+        needs_render = metrics_snapshot != self.render_metric_snapshot
+        self.render_metric_snapshot = metrics_snapshot
+
+        if needs_render:
+            self.render_question_list()
+
+        self._resize_job = None
+
+    def on_resize(self, event):
+        if event.widget is not self.parent:
+            return
+        if self._resize_job:
+            try:
+                self.parent.after_cancel(self._resize_job)
+            except tk.TclError:
+                pass
+        self._resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def get_standard_modal_keys(self):
         return [
