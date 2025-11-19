@@ -87,16 +87,17 @@ class ModalLayoutBuilder:
         header_frame = self.factory.create_header_frame(container)
         header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
 
-        ctk.CTkLabel(
+        title_label = ctk.CTkLabel(
             header_frame,
             text=title,
             font=fonts["dialog_title"],
             text_color=config.TEXT_WHITE,
             anchor="center",
             justify="center",
-        ).grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
+        )
+        title_label.grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
 
-        return header_frame
+        return header_frame, title_label
 
     def create_button_row(self, container, button_configs):
         buttons_frame = self.factory.create_frame(container)

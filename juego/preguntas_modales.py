@@ -120,7 +120,10 @@ class BaseQuestionModal(BaseModal):
     BASE_SIZES = {
         "width": 480,
         "height": 420,
-        "header_height": 52,
+        "header_height": 66,
+        "header_min_height": 50,
+        "header_title_pad_top": 22,
+        "header_title_pad_bottom": 10,
         "padding_x": 14,
         "padding_y": 14,
         "button_width": 110,
@@ -161,6 +164,7 @@ class BaseQuestionModal(BaseModal):
 
         # Widget references for resizing
         self.header_frame = None
+        self.header_title_label = None
         self.form_frame = None
         self.buttons_frame = None
         self.cancel_button = None
@@ -202,9 +206,10 @@ class BaseQuestionModal(BaseModal):
         return self.layout_builder.create_container(modal, self.config)
 
     def create_header(self, container, title):
-        self.header_frame = self.layout_builder.create_header(
-            container, title, self.fonts, self.config
-        )
+        (
+            self.header_frame,
+            self.header_title_label,
+        ) = self.layout_builder.create_header(container, title, self.fonts, self.config)
 
     def create_form_fields(self, container):
         self.form_frame = ctk.CTkFrame(
@@ -487,12 +492,23 @@ class BaseQuestionModal(BaseModal):
 
         # Resize header
         if self.header_frame:
+            min_height = self.BASE_SIZES.get(
+                "header_min_height", int(self.BASE_SIZES["header_height"] * 0.75)
+            )
             self.header_frame.configure(
-                height=s(self.BASE_SIZES["header_height"], scale)
+                height=s(self.BASE_SIZES["header_height"], scale, min_height)
             )
             self.header_frame.grid_configure(
                 pady=(0, s(self.BASE_SIZES["padding_y"], scale))
             )
+        if self.header_title_label:
+            pad_top = s(
+                self.BASE_SIZES.get("header_title_pad_top", 24), scale, min_value=10
+            )
+            pad_bottom = s(
+                self.BASE_SIZES.get("header_title_pad_bottom", 8), scale, min_value=5
+            )
+            self.header_title_label.grid_configure(pady=(pad_top, pad_bottom))
 
         # Resize form fields container
         if self.form_frame:
@@ -691,7 +707,10 @@ class DeleteConfirmationModal(BaseModal):
     BASE_SIZES = {
         "width": 420,
         "height": 260,
-        "header_height": 52,
+        "header_height": 66,
+        "header_min_height": 50,
+        "header_title_pad_top": 22,
+        "header_title_pad_bottom": 10,
         "button_width": 110,
         "button_height": 36,
         "button_corner_radius": 10,
@@ -713,13 +732,23 @@ class DeleteConfirmationModal(BaseModal):
 
         # Widget references
         self.header_frame = None
+        self.header_title_label = None
         self.message_label = None
         self.buttons_frame = None
         self.cancel_button = None
         self.confirm_button = None
 
     def get_responsive_scale(self, root, base_sizes=None):
-        return super().get_responsive_scale(root, self.BASE_SIZES)
+        """
+        Keep the delete modal responsive without letting the low-res boost blow up
+        the scale. We reuse the taller form modal height as the reference so the
+        computed scale stays close to what the add/edit dialogs use.
+        """
+        reference_sizes = dict(self.BASE_SIZES)
+        reference_sizes["height"] = max(
+            reference_sizes["height"], BaseQuestionModal.BASE_SIZES["height"]
+        )
+        return super().get_responsive_scale(root, reference_sizes)
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -750,13 +779,14 @@ class DeleteConfirmationModal(BaseModal):
         self.header_frame.grid_propagate(False)
         self.header_frame.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(
+        self.header_title_label = ctk.CTkLabel(
             self.header_frame,
             text="Delete Question",
             font=self.fonts["dialog_title"],
             text_color=self.config.TEXT_WHITE,
             anchor="center",
-        ).grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
+        )
+        self.header_title_label.grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
 
         # Message
         self.message_label = ctk.CTkLabel(
@@ -837,10 +867,21 @@ class DeleteConfirmationModal(BaseModal):
 
         # Resize header
         if self.header_frame:
+            min_height = self.BASE_SIZES.get(
+                "header_min_height", int(self.BASE_SIZES["header_height"] * 0.75)
+            )
             self.header_frame.configure(
-                height=s(self.BASE_SIZES["header_height"], scale)
+                height=s(self.BASE_SIZES["header_height"], scale, min_height)
             )
             self.header_frame.grid_configure(pady=(0, s(24, scale)))
+        if self.header_title_label:
+            pad_top = s(
+                self.BASE_SIZES.get("header_title_pad_top", 24), scale, min_value=10
+            )
+            pad_bottom = s(
+                self.BASE_SIZES.get("header_title_pad_bottom", 8), scale, min_value=5
+            )
+            self.header_title_label.grid_configure(pady=(pad_top, pad_bottom))
 
         # Resize message
         if self.message_label:
