@@ -78,14 +78,21 @@ class ImageHandler:
         max_width, max_height = max_size
         scale = min(max_width / width, max_height / height, 1)
 
-        if scale < 1:
-            new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
-            prepared_image = self.resize_image(prepared_image, new_size)
+        new_width = max(1, int(width * scale))
+        new_height = max(1, int(height * scale))
+
+        resized_image = self.resize_image(prepared_image, (new_width, new_height))
+
+        # Create a transparent background of max_size to ensure consistent dimensions
+        final_image = Image.new("RGBA", max_size, (0, 0, 0, 0))
+        paste_x = (max_width - new_width) // 2
+        paste_y = (max_height - new_height) // 2
+        final_image.paste(resized_image, (paste_x, paste_y))
 
         return ctk.CTkImage(
-            light_image=prepared_image,
-            dark_image=prepared_image,
-            size=prepared_image.size,
+            light_image=final_image,
+            dark_image=final_image,
+            size=max_size,
         )
 
     def truncate_filename(self, name):

@@ -4,6 +4,8 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
+TITLE_MAX_LENGTH = 50
+
 
 class BaseQuestionModal:
 
@@ -17,6 +19,13 @@ class BaseQuestionModal:
         self.image_display_label = None
         self.image_feedback_label = None
         self.selected_image_source_path = None
+        self.title_var = tk.StringVar()
+        self.title_var.trace("w", self.limit_title_length)
+
+    def limit_title_length(self, *args):
+        value = self.title_var.get()
+        if len(value) > TITLE_MAX_LENGTH:
+            self.title_var.set(value[:TITLE_MAX_LENGTH])
 
     def safe_try(self, func):
         try:
@@ -116,7 +125,9 @@ class BaseQuestionModal:
         self.create_label(form_frame, "Concept").grid(
             row=0, column=0, sticky="w", pady=(0, 8)
         )
-        self.concept_entry = self.create_entry(form_frame, "Enter concept")
+        self.concept_entry = self.create_entry(
+            form_frame, "Enter concept", textvariable=self.title_var
+        )
         self.concept_entry.grid(row=1, column=0, sticky="ew", pady=(0, 16))
 
         # Definition field
@@ -431,7 +442,7 @@ class EditQuestionModal(BaseQuestionModal):
         existing_image_path = (current_question.get("image") or "").strip()
 
         if current_title:
-            self.safe_try(lambda: self.concept_entry.insert(0, current_title))
+            self.title_var.set(current_title)
         if current_definition:
             self.safe_try(lambda: self.definition_textbox.insert(0, current_definition))
 

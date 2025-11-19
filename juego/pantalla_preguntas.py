@@ -204,7 +204,7 @@ class ManageQuestionsScreen:
         self.list_container = None
         self.detail_container = None
         self.detail_title_label = None
-        self.detail_definition_label = None
+        self.detail_definition_textbox = None
         self.detail_image_label = None
         self.definition_audio_button = None
 
@@ -226,11 +226,9 @@ class ManageQuestionsScreen:
         self.definition_row = None
         self.detail_action_buttons = []
         self.divider_frame = None
-        self.definition_wraplength = 540
         self.current_detail_image = None
         self.render_metric_snapshot = None
         self.detail_scroll_height = 0
-        self.detail_scrollbar_visible = True
         self.definition_pad = 0
         self.definition_button_width = 0
         self.definition_button_gap = 16
@@ -640,13 +638,12 @@ class ManageQuestionsScreen:
         self.detail_body_frame.grid_rowconfigure(0, weight=1)
         self.detail_body_frame.grid_columnconfigure(0, weight=1)
 
-        self.detail_content_frame = ctk.CTkScrollableFrame(
+        self.detail_content_frame = ctk.CTkFrame(
             self.detail_body_frame, fg_color="transparent", height=520
         )
         self.detail_content_frame.grid(row=0, column=0, sticky="nsew")
         self.detail_content_frame.grid_columnconfigure(0, weight=1)
-        self.detail_scrollbar = getattr(self.detail_content_frame, "_scrollbar", None)
-        self.detail_scrollbar_visible = True
+        self.detail_content_frame.grid_rowconfigure(1, weight=1)
 
         # Image label
         self.detail_image_label = ctk.CTkLabel(
@@ -672,8 +669,9 @@ class ManageQuestionsScreen:
         self.definition_row = ctk.CTkFrame(
             self.detail_content_frame, fg_color="transparent"
         )
-        self.definition_row.grid(row=1, column=0, sticky="ew", padx=32, pady=(32, 0))
+        self.definition_row.grid(row=1, column=0, sticky="nsew", padx=32, pady=(32, 0))
         self.definition_row.grid_columnconfigure(1, weight=1)
+        self.definition_row.grid_rowconfigure(0, weight=1)
 
         audio_config = {
             "text": "" if self.audio_icon else "Audio",
@@ -696,17 +694,18 @@ class ManageQuestionsScreen:
         )
         self.definition_audio_button.grid(row=0, column=0, sticky="nw", padx=(0, 16))
 
-        self.detail_definition_label = ctk.CTkLabel(
+        self.detail_definition_textbox = ctk.CTkTextbox(
             self.definition_row,
-            text="",
             font=self.body_font,
             text_color=c["text_medium"],
-            justify="left",
-            anchor="w",
-            wraplength=self.definition_wraplength,
+            fg_color="transparent",
+            wrap="word",
+            height=100,
+            activate_scrollbars=True,
+            border_width=0,
         )
-        self.detail_definition_label.grid(row=0, column=1, sticky="nsew")
-        self.update_detail_scrollbar_visibility()
+        self.detail_definition_textbox.grid(row=0, column=1, sticky="nsew")
+        self.detail_definition_textbox.configure(state="disabled")
 
     def render_question_list(self):
         if not self.list_container or not self.list_container.winfo_exists():
@@ -902,14 +901,15 @@ class ManageQuestionsScreen:
         image_path = question.get("image", "")
 
         self.detail_title_label.configure(text=title)
-        self.detail_definition_label.configure(text=definition)
-        if self.detail_definition_label and self.detail_definition_label.winfo_exists():
-            try:
-                self.detail_definition_label.after_idle(
-                    self.apply_definition_wraplength
-                )
-            except tk.TclError:
-                self.apply_definition_wraplength()
+        if (
+            self.detail_definition_textbox
+            and self.detail_definition_textbox.winfo_exists()
+        ):
+            self.detail_definition_textbox.configure(state="normal")
+            self.detail_definition_textbox.delete("0.0", "end")
+            self.detail_definition_textbox.insert("0.0", definition)
+            self.detail_definition_textbox.configure(state="disabled")
+
         if self.detail_title_label and self.detail_title_label.winfo_exists():
             try:
                 self.detail_title_label.after_idle(self.apply_title_wraplength)
@@ -940,14 +940,17 @@ class ManageQuestionsScreen:
         self.current_detail_image = None
 
         # Reset widgets
-        widgets = [
-            (self.detail_title_label, {"text": ""}),
-            (self.detail_definition_label, {"text": ""}),
-            (self.definition_audio_button, {"state": "disabled"}),
-        ]
-        for widget, config in widgets:
-            if widget and widget.winfo_exists():
-                widget.configure(**config)
+        if self.detail_title_label and self.detail_title_label.winfo_exists():
+            self.detail_title_label.configure(text="")
+        if (
+            self.detail_definition_textbox
+            and self.detail_definition_textbox.winfo_exists()
+        ):
+            self.detail_definition_textbox.configure(state="normal")
+            self.detail_definition_textbox.delete("0.0", "end")
+            self.detail_definition_textbox.configure(state="disabled")
+        if self.definition_audio_button and self.definition_audio_button.winfo_exists():
+            self.definition_audio_button.configure(state="disabled")
 
         if self.detail_image_label and self.detail_image_label.winfo_exists():
             try:
@@ -990,66 +993,6 @@ class ManageQuestionsScreen:
         if self.current_question:
             image_path = self.current_question.get("image", "")
         self.update_detail_image(image_path)
-
-    def update_detail_scrollbar_visibility(self):
-        if (
-            not self.detail_content_frame
-            or not self.detail_content_frame.winfo_exists()
-        ):
-            return
-
-        scrollbar = getattr(self.detail_content_frame, "_scrollbar", None)
-        if not scrollbar:
-            self.size_state["scrollbar_offset_active"] = 0
-            return
-
-        canvas = getattr(self.detail_content_frame, "_parent_canvas", None)
-        if canvas:
-            try:
-                canvas.update_idletasks()
-            except tk.TclError:
-                pass
-            bbox = canvas.bbox("all")
-            content_height = (
-                (bbox[3] - bbox[1])
-                if bbox
-                else self.detail_content_frame.winfo_reqheight()
-            )
-            viewport_height = canvas.winfo_height()
-        else:
-            try:
-                self.detail_content_frame.update_idletasks()
-            except tk.TclError:
-                pass
-            content_height = self.detail_content_frame.winfo_reqheight()
-            viewport_height = self.detail_content_frame.winfo_height()
-
-        needs_scrollbar = content_height > viewport_height + 4
-
-        if needs_scrollbar and not self.detail_scrollbar_visible:
-            try:
-                scrollbar.grid()
-            except tk.TclError:
-                pass
-            self.detail_scrollbar_visible = True
-        elif not needs_scrollbar and self.detail_scrollbar_visible:
-            try:
-                scrollbar.grid_remove()
-            except tk.TclError:
-                pass
-            self.detail_scrollbar_visible = False
-
-        base_offset = self.size_state.get("scrollbar_offset_base", 0)
-        self.size_state["scrollbar_offset_active"] = (
-            base_offset if self.detail_scrollbar_visible else 0
-        )
-        if self.detail_definition_label and self.detail_definition_label.winfo_exists():
-            try:
-                self.detail_definition_label.after_idle(
-                    self.apply_definition_wraplength
-                )
-            except tk.TclError:
-                self.apply_definition_wraplength()
 
     def measure_widget_width(self, widget, fallback):
         if widget and widget.winfo_exists():
@@ -1170,9 +1113,7 @@ class ManageQuestionsScreen:
             window_width, self.SIDEBAR_WIDTH_PROFILE
         )
         total_weight = self.SIDEBAR_WEIGHT + self.DETAIL_WEIGHT
-        base_share = (
-            self.SIDEBAR_WEIGHT / total_weight if total_weight else 0.26
-        )
+        base_share = self.SIDEBAR_WEIGHT / total_weight if total_weight else 0.26
         return self.clamp_value(profile_share, base_share, 0.32)
 
     def apply_title_wraplength(self):
@@ -1183,155 +1124,6 @@ class ManageQuestionsScreen:
         width -= max(40, self.header_pad or 0)
         wrap_target = max(120, width)
         self.detail_title_label.configure(wraplength=wrap_target)
-
-    def apply_definition_wraplength(self):
-        if (
-            not self.detail_definition_label
-            or not self.detail_definition_label.winfo_exists()
-        ):
-            return
-        scale = self.current_scale or 1
-        window_width = max(
-            320, getattr(self, "current_window_width", self.BASE_DIMENSIONS[0])
-        )
-        detail_fallback = self.size_state.get(
-            "detail_width_estimate", window_width // 2
-        )
-        detail_width = self.measure_widget_width(
-            getattr(self, "detail_container", None), detail_fallback
-        )
-        detail_width = max(180, detail_width)
-        detail_width = min(
-            detail_width,
-            window_width - self.scale_value(48, scale, 28, 120),
-        )
-        body_pad = self.body_pad or 0
-        usable_width = max(detail_width - body_pad, 180)
-
-        fallback = self.size_state.get(
-            "detail_width_estimate", self.BASE_DIMENSIONS[0] // 2
-        )
-        raw_body_width = self.measure_widget_width(self.detail_body_frame, fallback)
-        raw_row_width = self.measure_widget_width(self.definition_row, raw_body_width)
-        body_width = min(raw_body_width, usable_width)
-        row_width = raw_row_width if raw_row_width > 1 else usable_width
-        viewport_width = self.get_detail_viewport_width()
-        visible_width = self.get_visible_detail_width()
-        container_width = min(body_width, usable_width)
-        for cap in (viewport_width, visible_width):
-            if not cap:
-                continue
-            body_width = min(body_width, cap)
-            row_width = min(row_width, cap)
-            usable_width = max(40, min(usable_width, cap))
-            container_width = min(
-                container_width, cap, body_width, usable_width
-            )
-        pad_total = (
-            self.definition_pad
-            if self.definition_pad
-            else self.compute_definition_padding(container_width) * 2
-        )
-        button_measure = self.measure_widget_width(
-            self.definition_audio_button,
-            self.scale_value(44, self.current_scale or 1, 30, 76),
-        )
-        fallback_gap = self.definition_button_gap or self.scale_value(
-            16, self.current_scale or 1, 10, 26
-        )
-        inline_layout = getattr(self, "definition_layout_inline", True)
-        if inline_layout:
-            button_block = (
-                self.definition_button_width
-                if self.definition_button_width
-                else button_measure + fallback_gap
-            )
-        else:
-            button_block = 0
-        scrollbar_offset = self.size_state.get(
-            "scrollbar_offset_active",
-            self.size_state.get("scrollbar_offset_base", 0),
-        )
-        guard_space = self.scale_value(18, self.current_scale or 1, 12, 36)
-        if container_width <= 640:
-            guard_space = max(6, int(round(guard_space * 0.55)))
-        text_width = (
-            container_width - pad_total - button_block - scrollbar_offset - guard_space
-        )
-        safety_margin = self.scale_value(10, self.current_scale or 1, 6, 24)
-        if container_width <= 640:
-            safety_margin = max(3, int(round(safety_margin * 0.55)))
-        text_width = max(40, text_width - safety_margin)
-        wrap_slack = self.scale_value(12, self.current_scale or 1, 8, 30)
-        if container_width <= 640:
-            wrap_slack = max(3, int(round(wrap_slack * 0.5)))
-        safe_text_width = max(40, text_width - wrap_slack)
-        # Width-driven ratios let large canvases breathe without crushing tiny layouts.
-        wrap_ratio = self.get_wrap_ratio(container_width)
-        wrap_min, wrap_max = self.DEFINITION_WRAP_LIMITS
-        ratio_pref = self.clamp_value(safe_text_width * wrap_ratio, wrap_min, wrap_max)
-        pixel_pref = self.interpolate_profile(
-            container_width, self.DEFINITION_WRAP_PIXEL_PROFILE
-        )
-        pixel_pref = self.clamp_value(pixel_pref, wrap_min, wrap_max)
-        fallback_pref = self.clamp_value(
-            self.definition_wraplength or safe_text_width, wrap_min, wrap_max
-        )
-
-        ratio_pref = min(safe_text_width, ratio_pref)
-        pixel_pref = min(safe_text_width, pixel_pref)
-        fallback_pref = min(safe_text_width, fallback_pref)
-
-        wrap_pref = min(ratio_pref, pixel_pref)
-        wrap_pref = min(wrap_pref, fallback_pref)
-        row_safe_cap = max(40, usable_width)
-        row_safe_cap = min(row_safe_cap, container_width)
-        if viewport_width:
-            row_safe_cap = min(row_safe_cap, viewport_width)
-        if visible_width:
-            row_safe_cap = min(row_safe_cap, visible_width)
-        row_safe_cap -= pad_total
-        row_safe_cap -= button_block
-        row_safe_cap -= scrollbar_offset
-        row_safe_cap -= guard_space
-        row_safe_cap = max(40, row_safe_cap - safety_margin - wrap_slack)
-        safe_text_width = min(safe_text_width, row_safe_cap)
-        wrap_target = max(40, min(wrap_pref, safe_text_width))
-        smallest_view = None
-        candidate_widths = [
-            w for w in (viewport_width, visible_width, container_width) if w
-        ]
-        if candidate_widths:
-            smallest_view = min(candidate_widths)
-        reference_width = smallest_view or container_width or text_width
-        reference_width = max(40, reference_width)
-        viewport_ratio = self.interpolate_profile(
-            reference_width, self.VIEWPORT_WRAP_RATIO_PROFILE
-        )
-        ratio_cap = int(round(max(40, reference_width * viewport_ratio)))
-        wrap_target = min(wrap_target, ratio_cap)
-        small_layout = reference_width <= 640
-        min_wrap = self.scale_value(120, self.current_scale or 1, 72, 220)
-        if small_layout:
-            blend_ratio = self.interpolate_profile(
-                reference_width, [(360, 0.75), (640, 0.75)]
-            )
-            text_cap = int(round(max(40, text_width * blend_ratio)))
-            wrap_target = max(40, min(wrap_target, text_cap))
-        else:
-            if wrap_target < min_wrap and text_width >= min_wrap:
-                wrap_target = min_wrap
-            elif text_width < min_wrap:
-                wrap_target = max(40, text_width)
-        wrap_target = int(round(wrap_target))
-        self.definition_wraplength = wrap_target
-        label_width = max(40, wrap_target)
-        try:
-            self.detail_definition_label.configure(
-                wraplength=wrap_target, width=label_width
-            )
-        except tk.TclError:
-            self.detail_definition_label.configure(wraplength=wrap_target)
 
     def scale_value(self, base, scale, min_value=None, max_value=None):
         value = base * scale
@@ -1379,10 +1171,6 @@ class ManageQuestionsScreen:
         detail_minsize = min(raw_detail_min, available_width)
         estimated_detail_width = max(detail_minsize, available_width)
         scrollbar_offset = self.scale_value(22, scale, 12, 36)
-        wrap_ratio = self.get_wrap_ratio(estimated_detail_width)
-        wrap_guess = int(round(estimated_detail_width * wrap_ratio))
-        wrap_min, wrap_max = self.DEFINITION_WRAP_LIMITS
-        self.definition_wraplength = self.clamp_value(wrap_guess, wrap_min, wrap_max)
         self.size_state["scrollbar_offset_base"] = scrollbar_offset
         self.size_state["scrollbar_offset_active"] = scrollbar_offset
 
@@ -1596,7 +1384,7 @@ class ManageQuestionsScreen:
 
         if self.detail_content_frame and self.detail_content_frame.winfo_exists():
             self.detail_content_frame.configure(height=scroll_height)
-        self.update_detail_scrollbar_visibility()
+
         header_padx = self.scale_value(24, scale, 12, 56)
         if self.detail_header_frame and self.detail_header_frame.winfo_exists():
             self.detail_header_frame.grid_configure(padx=header_padx)
@@ -1635,9 +1423,6 @@ class ManageQuestionsScreen:
 
         self.update_definition_audio_layout(detail_width, scale)
 
-        if self.detail_definition_label and self.detail_definition_label.winfo_exists():
-            self.apply_definition_wraplength()
-
         for button in self.detail_action_buttons:
             if button and button.winfo_exists():
                 button.configure(
@@ -1650,16 +1435,23 @@ class ManageQuestionsScreen:
         if self.parent and self.parent.winfo_exists():
             try:
                 self.parent.after_idle(self.apply_title_wraplength)
-                self.parent.after_idle(self.apply_definition_wraplength)
             except tk.TclError:
                 self.apply_title_wraplength()
-                self.apply_definition_wraplength()
+
+        if self.detail_title_label and self.detail_title_label.winfo_exists():
+            # Set fixed height for title to prevent bouncing (approx 2 lines)
+            base_size = self.font_base_sizes.get("detail_title", 38)
+            min_size = self.font_min_sizes.get("detail_title", 12)
+            max_size = base_size * 2.2
+            current_font_size = self.scale_value(base_size, scale, min_size, max_size)
+            title_height = int(current_font_size * 1.35 * 2)
+            self.detail_title_label.configure(height=title_height)
 
     def update_definition_audio_layout(self, container_width, scale):
         """Flip the audio button between inline and stacked layouts for extreme widths."""
         if not self.definition_row or not self.definition_row.winfo_exists():
             return
-        if not self.definition_audio_button or not self.detail_definition_label:
+        if not self.definition_audio_button or not self.detail_definition_textbox:
             return
 
         stack_threshold = self.scale_value(
@@ -1684,7 +1476,7 @@ class ManageQuestionsScreen:
                 pady=(0, stack_gap),
                 padx=(0, 0),
             )
-            self.detail_definition_label.grid_configure(
+            self.detail_definition_textbox.grid_configure(
                 row=1, column=0, columnspan=2, sticky="nsew"
             )
         else:
@@ -1698,7 +1490,7 @@ class ManageQuestionsScreen:
                 pady=0,
                 padx=(0, self.definition_button_gap),
             )
-            self.detail_definition_label.grid_configure(
+            self.detail_definition_textbox.grid_configure(
                 row=0, column=1, columnspan=1, sticky="nsew"
             )
 
