@@ -20,8 +20,9 @@ class ManageQuestionsScreen:
     SCALE_LIMITS = (0.18, 1.90)
     RESIZE_DELAY = 80
     GLOBAL_SCALE_FACTOR = 0.55
-    SIDEBAR_WEIGHT = 26
-    DETAIL_WEIGHT = 74
+    HEADER_SIZE_MULTIPLIER = 1.18
+    SIDEBAR_WEIGHT = 24
+    DETAIL_WEIGHT = 76
 
     # File and directory paths
     BASE_DIR = Path(__file__).resolve().parent.parent
@@ -130,12 +131,12 @@ class ManageQuestionsScreen:
         (720, 0.26),
         (960, 0.27),
         (1280, 0.28),
-        (1440, 0.30),
-        (1600, 0.31),
-        (1920, 0.33),
-        (2560, 0.34),
-        (3200, 0.35),
-        (3840, 0.36),
+        (1440, 0.29),
+        (1600, 0.30),
+        (1920, 0.30),
+        (2560, 0.31),
+        (3200, 0.31),
+        (3840, 0.32),
     ]
 
     LOW_RES_SCALE_PROFILE = [
@@ -146,9 +147,10 @@ class ManageQuestionsScreen:
     ]
 
     FONT_SPECS = {
-        "title": ("Poppins ExtraBold", 38, "bold", 14),
+        "title": ("Poppins ExtraBold", 44, "bold", 16),
         "body": ("Poppins Medium", 18, None, 9),
         "button": ("Poppins SemiBold", 16, "bold", 9),
+        "header_button": ("Poppins SemiBold", 22, "bold", 12),
         "cancel_button": ("Poppins ExtraBold", 16, "bold", 9),
         "search": ("Poppins SemiBold", 18, "bold", 9),
         "question": ("Poppins SemiBold", 18, "bold", 9),
@@ -166,6 +168,7 @@ class ManageQuestionsScreen:
         self.title_font = None
         self.body_font = None
         self.button_font = None
+        self.header_button_font = None
         self.cancel_button_font = None
         self.search_font = None
         self.question_font = None
@@ -429,7 +432,7 @@ class ManageQuestionsScreen:
         self.main_frame.grid(row=0, column=0, sticky="nsew")
         self.main_frame.grid_rowconfigure(1, weight=1)
         column_layout = {
-            0: {"weight": self.SIDEBAR_WEIGHT, "minsize": 260},
+            0: {"weight": self.SIDEBAR_WEIGHT, "minsize": 280},
             1: {"weight": 0, "minsize": 2},
             2: {"weight": self.DETAIL_WEIGHT, "minsize": 220},
         }
@@ -452,7 +455,7 @@ class ManageQuestionsScreen:
         self.menu_button = ctk.CTkButton(
             self.header_frame,
             text="Menu",
-            font=self.button_font,
+            font=self.header_button_font or self.button_font,
             text_color=c["text_white"],
             image=self.back_arrow_icon,
             compound="left",
@@ -479,7 +482,7 @@ class ManageQuestionsScreen:
 
     def build_sidebar(self, parent):
         self.sidebar_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        self.sidebar_frame.grid(row=1, column=0, sticky="ns", padx=(32, 12), pady=32)
+        self.sidebar_frame.grid(row=1, column=0, sticky="nsew", padx=(32, 12), pady=32)
         self.sidebar_frame.grid_rowconfigure(1, weight=1)
         self.sidebar_frame.grid_columnconfigure(0, weight=1)
 
@@ -716,6 +719,7 @@ class ManageQuestionsScreen:
         c = self.COLORS
         s = self.size_state
         questions = self.filtered_questions
+        search_query = self.search_entry.get() if self.search_entry else ""
 
         # Check if selected question is visible
         selected_visible = (
@@ -745,10 +749,15 @@ class ManageQuestionsScreen:
             pady=self.list_frame_padding,
         )
         list_frame.grid_columnconfigure(0, weight=1)
+        inner_frame = getattr(list_frame, "_scrollable_frame", None)
+        if inner_frame:
+            try:
+                inner_frame.grid_columnconfigure(0, weight=1)
+            except tk.TclError:
+                pass
 
         if not questions:
             # Show empty state
-            search_query = self.search_entry.get() if self.search_entry else ""
             empty_text = (
                 "No questions match your search."
                 if search_query.strip()
@@ -764,6 +773,7 @@ class ManageQuestionsScreen:
 
         # Render question buttons
         self.selected_question_button = None
+        first_button = None
         button_height = s.get("question_btn_height", self.SIZES["question_btn_height"])
         button_margin = s.get("question_margin", self.SIZES["question_margin"])
         button_padding = s.get("question_padding", self.SIZES["question_padding"])
@@ -802,8 +812,16 @@ class ManageQuestionsScreen:
                 pady=button_padding,
             )
 
+            if first_button is None:
+                first_button = button
+
             if is_selected:
                 self.selected_question_button = button
+
+        if not self.current_question and first_button:
+            # Automatically select the first available question when nothing is selected
+            self.on_question_selected(questions[0], first_button)
+            return
 
         if (
             self.current_question
@@ -1155,7 +1173,7 @@ class ManageQuestionsScreen:
         base_share = (
             self.SIDEBAR_WEIGHT / total_weight if total_weight else 0.26
         )
-        return self.clamp_value(profile_share, base_share, 0.36)
+        return self.clamp_value(profile_share, base_share, 0.32)
 
     def apply_title_wraplength(self):
         if not self.detail_title_label or not self.detail_title_label.winfo_exists():
@@ -1323,6 +1341,9 @@ class ManageQuestionsScreen:
             value = min(max_value, value)
         return int(round(value))
 
+    def header_value(self, value):
+        return value * self.HEADER_SIZE_MULTIPLIER
+
     def update_size_state(self, scale, window_width):
         self.size_state["question_btn_height"] = self.scale_value(50, scale, 26, 86)
         self.size_state["question_margin"] = self.scale_value(8, scale, 3, 18)
@@ -1345,11 +1366,11 @@ class ManageQuestionsScreen:
         self.list_frame_padding = self.scale_value(8, scale, 4, 24)
         self.list_frame_corner_radius = self.scale_value(24, scale, 12, 40)
 
-        sidebar_base = 260
+        sidebar_base = 280
         detail_base = 820
-        sidebar_minsize = self.scale_value(sidebar_base, scale, 200, 520)
-        raw_detail_min = self.scale_value(detail_base, scale, 220, 1400)
-        gutter = self.scale_value(84, scale, 48, 140)
+        sidebar_minsize = self.scale_value(sidebar_base, scale, 220, 560)
+        raw_detail_min = self.scale_value(detail_base, scale, 320, 1400)
+        gutter = self.scale_value(60, scale, 32, 110)
         estimated_sidebar_width = max(
             sidebar_minsize,
             int(round(window_width * self.get_sidebar_share(window_width))),
@@ -1435,23 +1456,40 @@ class ManageQuestionsScreen:
         if not self.menu_button or not self.menu_button.winfo_exists():
             return
 
-        pad_top = self.scale_value(20, scale, 10, 52)
-        pad_bottom = self.scale_value(24, scale, 12, 60)
-        pad_left = self.scale_value(24, scale, 8, 72)
-        pad_right = self.scale_value(16, scale, 8, 48)
+        header_val = self.header_value
+        pad_top = self.scale_value(
+            header_val(24), scale, header_val(12), header_val(64)
+        )
+        pad_bottom = self.scale_value(
+            header_val(30), scale, header_val(14), header_val(72)
+        )
+        pad_left = self.scale_value(
+            header_val(28), scale, header_val(10), header_val(84)
+        )
+        pad_right = self.scale_value(
+            header_val(20), scale, header_val(8), header_val(56)
+        )
 
         self.menu_button.grid_configure(
             padx=(pad_left, pad_right), pady=(pad_top, pad_bottom)
         )
         self.menu_button.configure(
-            width=self.scale_value(110, scale, 72, 240),
-            height=self.scale_value(40, scale, 28, 76),
-            corner_radius=self.scale_value(8, scale, 6, 20),
+            width=self.scale_value(
+                header_val(130), scale, header_val(80), header_val(280)
+            ),
+            height=self.scale_value(
+                header_val(48), scale, header_val(32), header_val(96)
+            ),
+            corner_radius=self.scale_value(
+                header_val(12), scale, header_val(6), header_val(28)
+            ),
         )
 
         if self.header_title_label and self.header_title_label.winfo_exists():
             self.header_title_label.grid_configure(
-                padx=self.scale_value(32, scale, 12, 84),
+                padx=self.scale_value(
+                    header_val(40), scale, header_val(14), header_val(96)
+                ),
                 pady=(pad_top, pad_bottom),
             )
 
@@ -1517,7 +1555,8 @@ class ManageQuestionsScreen:
     def update_list_container_layout(self, scale):
         if not self.list_container or not self.list_container.winfo_exists():
             return
-        self.list_container.grid_configure(pady=(self.scale_value(20, scale, 8, 40), 0))
+        pad_y = self.scale_value(20, scale, 8, 40)
+        self.list_container.grid_configure(padx=(0, 0), pady=(pad_y, 0))
 
     def update_detail_layout(self, scale):
         if not self.detail_container or not self.detail_container.winfo_exists():
