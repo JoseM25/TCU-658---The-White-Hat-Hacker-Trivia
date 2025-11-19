@@ -1576,7 +1576,7 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.repository = QuestionRepository(self.QUESTIONS_FILE)
 
         # Question management state
-        self.questions = self.repository.questions
+        self.refresh_question_cache()
         self.filtered_questions = list(self.questions)
 
         # UI State
@@ -1585,6 +1585,9 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
             self.filtered_questions[0] if self.filtered_questions else None
         )
         self._init_question_screen_view()
+
+    def refresh_question_cache(self):
+        self.questions = list(self.repository.questions)
 
     def create_modal_ui_config(self, keys):
         color_map = {
@@ -1691,6 +1694,7 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
             self.show_save_error(error)
             return False
 
+        self.refresh_question_cache()
         self.filtered_questions = list(self.questions)
         self.current_question = new_question
         self.clear_search()
@@ -1744,6 +1748,7 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
             self.show_save_error(error)
             return False
 
+        self.refresh_question_cache()
         self.current_question = updated_question
         self.handle_search()
         # After handle_search, selected_question_button is updated during render
@@ -1790,6 +1795,7 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
             return
 
         if deleted:
+            self.refresh_question_cache()
             self.clear_detail_panel()
             self.handle_search()
 
