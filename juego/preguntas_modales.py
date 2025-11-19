@@ -9,6 +9,8 @@ TITLE_MAX_LENGTH = 50
 
 class BaseQuestionModal:
 
+    BASE_DIMENSIONS = (1280, 720)
+
     BASE_SIZES = {
         "width": 760,
         "height": 520,
@@ -24,6 +26,14 @@ class BaseQuestionModal:
         "button_corner_radius": 14,
     }
 
+    FONT_SPECS = {
+        "dialog_title": ("Poppins SemiBold", 24, "bold"),
+        "dialog_label": ("Poppins SemiBold", 16, "bold"),
+        "body": ("Poppins Medium", 14, None),
+        "button": ("Poppins SemiBold", 16, "bold"),
+        "cancel_button": ("Poppins ExtraBold", 16, "bold"),
+    }
+
     def __init__(self, parent, config, image_handler):
         self.parent = parent
         self.config = config
@@ -37,6 +47,11 @@ class BaseQuestionModal:
         self.title_var = tk.StringVar()
         self.title_var.trace("w", self.limit_title_length)
 
+        # Fonts
+        self.fonts = {}
+        self.font_base_sizes = {}
+        self.init_fonts()
+
         # Widget references for resizing
         self.header_frame = None
         self.form_frame = None
@@ -47,7 +62,23 @@ class BaseQuestionModal:
         self.image_input_frame = None
         self.image_picker_frame = None
 
-    def limit_title_length(self, *args):
+    def init_fonts(self):
+        for name, (family, size, weight) in self.FONT_SPECS.items():
+            font = (
+                ctk.CTkFont(family=family, size=size, weight=weight)
+                if weight
+                else ctk.CTkFont(family=family, size=size)
+            )
+            self.fonts[name] = font
+            self.font_base_sizes[name] = size
+
+    def update_fonts(self, scale):
+        for name, base_size in self.font_base_sizes.items():
+            if name in self.fonts:
+                new_size = int(base_size * scale)
+                self.fonts[name].configure(size=max(10, new_size))
+
+    def limit_title_length(self):
         value = self.title_var.get()
         if len(value) > TITLE_MAX_LENGTH:
             self.title_var.set(value[:TITLE_MAX_LENGTH])
@@ -60,7 +91,7 @@ class BaseQuestionModal:
 
     def create_label(self, parent, text, **kwargs):
         defaults = {
-            "font": self.config.dialog_label_font,
+            "font": self.fonts["dialog_label"],
             "text_color": self.config.TEXT_DARK,
             "anchor": "w",
         }
@@ -73,7 +104,7 @@ class BaseQuestionModal:
             "border_color": self.config.BORDER_MEDIUM,
             "border_width": 2,
             "height": 44,
-            "font": self.config.body_font,
+            "font": self.fonts["body"],
             "corner_radius": 16,
         }
         return ctk.CTkEntry(
@@ -83,7 +114,7 @@ class BaseQuestionModal:
     def create_button(self, parent, text, command, is_primary=True, **kwargs):
         if is_primary:
             defaults = {
-                "font": self.config.button_font,
+                "font": self.fonts["button"],
                 "fg_color": self.config.PRIMARY_BLUE,
                 "hover_color": self.config.PRIMARY_BLUE_HOVER,
                 "width": 130,
@@ -92,7 +123,7 @@ class BaseQuestionModal:
             }
         else:
             defaults = {
-                "font": self.config.cancel_button_font,
+                "font": self.fonts["cancel_button"],
                 "fg_color": self.config.BUTTON_CANCEL_BG,
                 "text_color": self.config.TEXT_WHITE,
                 "hover_color": self.config.BUTTON_CANCEL_HOVER,
@@ -135,15 +166,17 @@ class BaseQuestionModal:
         ctk.CTkLabel(
             self.header_frame,
             text=title,
-            font=self.config.dialog_title_font,
+            font=self.fonts["dialog_title"],
             text_color=self.config.TEXT_WHITE,
             anchor="center",
             justify="center",
         ).grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
 
     def create_form_fields(self, container):
-        self.form_frame = ctk.CTkFrame(container, fg_color=self.config.BG_LIGHT)
-        self.form_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
+        self.form_frame = ctk.CTkFrame(
+            container, fg_color="transparent", corner_radius=0
+        )
+        self.form_frame.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
         self.form_frame.grid_columnconfigure(0, weight=1)
 
         # Concept field
@@ -186,7 +219,7 @@ class BaseQuestionModal:
         self.image_display_label = ctk.CTkLabel(
             self.image_picker_frame,
             text="No image selected",
-            font=self.config.body_font,
+            font=self.fonts["body"],
             text_color=self.config.TEXT_LIGHT,
             anchor="w",
             wraplength=260,
@@ -205,7 +238,7 @@ class BaseQuestionModal:
         self.image_feedback_label = ctk.CTkLabel(
             self.form_frame,
             text="",
-            font=self.config.body_font,
+            font=self.fonts["body"],
             text_color=self.config.TEXT_ERROR,
             anchor="w",
             justify="left",
@@ -217,6 +250,7 @@ class BaseQuestionModal:
     def create_buttons(self, container, on_save_callback, on_cancel_callback):
         self.buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
         self.buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
+        container.grid_rowconfigure(2, weight=0)  # Ensure buttons don't expand
         for i in range(4):
             self.buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
 
@@ -355,9 +389,34 @@ class BaseQuestionModal:
         self.image_feedback_label = None
         self.selected_image_source_path = None
 
+    def get_responsive_scale(self, root):
+        if not root:
+            return 1.0
+
+        parent_width = root.winfo_width()
+        parent_height = root.winfo_height()
+        base_w, base_h = self.BASE_DIMENSIONS
+
+        # Calculate raw scale
+        scale = min(parent_width / base_w, parent_height / base_h)
+
+        # Apply boost for lower resolutions to ensure usability
+        if parent_height <= 500:
+            target_height = parent_height * 0.85
+            target_scale = target_height / self.BASE_SIZES["height"]
+            scale = max(scale, target_scale)
+        elif parent_height <= 600:
+            target_height = parent_height * 0.75
+            target_scale = target_height / self.BASE_SIZES["height"]
+            scale = max(scale, target_scale)
+
+        return scale
+
     def resize(self, scale):
         if not self.modal or not self.modal.winfo_exists():
             return
+
+        self.update_fonts(scale)
 
         def s(v):
             return int(v * scale)
@@ -443,6 +502,32 @@ class AddQuestionModal(BaseQuestionModal):
         super().__init__(parent, config, image_handler)
         self.on_save_callback = on_save_callback
 
+    def get_responsive_scale(self, root):
+        if not root:
+            return 1.0
+
+        parent_width = root.winfo_width()
+        parent_height = root.winfo_height()
+        base_w, base_h = self.BASE_DIMENSIONS
+
+        # Calculate raw scale
+        scale = min(parent_width / base_w, parent_height / base_h)
+
+        # Apply boost for lower resolutions to ensure usability
+        # If height is small (e.g. 480p), we need a larger percentage of the screen
+        if parent_height <= 500:
+            # Target ~85% of screen height for modal
+            target_height = parent_height * 0.85
+            target_scale = target_height / self.BASE_SIZES["height"]
+            scale = max(scale, target_scale)
+        elif parent_height <= 600:
+            # Target ~75% of screen height
+            target_height = parent_height * 0.75
+            target_scale = target_height / self.BASE_SIZES["height"]
+            scale = max(scale, target_scale)
+
+        return scale
+
     def show(self):
         if self.show_existing_modal():
             return
@@ -451,8 +536,9 @@ class AddQuestionModal(BaseQuestionModal):
         self.modal = modal
 
         self.setup_modal_ui(modal, "Add Question")
-        width, height = self.calculate_modal_dimensions(modal, root, 0.6, 0.6, 760, 520)
-        self.position_modal(modal, root, width, height)
+
+        scale = self.get_responsive_scale(root)
+        self.resize(scale)
         self.safe_try(self.concept_entry.focus_set)
 
     def show_existing_modal(self):
@@ -539,8 +625,8 @@ class EditQuestionModal(BaseQuestionModal):
         self.setup_modal_ui(modal, "Edit Question")
         self.populate_form(question_to_show)
 
-        width, height = self.calculate_modal_dimensions(modal, root, 0.6, 0.6, 760, 520)
-        self.position_modal(modal, root, width, height)
+        scale = self.get_responsive_scale(root)
+        self.resize(scale)
         self.safe_try(self.concept_entry.focus_set)
 
     def show_existing_modal(self):
@@ -640,6 +726,8 @@ class EditQuestionModal(BaseQuestionModal):
 
 class DeleteConfirmationModal:
 
+    BASE_DIMENSIONS = (1280, 720)
+
     BASE_SIZES = {
         "width": 760,
         "height": 420,
@@ -649,11 +737,23 @@ class DeleteConfirmationModal:
         "button_corner_radius": 14,
     }
 
+    FONT_SPECS = {
+        "dialog_title": ("Poppins SemiBold", 24, "bold"),
+        "dialog_body": ("Poppins Medium", 16, None),
+        "button": ("Poppins SemiBold", 16, "bold"),
+        "cancel_button": ("Poppins ExtraBold", 16, "bold"),
+    }
+
     def __init__(self, parent, config, on_confirm_callback):
         self.parent = parent
         self.config = config
         self.on_confirm_callback = on_confirm_callback
         self.modal = None
+
+        # Fonts
+        self.fonts = {}
+        self.font_base_sizes = {}
+        self.init_fonts()
 
         # Widget references
         self.header_frame = None
@@ -661,6 +761,22 @@ class DeleteConfirmationModal:
         self.buttons_frame = None
         self.cancel_button = None
         self.confirm_button = None
+
+    def init_fonts(self):
+        for name, (family, size, weight) in self.FONT_SPECS.items():
+            font = (
+                ctk.CTkFont(family=family, size=size, weight=weight)
+                if weight
+                else ctk.CTkFont(family=family, size=size)
+            )
+            self.fonts[name] = font
+            self.font_base_sizes[name] = size
+
+    def update_fonts(self, scale):
+        for name, base_size in self.font_base_sizes.items():
+            if name in self.fonts:
+                new_size = int(base_size * scale)
+                self.fonts[name].configure(size=max(10, new_size))
 
     def safe_try(self, func):
         try:
@@ -681,6 +797,29 @@ class DeleteConfirmationModal:
             pos_x = max((screen_width - width) // 2, 0)
             pos_y = max((screen_height - height) // 2, 0)
         return pos_x, pos_y
+
+    def get_responsive_scale(self, root):
+        if not root:
+            return 1.0
+
+        parent_width = root.winfo_width()
+        parent_height = root.winfo_height()
+        base_w, base_h = self.BASE_DIMENSIONS
+
+        # Calculate raw scale
+        scale = min(parent_width / base_w, parent_height / base_h)
+
+        # Apply boost for lower resolutions to ensure usability
+        if parent_height <= 500:
+            target_height = parent_height * 0.85
+            target_scale = target_height / self.BASE_SIZES["height"]
+            scale = max(scale, target_scale)
+        elif parent_height <= 600:
+            target_height = parent_height * 0.75
+            target_scale = target_height / self.BASE_SIZES["height"]
+            scale = max(scale, target_scale)
+
+        return scale
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -714,7 +853,7 @@ class DeleteConfirmationModal:
         ctk.CTkLabel(
             self.header_frame,
             text="Delete Question",
-            font=self.config.dialog_title_font,
+            font=self.fonts["dialog_title"],
             text_color=self.config.TEXT_WHITE,
             anchor="center",
         ).grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
@@ -723,7 +862,7 @@ class DeleteConfirmationModal:
         self.message_label = ctk.CTkLabel(
             container,
             text="Are you sure you want to delete this question? This action is irreversible.",
-            font=self.config.dialog_body_font,
+            font=self.fonts["dialog_body"],
             text_color=self.config.TEXT_DARK,
             justify="center",
             anchor="center",
@@ -740,7 +879,7 @@ class DeleteConfirmationModal:
         self.cancel_button = ctk.CTkButton(
             self.buttons_frame,
             text="Cancel",
-            font=self.config.cancel_button_font,
+            font=self.fonts["cancel_button"],
             fg_color=self.config.BUTTON_CANCEL_BG,
             text_color=self.config.TEXT_WHITE,
             hover_color=self.config.BUTTON_CANCEL_HOVER,
@@ -754,7 +893,7 @@ class DeleteConfirmationModal:
         self.confirm_button = ctk.CTkButton(
             self.buttons_frame,
             text="Delete",
-            font=self.config.button_font,
+            font=self.fonts["button"],
             fg_color=self.config.DANGER_RED,
             hover_color=self.config.DANGER_RED_HOVER,
             command=self.handle_confirm,
@@ -768,26 +907,8 @@ class DeleteConfirmationModal:
         modal.protocol("WM_DELETE_WINDOW", self.close)
         modal.bind("<Escape>", lambda e: self.close())
 
-        # Position modal
-        modal.update_idletasks()
-        screen_width, screen_height = (
-            modal.winfo_screenwidth(),
-            modal.winfo_screenheight(),
-        )
-        parent_width = (
-            root.winfo_width() if root and root.winfo_width() > 1 else screen_width
-        )
-        parent_height = (
-            root.winfo_height() if root and root.winfo_height() > 1 else screen_height
-        )
-
-        width = min(max(760, int(parent_width * 0.6)), screen_width - 80)
-        height = min(max(420, int(parent_height * 0.6)), screen_height - 80)
-
-        pos_x, pos_y = self.calculate_position(modal, root, width, height)
-        modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
-        self.message_label.configure(wraplength=max(width - 120, 360))
-
+        scale = self.get_responsive_scale(root)
+        self.resize(scale)
         self.safe_try(self.confirm_button.focus_set)
 
     def handle_confirm(self):
@@ -805,6 +926,8 @@ class DeleteConfirmationModal:
     def resize(self, scale):
         if not self.modal or not self.modal.winfo_exists():
             return
+
+        self.update_fonts(scale)
 
         def s(v):
             return int(v * scale)
