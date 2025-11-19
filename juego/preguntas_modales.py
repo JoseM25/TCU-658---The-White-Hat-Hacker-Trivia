@@ -119,7 +119,7 @@ class BaseQuestionModal(BaseModal):
 
     BASE_SIZES = {
         "width": 480,
-        "height": 360,
+        "height": 420,
         "header_height": 52,
         "padding_x": 14,
         "padding_y": 14,
