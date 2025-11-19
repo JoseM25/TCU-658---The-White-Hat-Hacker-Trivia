@@ -2,6 +2,7 @@ import json
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox
+from types import SimpleNamespace
 
 import customtkinter as ctk
 
@@ -12,6 +13,114 @@ from juego.preguntas_modales import (
     EditQuestionModal,
     DeleteConfirmationModal,
 )
+
+
+class QuestionPersistenceError(Exception):
+    """Raised when the questions file cannot be updated."""
+
+
+class QuestionRepository:
+    def __init__(self, json_path):
+        self.json_path = Path(json_path)
+        self.questions = []
+        self.load()
+
+    def _replace_questions(self, new_questions):
+        self.questions.clear()
+        self.questions.extend(new_questions)
+
+    def load(self):
+        if not self.json_path.exists():
+            self.questions.clear()
+            return self.questions
+
+        try:
+            raw_text = self.json_path.read_text(encoding="utf-8")
+        except OSError as error:
+            print(f"Warning: Unable to read {self.json_path}: {error}")
+            self.questions.clear()
+            return self.questions
+
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError:
+            self.questions.clear()
+            return self.questions
+
+        raw_questions = (
+            data.get("questions", [])
+            if hasattr(data, "get")
+            else (data or [])
+        )
+
+        normalized = []
+        for item in raw_questions:
+            if not hasattr(item, "get"):
+                continue
+            title = (item.get("title") or "").strip()
+            if not title:
+                continue
+            definition = (item.get("definition") or "").strip()
+            image = (item.get("image") or "").strip()
+            normalized.append(
+                {"title": title, "definition": definition, "image": image}
+            )
+
+        self._replace_questions(normalized)
+        return self.questions
+
+    def save(self, questions):
+        payload = {"questions": questions}
+        try:
+            self.json_path.parent.mkdir(parents=True, exist_ok=True)
+            self.json_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError as error:
+            raise QuestionPersistenceError(
+                f"Unable to write {self.json_path}: {error}"
+            ) from error
+
+        self._replace_questions(questions)
+        return self.questions
+
+    def add_question(self, title, definition, image_path):
+        new_question = {"title": title, "definition": definition, "image": image_path}
+        self.save([*self.questions, new_question])
+        return new_question
+
+    def update_question(self, old_question, title, definition, image_path):
+        updated_question = {"title": title, "definition": definition, "image": image_path}
+        try:
+            index = self.questions.index(old_question)
+        except ValueError:
+            index = None
+
+        updated_questions = [q for q in self.questions if q is not old_question]
+        insert_index = index if index is not None else len(updated_questions)
+        updated_questions.insert(insert_index, updated_question)
+        self.save(updated_questions)
+        return self.questions[insert_index]
+
+    def delete_question(self, question):
+        try:
+            index = self.questions.index(question)
+        except ValueError:
+            return False
+
+        updated_questions = self.questions[:index] + self.questions[index + 1 :]
+        self.save(updated_questions)
+        return True
+
+    def is_title_unique(self, title, exclude_question=None):
+        normalized = (title or "").strip().lower()
+        for question in self.questions:
+            if question is exclude_question:
+                continue
+            if question.get("title", "").strip().lower() == normalized:
+                return False
+        return True
 
 
 class ManageQuestionsScreen:
@@ -186,11 +295,11 @@ class ManageQuestionsScreen:
         # Initialize services
         self.tts = TTSService(self.AUDIO_DIR)
         self.image_handler = ImageHandler(self.IMAGES_DIR)
+        self.repository = QuestionRepository(self.QUESTIONS_FILE)
 
         # Question management state
-        self.questions = []
-        self.filtered_questions = []
-        self.load_questions()
+        self.questions = self.repository.questions
+        self.filtered_questions = list(self.questions)
 
         # UI State
         self.current_question = (
@@ -319,43 +428,7 @@ class ManageQuestionsScreen:
         ]
         config_dict.update({k: getattr(self, k) for k in font_keys if k in keys})
 
-        return type("UIConfig", (), config_dict)()
-
-    def load_questions(self):
-        if not self.QUESTIONS_FILE.exists():
-            self.questions = self.filtered_questions = []
-            return
-
-        try:
-            data = json.loads(self.QUESTIONS_FILE.read_text(encoding="utf-8"))
-            raw_questions = data.get("questions", []) if hasattr(data, "get") else data
-        except json.JSONDecodeError:
-            self.questions = self.filtered_questions = []
-            return
-        except (AttributeError, TypeError):
-            raw_questions = data if data else []
-
-        self.questions = [
-            {"title": title, "definition": definition, "image": image}
-            for item in raw_questions
-            if hasattr(item, "get") and (title := (item.get("title") or "").strip())
-            for definition in [(item.get("definition") or "").strip()]
-            for image in [(item.get("image") or "").strip()]
-        ]
-        self.filtered_questions = list(self.questions)
-
-    def save_questions(self, questions):
-        try:
-            self.QUESTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            self.QUESTIONS_FILE.write_text(
-                json.dumps({"questions": questions}, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            self.questions = questions
-            return True
-        except OSError as error:
-            self.show_save_error(error)
-            return False
+        return SimpleNamespace(**config_dict)
 
     def show_save_error(self, error):
         message = (
@@ -373,56 +446,6 @@ class ManageQuestionsScreen:
             [q for q in self.questions if query in q.get("title", "").lower()]
             if query
             else list(self.questions)
-        )
-
-    def add_question(self, title, definition, image_path):
-        new_question = {"title": title, "definition": definition, "image": image_path}
-        updated_questions = self.questions + [new_question]
-
-        if self.save_questions(updated_questions):
-            self.filtered_questions = list(self.questions)
-            return new_question
-        return None
-
-    def update_question(self, old_question, title, definition, image_path):
-        new_question = {"title": title, "definition": definition, "image": image_path}
-
-        try:
-            index = self.questions.index(old_question)
-        except ValueError:
-            index = None
-
-        updated_questions = [q for q in self.questions if q is not old_question]
-        insert_index = index if index is not None else len(updated_questions)
-        updated_questions.insert(insert_index, new_question)
-
-        return (
-            self.questions[insert_index]
-            if self.save_questions(updated_questions)
-            else None
-        )
-
-    def delete_question(self, question):
-        try:
-            index = self.questions.index(question)
-        except ValueError:
-            return False
-
-        updated_questions = self.questions[:index] + self.questions[index + 1 :]
-
-        if self.save_questions(updated_questions):
-            self.filtered_questions = [
-                q for q in self.filtered_questions if q is not question
-            ]
-            return True
-        return False
-
-    def validate_title_unique(self, title, exclude_question=None):
-        normalized = title.lower()
-        return not any(
-            q.get("title", "").strip().lower() == normalized
-            for q in self.questions
-            if q is not exclude_question
         )
 
     def build_ui(self):
@@ -1639,7 +1662,7 @@ class ManageQuestionsScreen:
         self.resize_current_modal()
 
     def handle_add_save(self, title, definition, source_image_path):
-        if not self.validate_title_unique(title):
+        if not self.repository.is_title_unique(title):
             messagebox.showwarning(
                 "Duplicate Question",
                 "A question with this title already exists. Please use a different title.",
@@ -1654,21 +1677,26 @@ class ManageQuestionsScreen:
             return False  # Error already shown, prevent modal from closing
 
         # Add question and update UI
-        new_question = self.add_question(
-            title, definition, relative_image_path.as_posix()
-        )
-        if new_question:
-            self.current_question = new_question
-            if self.search_entry:
-                try:
-                    self.search_entry.delete(0, tk.END)
-                except tk.TclError:
-                    pass
-            self.render_question_list()
-            # After render_question_list, selected_question_button is updated
-            # Only call on_question_selected if button was found and set during render
-            if self.selected_question_button:
-                self.on_question_selected(new_question, self.selected_question_button)
+        try:
+            new_question = self.repository.add_question(
+                title, definition, relative_image_path.as_posix()
+            )
+        except QuestionPersistenceError as error:
+            self.show_save_error(error)
+            return False
+
+        self.filtered_questions = list(self.questions)
+        self.current_question = new_question
+        if self.search_entry:
+            try:
+                self.search_entry.delete(0, tk.END)
+            except tk.TclError:
+                pass
+        self.render_question_list()
+        # After render_question_list, selected_question_button is updated
+        # Only call on_question_selected if button was found and set during render
+        if self.selected_question_button:
+            self.on_question_selected(new_question, self.selected_question_button)
 
         return True  # Success - allow modal to close
 
@@ -1688,7 +1716,7 @@ class ManageQuestionsScreen:
         self.resize_current_modal()
 
     def handle_edit_save(self, title, definition, image_path):
-        if not self.validate_title_unique(
+        if not self.repository.is_title_unique(
             title, exclude_question=self.current_question
         ):
             messagebox.showwarning(
@@ -1706,18 +1734,20 @@ class ManageQuestionsScreen:
             stored_image_path = relative_image_path.as_posix()
 
         # Update question and UI
-        updated_question = self.update_question(
-            self.current_question, title, definition, stored_image_path
-        )
-        if updated_question:
-            self.current_question = updated_question
-            self.handle_search()
-            # After handle_search, selected_question_button is updated during render
-            # Only call on_question_selected if button was found and set during render
-            if self.selected_question_button:
-                self.on_question_selected(
-                    updated_question, self.selected_question_button
-                )
+        try:
+            updated_question = self.repository.update_question(
+                self.current_question, title, definition, stored_image_path
+            )
+        except QuestionPersistenceError as error:
+            self.show_save_error(error)
+            return False
+
+        self.current_question = updated_question
+        self.handle_search()
+        # After handle_search, selected_question_button is updated during render
+        # Only call on_question_selected if button was found and set during render
+        if self.selected_question_button:
+            self.on_question_selected(updated_question, self.selected_question_button)
 
         return True  # Success - allow modal to close
 
@@ -1748,7 +1778,16 @@ class ManageQuestionsScreen:
         self.resize_current_modal()
 
     def handle_delete_confirm(self):
-        if self.current_question and self.delete_question(self.current_question):
+        if not self.current_question:
+            return
+
+        try:
+            deleted = self.repository.delete_question(self.current_question)
+        except QuestionPersistenceError as error:
+            self.show_save_error(error)
+            return
+
+        if deleted:
             self.clear_detail_panel()
             self.handle_search()
 

@@ -78,7 +78,7 @@ class BaseQuestionModal:
                 new_size = int(base_size * scale)
                 self.fonts[name].configure(size=max(10, new_size))
 
-    def limit_title_length(self, *args):
+    def limit_title_length(self):
         value = self.title_var.get()
         if len(value) > TITLE_MAX_LENGTH:
             self.title_var.set(value[:TITLE_MAX_LENGTH])
@@ -130,9 +130,6 @@ class BaseQuestionModal:
                 "height": self.BASE_SIZES["button_height"],
                 "corner_radius": self.BASE_SIZES["button_corner_radius"],
                 "hover_color": self.config.BUTTON_CANCEL_HOVER,
-                "width": 130,
-                "height": 46,
-                "corner_radius": 14,
             }
         return ctk.CTkButton(
             parent, text=text, command=command, **{**defaults, **kwargs}
@@ -267,6 +264,46 @@ class BaseQuestionModal:
         )
         self.save_button.grid(row=0, column=2, sticky="w", padx=(32, 0))
 
+    def setup_modal_ui(
+        self, modal, title, on_save_callback, on_cancel_callback=None
+    ):
+        container = self.create_container(modal)
+        self.create_header(container, title)
+        self.create_form_fields(container)
+        cancel_callback = on_cancel_callback or self.close
+        self.create_buttons(container, on_save_callback, cancel_callback)
+        modal.protocol("WM_DELETE_WINDOW", cancel_callback)
+        modal.bind("<Escape>", lambda e: cancel_callback())
+        return container
+
+    def show_existing_modal(self):
+        if self.modal and self.modal.winfo_exists():
+            self.safe_try(self.modal.lift)
+            self.safe_try(self.modal.focus_force)
+            return True
+        return False
+
+    def open_modal(
+        self, title, on_save_callback, after_setup=None, on_cancel_callback=None
+    ):
+        if self.show_existing_modal():
+            return False
+
+        modal, root = self.create_modal_window(title)
+        self.modal = modal
+
+        self.setup_modal_ui(
+            modal, title, on_save_callback, on_cancel_callback or self.close
+        )
+
+        if after_setup:
+            after_setup()
+
+        scale = self.get_responsive_scale(root)
+        self.resize(scale)
+        self.safe_try(self.concept_entry.focus_set)
+        return True
+
     def calculate_modal_dimensions(
         self,
         modal,
@@ -379,6 +416,30 @@ class BaseQuestionModal:
             "title": (self.concept_entry.get() or "").strip(),
             "definition": (self.definition_textbox.get() or "").strip(),
         }
+
+    def validate_field(self, value, field_name, widget):
+        if not value:
+            messagebox.showwarning(
+                "Missing Information",
+                f"Please enter a {field_name} for the question.",
+            )
+            self.safe_try(widget.focus_set)
+            return False
+        return True
+
+    def get_validated_form_data(self):
+        form_data = self.get_form_data()
+        if not form_data:
+            return None
+
+        title = form_data["title"]
+        definition = form_data["definition"]
+
+        if not self.validate_field(title, "title", self.concept_entry):
+            return None
+        if not self.validate_field(definition, "definition", self.definition_textbox):
+            return None
+        return form_data
 
     def close(self):
         if self.modal and self.modal.winfo_exists():
@@ -507,79 +568,15 @@ class AddQuestionModal(BaseQuestionModal):
         super().__init__(parent, config, image_handler)
         self.on_save_callback = on_save_callback
 
-    def get_responsive_scale(self, root):
-        if not root:
-            return 1.0
-
-        parent_width = root.winfo_width()
-        parent_height = root.winfo_height()
-        base_w, base_h = self.BASE_DIMENSIONS
-
-        # Calculate raw scale
-        scale = min(parent_width / base_w, parent_height / base_h)
-
-        # Apply boost for lower resolutions to ensure usability
-        # If height is small (e.g. 480p), we need a larger percentage of the screen
-        if parent_height <= 500:
-            # Target ~85% of screen height for modal
-            target_height = parent_height * 0.85
-            target_scale = target_height / self.BASE_SIZES["height"]
-            scale = max(scale, target_scale)
-        elif parent_height <= 600:
-            # Target ~75% of screen height
-            target_height = parent_height * 0.75
-            target_scale = target_height / self.BASE_SIZES["height"]
-            scale = max(scale, target_scale)
-
-        return scale
-
     def show(self):
-        if self.show_existing_modal():
-            return
-
-        modal, root = self.create_modal_window("Add Question")
-        self.modal = modal
-
-        self.setup_modal_ui(modal, "Add Question")
-
-        scale = self.get_responsive_scale(root)
-        self.resize(scale)
-        self.safe_try(self.concept_entry.focus_set)
-
-    def show_existing_modal(self):
-        if self.modal and self.modal.winfo_exists():
-            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
-            return True
-        return False
-
-    def setup_modal_ui(self, modal, title):
-        container = self.create_container(modal)
-        self.create_header(container, title)
-        self.create_form_fields(container)
-        self.create_buttons(container, self.handle_save, self.close)
-        modal.protocol("WM_DELETE_WINDOW", self.close)
-        modal.bind("<Escape>", lambda e: self.close())
-
-    def validate_field(self, value, field_name, widget):
-        if not value:
-            messagebox.showwarning(
-                "Missing Information", f"Please enter a {field_name} for the question."
-            )
-            self.safe_try(widget.focus_set)
-            return False
-        return True
+        self.open_modal("Add Question", self.handle_save)
 
     def handle_save(self):
-        form_data = self.get_form_data()
+        form_data = self.get_validated_form_data()
         if not form_data:
             return
 
         title, definition = form_data["title"], form_data["definition"]
-
-        if not self.validate_field(title, "title", self.concept_entry):
-            return
-        if not self.validate_field(definition, "definition", self.definition_textbox):
-            return
 
         if not self.selected_image_source_path:
             messagebox.showwarning(
@@ -621,32 +618,11 @@ class EditQuestionModal(BaseQuestionModal):
         if not question_to_show:
             return
 
-        if self.show_existing_modal():
-            return
-
-        modal, root = self.create_modal_window("Edit Question")
-        self.modal = modal
-
-        self.setup_modal_ui(modal, "Edit Question")
-        self.populate_form(question_to_show)
-
-        scale = self.get_responsive_scale(root)
-        self.resize(scale)
-        self.safe_try(self.concept_entry.focus_set)
-
-    def show_existing_modal(self):
-        if self.modal and self.modal.winfo_exists():
-            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
-            return True
-        return False
-
-    def setup_modal_ui(self, modal, title):
-        container = self.create_container(modal)
-        self.create_header(container, title)
-        self.create_form_fields(container)
-        self.create_buttons(container, self.handle_save, self.close)
-        modal.protocol("WM_DELETE_WINDOW", self.close)
-        modal.bind("<Escape>", lambda e: self.close())
+        self.open_modal(
+            "Edit Question",
+            self.handle_save,
+            after_setup=lambda: self.populate_form(question_to_show),
+        )
 
     def populate_form(self, current_question):
         current_title = (current_question.get("title") or "").strip()
@@ -675,26 +651,12 @@ class EditQuestionModal(BaseQuestionModal):
 
         self.initial_image_path = existing_image_path
 
-    def validate_field(self, value, field_name, widget):
-        if not value:
-            messagebox.showwarning(
-                "Missing Information", f"Please enter a {field_name} for the question."
-            )
-            self.safe_try(widget.focus_set)
-            return False
-        return True
-
     def handle_save(self):
-        form_data = self.get_form_data()
+        form_data = self.get_validated_form_data()
         if not form_data:
             return
 
         title, definition = form_data["title"], form_data["definition"]
-
-        if not self.validate_field(title, "title", self.concept_entry):
-            return
-        if not self.validate_field(definition, "definition", self.definition_textbox):
-            return
 
         image_path = self.initial_image_path or ""
 
