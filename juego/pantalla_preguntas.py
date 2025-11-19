@@ -238,6 +238,9 @@ class ManageQuestionsScreen:
         self.current_window_width = self.BASE_DIMENSIONS[0]
         self.current_window_height = self.BASE_DIMENSIONS[1]
 
+        # Modal state
+        self.current_modal = None
+
         # Cache icons
         self.detail_image_placeholder = (
             self.image_handler.create_transparent_placeholder()
@@ -727,25 +730,45 @@ class ManageQuestionsScreen:
         if not selected_visible and self.current_question:
             self.clear_detail_panel()
 
-        # Create frame with or without scrollbar
-        frame_config = {
-            "fg_color": c["bg_light"],
-            "border_width": 1,
-            "border_color": c["border_light"],
-            "corner_radius": self.list_frame_corner_radius,
-        }
-        FrameClass = (
-            ctk.CTkScrollableFrame
-            if len(questions) > s.get("max_questions", self.SIZES["max_questions"])
-            else ctk.CTkFrame
+        # Create outer frame for border and background
+        outer_frame = ctk.CTkFrame(
+            self.list_container,
+            fg_color=c["bg_light"],
+            border_width=1,
+            border_color=c["border_light"],
+            corner_radius=self.list_frame_corner_radius,
         )
-        list_frame = FrameClass(self.list_container, **frame_config)
-        list_frame.grid(
+        outer_frame.grid(
             row=0,
             column=0,
             sticky="nsew",
             padx=self.list_frame_padding,
             pady=self.list_frame_padding,
+        )
+        outer_frame.grid_columnconfigure(0, weight=1)
+        outer_frame.grid_rowconfigure(0, weight=1)
+
+        is_scrollable = len(questions) > s.get(
+            "max_questions", self.SIZES["max_questions"]
+        )
+
+        # Create inner list frame (transparent)
+        frame_config = {
+            "fg_color": "transparent",
+            "border_width": 0,
+            "corner_radius": 0,
+        }
+        FrameClass = ctk.CTkScrollableFrame if is_scrollable else ctk.CTkFrame
+        list_frame = FrameClass(outer_frame, **frame_config)
+
+        # Add padding to keep content/scrollbar away from the outer border
+        inner_padding = 4
+        list_frame.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=inner_padding,
+            pady=inner_padding,
         )
         list_frame.grid_columnconfigure(0, weight=1)
         inner_frame = getattr(list_frame, "_scrollable_frame", None)
@@ -803,11 +826,17 @@ class ManageQuestionsScreen:
                 command=lambda q=question, b=button: self.on_question_selected(q, b)
             )
 
+            # Adjust padding for scrollbar if needed
+            btn_padx = button_margin
+            if is_scrollable:
+                offset = s.get("scrollbar_offset_active", 22)
+                btn_padx = (button_margin, button_margin + offset)
+
             button.grid(
                 row=index,
                 column=0,
                 sticky="nsew",
-                padx=button_margin,
+                padx=btn_padx,
                 pady=button_padding,
             )
 
@@ -1014,7 +1043,6 @@ class ManageQuestionsScreen:
         )
 
     def get_detail_viewport_width(self):
-        """Return the visible scrollable viewport width, falling back to content width."""
         content = getattr(self, "detail_content_frame", None)
         fallback = self.size_state.get(
             "detail_width_estimate", self.BASE_DIMENSIONS[0] // 2
@@ -1035,7 +1063,6 @@ class ManageQuestionsScreen:
         return self.measure_widget_width(content, fallback)
 
     def get_visible_detail_width(self):
-        """Estimate how much horizontal room the detail column truly has."""
         window_width = max(
             getattr(self, "current_window_width", self.BASE_DIMENSIONS[0]), 200
         )
@@ -1448,7 +1475,6 @@ class ManageQuestionsScreen:
             self.detail_title_label.configure(height=title_height)
 
     def update_definition_audio_layout(self, container_width, scale):
-        """Flip the audio button between inline and stacked layouts for extreme widths."""
         if not self.definition_row or not self.definition_row.winfo_exists():
             return
         if not self.definition_audio_button or not self.detail_definition_textbox:
@@ -1543,6 +1569,12 @@ class ManageQuestionsScreen:
         if needs_render:
             self.render_question_list()
 
+        if self.current_modal:
+            try:
+                self.current_modal.resize(scale)
+            except (AttributeError, tk.TclError):
+                pass
+
         self._resize_job = None
 
     def on_resize(self, event):
@@ -1579,9 +1611,13 @@ class ManageQuestionsScreen:
 
     def on_add_clicked(self):
         ui_config = self.create_modal_ui_config(self.get_standard_modal_keys())
-        AddQuestionModal(
+        self.current_modal = AddQuestionModal(
             self.parent, ui_config, self.image_handler, self.handle_add_save
-        ).show()
+        )
+        self.current_modal.show()
+        # Apply initial scale
+        if self.current_scale:
+            self.current_modal.resize(self.current_scale)
 
     def handle_add_save(self, title, definition, source_image_path):
         if not self.validate_title_unique(title):
@@ -1622,9 +1658,17 @@ class ManageQuestionsScreen:
             return
         self.tts.stop()
         ui_config = self.create_modal_ui_config(self.get_standard_modal_keys())
-        EditQuestionModal(
-            self.parent, ui_config, self.image_handler, self.handle_edit_save
-        ).show(self.current_question)
+        self.current_modal = EditQuestionModal(
+            self.parent,
+            ui_config,
+            self.image_handler,
+            self.handle_edit_save,
+            question=self.current_question,
+        )
+        self.current_modal.show()
+        # Apply initial scale
+        if self.current_scale:
+            self.current_modal.resize(self.current_scale)
 
     def handle_edit_save(self, title, definition, image_path):
         if not self.validate_title_unique(
@@ -1680,9 +1724,13 @@ class ManageQuestionsScreen:
             "cancel_button_font",
         ]
         ui_config = self.create_modal_ui_config(delete_keys)
-        DeleteConfirmationModal(
+        self.current_modal = DeleteConfirmationModal(
             self.parent, ui_config, self.handle_delete_confirm
-        ).show()
+        )
+        self.current_modal.show()
+        # Apply initial scale
+        if self.current_scale:
+            self.current_modal.resize(self.current_scale)
 
     def handle_delete_confirm(self):
         if self.current_question and self.delete_question(self.current_question):

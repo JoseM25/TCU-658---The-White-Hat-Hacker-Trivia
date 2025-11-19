@@ -9,6 +9,21 @@ TITLE_MAX_LENGTH = 50
 
 class BaseQuestionModal:
 
+    BASE_SIZES = {
+        "width": 760,
+        "height": 520,
+        "header_height": 72,
+        "padding_x": 24,
+        "padding_y": 24,
+        "button_width": 130,
+        "button_height": 46,
+        "entry_height": 44,
+        "image_button_width": 140,
+        "image_button_height": 36,
+        "corner_radius": 16,
+        "button_corner_radius": 14,
+    }
+
     def __init__(self, parent, config, image_handler):
         self.parent = parent
         self.config = config
@@ -21,6 +36,16 @@ class BaseQuestionModal:
         self.selected_image_source_path = None
         self.title_var = tk.StringVar()
         self.title_var.trace("w", self.limit_title_length)
+
+        # Widget references for resizing
+        self.header_frame = None
+        self.form_frame = None
+        self.buttons_frame = None
+        self.cancel_button = None
+        self.save_button = None
+        self.choose_file_button = None
+        self.image_input_frame = None
+        self.image_picker_frame = None
 
     def limit_title_length(self, *args):
         value = self.title_var.get()
@@ -100,15 +125,15 @@ class BaseQuestionModal:
         return container
 
     def create_header(self, container, title):
-        header_frame = ctk.CTkFrame(
+        self.header_frame = ctk.CTkFrame(
             container, fg_color=self.config.BG_MODAL_HEADER, corner_radius=0, height=72
         )
-        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
-        header_frame.grid_propagate(False)
-        header_frame.grid_columnconfigure(0, weight=1)
+        self.header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
+        self.header_frame.grid_propagate(False)
+        self.header_frame.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            header_frame,
+            self.header_frame,
             text=title,
             font=self.config.dialog_title_font,
             text_color=self.config.TEXT_WHITE,
@@ -117,47 +142,49 @@ class BaseQuestionModal:
         ).grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
 
     def create_form_fields(self, container):
-        form_frame = ctk.CTkFrame(container, fg_color=self.config.BG_LIGHT)
-        form_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
-        form_frame.grid_columnconfigure(0, weight=1)
+        self.form_frame = ctk.CTkFrame(container, fg_color=self.config.BG_LIGHT)
+        self.form_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
+        self.form_frame.grid_columnconfigure(0, weight=1)
 
         # Concept field
-        self.create_label(form_frame, "Concept").grid(
+        self.create_label(self.form_frame, "Concept").grid(
             row=0, column=0, sticky="w", pady=(0, 8)
         )
         self.concept_entry = self.create_entry(
-            form_frame, "Enter concept", textvariable=self.title_var
+            self.form_frame, "Enter concept", textvariable=self.title_var
         )
         self.concept_entry.grid(row=1, column=0, sticky="ew", pady=(0, 16))
 
         # Definition field
-        self.create_label(form_frame, "Definition").grid(
+        self.create_label(self.form_frame, "Definition").grid(
             row=2, column=0, sticky="w", pady=(0, 8)
         )
-        self.definition_textbox = self.create_entry(form_frame, "Enter definition")
+        self.definition_textbox = self.create_entry(self.form_frame, "Enter definition")
         self.definition_textbox.grid(row=3, column=0, sticky="ew")
 
         # Image field
-        self.create_label(form_frame, "Illustration").grid(
+        self.create_label(self.form_frame, "Illustration").grid(
             row=4, column=0, sticky="w", pady=(16, 8)
         )
 
-        image_input_frame = ctk.CTkFrame(
-            form_frame,
+        self.image_input_frame = ctk.CTkFrame(
+            self.form_frame,
             fg_color=self.config.BG_WHITE,
             border_color=self.config.BORDER_MEDIUM,
             border_width=2,
             corner_radius=16,
         )
-        image_input_frame.grid(row=5, column=0, sticky="ew")
-        image_input_frame.grid_columnconfigure(0, weight=1)
+        self.image_input_frame.grid(row=5, column=0, sticky="ew")
+        self.image_input_frame.grid_columnconfigure(0, weight=1)
 
-        image_picker_frame = ctk.CTkFrame(image_input_frame, fg_color="transparent")
-        image_picker_frame.grid(row=0, column=0, sticky="ew", padx=12, pady=8)
-        image_picker_frame.grid_columnconfigure(0, weight=1)
+        self.image_picker_frame = ctk.CTkFrame(
+            self.image_input_frame, fg_color="transparent"
+        )
+        self.image_picker_frame.grid(row=0, column=0, sticky="ew", padx=12, pady=8)
+        self.image_picker_frame.grid_columnconfigure(0, weight=1)
 
         self.image_display_label = ctk.CTkLabel(
-            image_picker_frame,
+            self.image_picker_frame,
             text="No image selected",
             font=self.config.body_font,
             text_color=self.config.TEXT_LIGHT,
@@ -166,16 +193,17 @@ class BaseQuestionModal:
         )
         self.image_display_label.grid(row=0, column=0, sticky="w", padx=(0, 16))
 
-        self.create_button(
-            image_picker_frame,
+        self.choose_file_button = self.create_button(
+            self.image_picker_frame,
             "Choose File",
             self.on_select_image,
             width=140,
             height=36,
-        ).grid(row=0, column=1, sticky="e")
+        )
+        self.choose_file_button.grid(row=0, column=1, sticky="e")
 
         self.image_feedback_label = ctk.CTkLabel(
-            form_frame,
+            self.form_frame,
             text="",
             font=self.config.body_font,
             text_color=self.config.TEXT_ERROR,
@@ -184,29 +212,32 @@ class BaseQuestionModal:
             wraplength=360,
         )
         self.image_feedback_label.grid(row=6, column=0, sticky="w", pady=(8, 0), padx=4)
-        return form_frame
+        return self.form_frame
 
     def create_buttons(self, container, on_save_callback, on_cancel_callback):
-        buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
-        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
+        self.buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
+        self.buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
         for i in range(4):
-            buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
+            self.buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
 
-        self.create_button(
-            buttons_frame, "Cancel", on_cancel_callback, is_primary=False
-        ).grid(row=0, column=1, sticky="e", padx=(0, 32))
-        self.create_button(buttons_frame, "Save", on_save_callback).grid(
-            row=0, column=2, sticky="w", padx=(32, 0)
+        self.cancel_button = self.create_button(
+            self.buttons_frame, "Cancel", on_cancel_callback, is_primary=False
         )
+        self.cancel_button.grid(row=0, column=1, sticky="e", padx=(0, 32))
+
+        self.save_button = self.create_button(
+            self.buttons_frame, "Save", on_save_callback
+        )
+        self.save_button.grid(row=0, column=2, sticky="w", padx=(32, 0))
 
     def calculate_modal_dimensions(
         self,
         modal,
         root,
-        width_ratio=0.5,
+        width_ratio=0.6,
         height_ratio=0.6,
-        min_width=480,
-        min_height=460,
+        min_width=760,
+        min_height=520,
     ):
         screen_width = modal.winfo_screenwidth()
         screen_height = modal.winfo_screenheight()
@@ -224,8 +255,7 @@ class BaseQuestionModal:
         )
         return width, height
 
-    def position_modal(self, modal, root, width, height):
-        modal.update_idletasks()
+    def calculate_position(self, modal, root, width, height):
         screen_width, screen_height = (
             modal.winfo_screenwidth(),
             modal.winfo_screenheight(),
@@ -238,6 +268,11 @@ class BaseQuestionModal:
             pos_x = max((screen_width - width) // 2, 0)
             pos_y = max((screen_height - height) // 2, 0)
 
+        return pos_x, pos_y
+
+    def position_modal(self, modal, root, width, height):
+        modal.update_idletasks()
+        pos_x, pos_y = self.calculate_position(modal, root, width, height)
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
     def update_image_feedback(self, message, is_error=True):
@@ -320,6 +355,87 @@ class BaseQuestionModal:
         self.image_feedback_label = None
         self.selected_image_source_path = None
 
+    def resize(self, scale):
+        if not self.modal or not self.modal.winfo_exists():
+            return
+
+        def s(v):
+            return int(v * scale)
+
+        # Resize modal window
+        width = s(self.BASE_SIZES["width"])
+        height = s(self.BASE_SIZES["height"])
+
+        # Recalculate position to keep centered
+        root = self.parent.winfo_toplevel()
+        pos_x, pos_y = self.calculate_position(self.modal, root, width, height)
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+        # Resize header
+        if self.header_frame:
+            self.header_frame.configure(height=s(self.BASE_SIZES["header_height"]))
+            self.header_frame.grid_configure(pady=(0, s(24)))
+
+        # Resize form fields container
+        if self.form_frame:
+            self.form_frame.grid_configure(padx=s(24), pady=(0, s(24)))
+
+        # Resize buttons frame
+        if self.buttons_frame:
+            self.buttons_frame.grid_configure(pady=(0, s(28)), padx=s(20))
+
+        # Resize buttons
+        btn_width = s(self.BASE_SIZES["button_width"])
+        btn_height = s(self.BASE_SIZES["button_height"])
+        btn_radius = s(self.BASE_SIZES["button_corner_radius"])
+
+        for btn in [self.cancel_button, self.save_button]:
+            if btn:
+                btn.configure(
+                    width=btn_width, height=btn_height, corner_radius=btn_radius
+                )
+
+        if self.cancel_button:
+            self.cancel_button.grid_configure(padx=(0, s(32)))
+        if self.save_button:
+            self.save_button.grid_configure(padx=(s(32), 0))
+
+        # Resize entries
+        entry_height = s(self.BASE_SIZES["entry_height"])
+        entry_radius = s(self.BASE_SIZES["corner_radius"])
+
+        if self.concept_entry:
+            self.concept_entry.configure(
+                height=entry_height, corner_radius=entry_radius
+            )
+            self.concept_entry.grid_configure(pady=(0, s(16)))
+
+        if self.definition_textbox:
+            self.definition_textbox.configure(
+                height=entry_height, corner_radius=entry_radius
+            )
+
+        # Resize image input
+        if self.image_input_frame:
+            self.image_input_frame.configure(corner_radius=entry_radius)
+
+        if self.image_picker_frame:
+            self.image_picker_frame.grid_configure(padx=s(12), pady=s(8))
+
+        if self.choose_file_button:
+            self.choose_file_button.configure(
+                width=s(self.BASE_SIZES["image_button_width"]),
+                height=s(self.BASE_SIZES["image_button_height"]),
+            )
+
+        if self.image_display_label:
+            self.image_display_label.grid_configure(padx=(0, s(16)))
+            self.image_display_label.configure(wraplength=s(260))
+
+        if self.image_feedback_label:
+            self.image_feedback_label.grid_configure(pady=(s(8), 0), padx=s(4))
+            self.image_feedback_label.configure(wraplength=s(360))
+
 
 class AddQuestionModal(BaseQuestionModal):
 
@@ -335,7 +451,7 @@ class AddQuestionModal(BaseQuestionModal):
         self.modal = modal
 
         self.setup_modal_ui(modal, "Add Question")
-        width, height = self.calculate_modal_dimensions(modal, root, 0.5, 0.6, 480, 460)
+        width, height = self.calculate_modal_dimensions(modal, root, 0.6, 0.6, 760, 520)
         self.position_modal(modal, root, width, height)
         self.safe_try(self.concept_entry.focus_set)
 
@@ -403,12 +519,17 @@ class AddQuestionModal(BaseQuestionModal):
 
 class EditQuestionModal(BaseQuestionModal):
 
-    def __init__(self, parent, config, image_handler, on_save_callback):
+    def __init__(self, parent, config, image_handler, on_save_callback, question=None):
         super().__init__(parent, config, image_handler)
         self.on_save_callback = on_save_callback
         self.initial_image_path = None
+        self.question = question
 
-    def show(self, current_question):
+    def show(self, current_question=None):
+        question_to_show = current_question or self.question
+        if not question_to_show:
+            return
+
         if self.show_existing_modal():
             return
 
@@ -416,9 +537,9 @@ class EditQuestionModal(BaseQuestionModal):
         self.modal = modal
 
         self.setup_modal_ui(modal, "Edit Question")
-        self.populate_form(current_question)
+        self.populate_form(question_to_show)
 
-        width, height = self.calculate_modal_dimensions(modal, root, 0.5, 0.6, 480, 460)
+        width, height = self.calculate_modal_dimensions(modal, root, 0.6, 0.6, 760, 520)
         self.position_modal(modal, root, width, height)
         self.safe_try(self.concept_entry.focus_set)
 
@@ -519,11 +640,27 @@ class EditQuestionModal(BaseQuestionModal):
 
 class DeleteConfirmationModal:
 
+    BASE_SIZES = {
+        "width": 760,
+        "height": 420,
+        "header_height": 72,
+        "button_width": 130,
+        "button_height": 46,
+        "button_corner_radius": 14,
+    }
+
     def __init__(self, parent, config, on_confirm_callback):
         self.parent = parent
         self.config = config
         self.on_confirm_callback = on_confirm_callback
         self.modal = None
+
+        # Widget references
+        self.header_frame = None
+        self.message_label = None
+        self.buttons_frame = None
+        self.cancel_button = None
+        self.confirm_button = None
 
     def safe_try(self, func):
         try:
@@ -567,15 +704,15 @@ class DeleteConfirmationModal:
         container.grid_rowconfigure(1, weight=1)
 
         # Header
-        header_frame = ctk.CTkFrame(
+        self.header_frame = ctk.CTkFrame(
             container, fg_color=self.config.BG_MODAL_HEADER, corner_radius=0, height=72
         )
-        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
-        header_frame.grid_propagate(False)
-        header_frame.grid_columnconfigure(0, weight=1)
+        self.header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 24), padx=0)
+        self.header_frame.grid_propagate(False)
+        self.header_frame.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            header_frame,
+            self.header_frame,
             text="Delete Question",
             font=self.config.dialog_title_font,
             text_color=self.config.TEXT_WHITE,
@@ -583,7 +720,7 @@ class DeleteConfirmationModal:
         ).grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
 
         # Message
-        message_label = ctk.CTkLabel(
+        self.message_label = ctk.CTkLabel(
             container,
             text="Are you sure you want to delete this question? This action is irreversible.",
             font=self.config.dialog_body_font,
@@ -592,16 +729,16 @@ class DeleteConfirmationModal:
             anchor="center",
             wraplength=480,
         )
-        message_label.grid(row=1, column=0, sticky="nsew", pady=(0, 20), padx=20)
+        self.message_label.grid(row=1, column=0, sticky="nsew", pady=(0, 20), padx=20)
 
         # Buttons
-        buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
-        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
+        self.buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
+        self.buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
         for i in range(4):
-            buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
+            self.buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
 
-        ctk.CTkButton(
-            buttons_frame,
+        self.cancel_button = ctk.CTkButton(
+            self.buttons_frame,
             text="Cancel",
             font=self.config.cancel_button_font,
             fg_color=self.config.BUTTON_CANCEL_BG,
@@ -611,10 +748,11 @@ class DeleteConfirmationModal:
             width=130,
             height=46,
             corner_radius=14,
-        ).grid(row=0, column=1, sticky="e", padx=(0, 32))
+        )
+        self.cancel_button.grid(row=0, column=1, sticky="e", padx=(0, 32))
 
-        confirm_button = ctk.CTkButton(
-            buttons_frame,
+        self.confirm_button = ctk.CTkButton(
+            self.buttons_frame,
             text="Delete",
             font=self.config.button_font,
             fg_color=self.config.DANGER_RED,
@@ -624,7 +762,7 @@ class DeleteConfirmationModal:
             height=46,
             corner_radius=14,
         )
-        confirm_button.grid(row=0, column=2, sticky="w", padx=(32, 0))
+        self.confirm_button.grid(row=0, column=2, sticky="w", padx=(32, 0))
 
         self.modal = modal
         modal.protocol("WM_DELETE_WINDOW", self.close)
@@ -643,14 +781,14 @@ class DeleteConfirmationModal:
             root.winfo_height() if root and root.winfo_height() > 1 else screen_height
         )
 
-        width = min(max(480, int(parent_width * 0.5)), screen_width - 80)
-        height = min(max(340, int(parent_height * 0.5)), screen_height - 80)
+        width = min(max(760, int(parent_width * 0.6)), screen_width - 80)
+        height = min(max(420, int(parent_height * 0.6)), screen_height - 80)
 
         pos_x, pos_y = self.calculate_position(modal, root, width, height)
         modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
-        message_label.configure(wraplength=max(width - 120, 360))
+        self.message_label.configure(wraplength=max(width - 120, 360))
 
-        self.safe_try(confirm_button.focus_set)
+        self.safe_try(self.confirm_button.focus_set)
 
     def handle_confirm(self):
         if self.on_confirm_callback:
@@ -663,3 +801,49 @@ class DeleteConfirmationModal:
             self.safe_try(self.modal.grab_release)
             self.safe_try(self.modal.destroy)
         self.modal = None
+
+    def resize(self, scale):
+        if not self.modal or not self.modal.winfo_exists():
+            return
+
+        def s(v):
+            return int(v * scale)
+
+        # Resize modal window
+        width = s(self.BASE_SIZES["width"])
+        height = s(self.BASE_SIZES["height"])
+
+        # Recalculate position to keep centered
+        root = self.parent.winfo_toplevel()
+        pos_x, pos_y = self.calculate_position(self.modal, root, width, height)
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+        # Resize header
+        if self.header_frame:
+            self.header_frame.configure(height=s(self.BASE_SIZES["header_height"]))
+            self.header_frame.grid_configure(pady=(0, s(24)))
+
+        # Resize message
+        if self.message_label:
+            self.message_label.grid_configure(pady=(0, s(20)), padx=s(20))
+            self.message_label.configure(wraplength=max(width - s(120), s(360)))
+
+        # Resize buttons frame
+        if self.buttons_frame:
+            self.buttons_frame.grid_configure(pady=(0, s(28)), padx=s(20))
+
+        # Resize buttons
+        btn_width = s(self.BASE_SIZES["button_width"])
+        btn_height = s(self.BASE_SIZES["button_height"])
+        btn_radius = s(self.BASE_SIZES["button_corner_radius"])
+
+        for btn in [self.cancel_button, self.confirm_button]:
+            if btn:
+                btn.configure(
+                    width=btn_width, height=btn_height, corner_radius=btn_radius
+                )
+
+        if self.cancel_button:
+            self.cancel_button.grid_configure(padx=(0, s(32)))
+        if self.confirm_button:
+            self.confirm_button.grid_configure(padx=(s(32), 0))
