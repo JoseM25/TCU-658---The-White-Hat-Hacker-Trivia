@@ -157,7 +157,6 @@ SCREEN_FONT_SPECS = {
 
 
 class ScreenFontRegistry:
-    """Creates and stores CTkFont instances with their responsive metadata."""
 
     def __init__(self, specs):
         self._fonts = {}
@@ -184,23 +183,20 @@ class ScreenFontRegistry:
         return dict(self._fonts)
 
     def attach_attributes(self, target):
-        """Expose font objects as `<name>_font` on the target for backwards compatibility."""
         for name, font in self._fonts.items():
             setattr(target, f"{name}_font", font)
 
 
 class QuestionPersistenceError(Exception):
-    """Raised when the questions file cannot be updated."""
+    pass
 
 
 class QuestionFileStorage:
-    """Handles file I/O for questions data."""
 
     def __init__(self, json_path):
         self.json_path = Path(json_path)
 
     def load_questions(self):
-        """Load and parse questions from JSON file."""
         if not self.json_path.exists():
             return []
 
@@ -235,7 +231,6 @@ class QuestionFileStorage:
         return normalized
 
     def save_questions(self, questions):
-        """Save questions list to JSON file."""
         payload = {"questions": questions}
         try:
             self.json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -250,7 +245,6 @@ class QuestionFileStorage:
 
 
 class QuestionRepository:
-    """Manages question data with CRUD operations."""
 
     def __init__(self, json_path):
         self.storage = QuestionFileStorage(json_path)
@@ -258,12 +252,10 @@ class QuestionRepository:
         self.load()
 
     def load(self):
-        """Load questions from storage."""
         self.questions = self.storage.load_questions()
         return self.questions
 
     def save(self, questions):
-        """Save questions to storage and update local cache."""
         self.storage.save_questions(questions)
         self.questions = list(questions)
         return self.questions
@@ -301,7 +293,6 @@ class QuestionRepository:
         return True
 
     def is_title_unique(self, title, exclude_question=None):
-        """Return True when title is unique, ignoring optional question reference."""
         normalized = (title or "").strip().lower()
         if not normalized:
             return False
@@ -315,7 +306,6 @@ class QuestionRepository:
 
 
 class QuestionScreenViewMixin:
-    """Shared UI construction and responsive behavior for the manage questions screen."""
 
     def _init_question_screen_view(self):
         self.selected_question_button = None
@@ -400,7 +390,6 @@ class QuestionScreenViewMixin:
         self.parent.bind("<Configure>", self.on_resize)
 
     def clear_search(self):
-        """Clear the search entry text if present."""
         if self.search_entry and self.search_entry.winfo_exists():
             try:
                 self.search_entry.delete(0, tk.END)
@@ -693,7 +682,6 @@ class QuestionScreenViewMixin:
         self.detail_definition_textbox.configure(state="disabled")
 
     def _create_list_frame_container(self, is_scrollable):
-        """Create the outer and inner frames for the question list."""
         c = self.COLORS
 
         # Create outer frame for border and background
@@ -743,7 +731,6 @@ class QuestionScreenViewMixin:
         return list_frame
 
     def _show_empty_list_state(self, list_frame, has_search_query):
-        """Display empty state message when no questions are available."""
         c = self.COLORS
         empty_text = (
             "No questions match your search."
@@ -758,7 +745,6 @@ class QuestionScreenViewMixin:
         ).grid(row=1, column=0, padx=24, pady=(12, 24))
 
     def _create_question_button(self, parent, question, is_selected, button_config):
-        """Create a single question button with appropriate styling."""
         c = self.COLORS
         button = ctk.CTkButton(
             parent,
@@ -780,7 +766,6 @@ class QuestionScreenViewMixin:
         return button
 
     def render_question_list(self):
-        """Render the list of questions with buttons."""
         if not self.list_container or not self.list_container.winfo_exists():
             return
 
@@ -1087,15 +1072,12 @@ class QuestionScreenViewMixin:
         return max(120, visible_width)
 
     def interpolate_profile(self, value, profile):
-        """Interpolate value using profile - delegated to scaler."""
         return self.scaler.interpolate_profile(value, profile)
 
     def clamp_value(self, value, min_value=None, max_value=None):
-        """Clamp value between optional min and max - delegated to scaler."""
         return self.scaler.clamp_value(value, min_value, max_value)
 
     def get_wrap_ratio(self, width=None):
-        """Calculate text wrap ratio - delegated to layout calculator."""
         target_width = (
             width if width is not None else self.size_state.get("detail_width_estimate")
         )
@@ -1104,22 +1086,18 @@ class QuestionScreenViewMixin:
         return self.layout_calc.calculate_wrap_ratio(target_width)
 
     def compute_definition_padding(self, width=None):
-        """Calculate definition padding - delegated to layout calculator."""
         target_width = width if width is not None else self.get_effective_detail_width()
         return self.layout_calc.compute_definition_padding(
             target_width, self.current_scale
         )
 
     def get_sidebar_share(self, window_width):
-        """Calculate sidebar width share - delegated to size calculator."""
         return self.size_calc.get_sidebar_share(window_width)
 
     def scale_value(self, base, scale, min_value=None, max_value=None):
-        """Scale value with optional clamping - delegated to scaler."""
         return self.scaler.scale_value(base, scale, min_value, max_value)
 
     def apply_title_wraplength(self):
-        """Update title label wrap length based on current width."""
         if not self.detail_title_label or not self.detail_title_label.winfo_exists():
             return
         fallback = self.size_state.get("detail_width_estimate", 600)
@@ -1132,7 +1110,6 @@ class QuestionScreenViewMixin:
         return value * self.HEADER_SIZE_MULTIPLIER
 
     def update_size_state(self, scale, window_width):
-        """Update size state using calculator - much simpler now."""
         self.size_state = self.size_calc.calculate_sizes(scale, window_width)
 
         # Update grid column sizes if main frame exists
@@ -1409,7 +1386,6 @@ class QuestionScreenViewMixin:
             self.detail_title_label.configure(height=title_height)
 
     def update_definition_audio_layout(self, container_width, scale):
-        """Update audio button layout based on available width."""
         if not self.definition_row or not self.definition_row.winfo_exists():
             return
         if not self.definition_audio_button or not self.detail_definition_textbox:
@@ -1459,7 +1435,6 @@ class QuestionScreenViewMixin:
             )
 
     def apply_responsive(self):
-        """Apply responsive scaling to all UI elements - simplified."""
         if not self.parent or not self.parent.winfo_exists():
             return
 

@@ -49,7 +49,6 @@ class BaseModal:
         )
 
     def init_fonts(self, font_specs):
-        """Initialize fonts from specifications."""
         for name, (family, size, weight) in font_specs.items():
             font = (
                 ctk.CTkFont(family=family, size=size, weight=weight)
@@ -60,21 +59,18 @@ class BaseModal:
             self.font_base_sizes[name] = size
 
     def update_fonts(self, scale):
-        """Update all fonts to match current scale."""
         for name, base_size in self.font_base_sizes.items():
             if name in self.fonts:
                 new_size = self.scaler.scale_value(base_size, scale, 10, base_size * 2)
                 self.fonts[name].configure(size=new_size)
 
     def safe_try(self, func):
-        """Execute function safely, catching TclError."""
         try:
             func()
         except tk.TclError:
             pass
 
     def calculate_position(self, modal, root, width, height):
-        """Calculate centered position for modal window."""
         screen_width, screen_height = (
             modal.winfo_screenwidth(),
             modal.winfo_screenheight(),
@@ -90,7 +86,6 @@ class BaseModal:
         return pos_x, pos_y
 
     def get_responsive_scale(self, root, base_sizes=None):
-        """Calculate responsive scale based on parent window size."""
         if not root:
             return 1.0
 
@@ -114,7 +109,6 @@ class BaseModal:
         return scale
 
     def close(self):
-        """Close and destroy modal window."""
         if self.modal and self.modal.winfo_exists():
             self.safe_try(self.modal.grab_release)
             self.safe_try(self.modal.destroy)
@@ -176,27 +170,22 @@ class BaseQuestionModal(BaseModal):
         self.image_picker_frame = None
 
     def limit_title_length(self, *_):
-        """Limit title length to maximum."""
         value = self.title_var.get()
         if len(value) > TITLE_MAX_LENGTH:
             self.title_var.set(value[:TITLE_MAX_LENGTH])
 
     def create_label(self, parent, text, **kwargs):
-        """Create label using factory."""
         return self.widget_factory.create_label(parent, text, **kwargs)
 
     def create_entry(self, parent, placeholder, **kwargs):
-        """Create entry using factory."""
         return self.widget_factory.create_entry(parent, placeholder, **kwargs)
 
     def create_button(self, parent, text, command, is_primary=True, **kwargs):
-        """Create button using factory."""
         return self.widget_factory.create_button(
             parent, text, command, is_primary, **kwargs
         )
 
     def create_modal_window(self, title):
-        """Create and configure modal window."""
         root = self.parent.winfo_toplevel() if self.parent else None
         modal = ctk.CTkToplevel(root if root else self.parent)
         modal.title(title)
@@ -210,11 +199,9 @@ class BaseQuestionModal(BaseModal):
         return modal, root
 
     def create_container(self, modal):
-        """Create container using layout builder."""
         return self.layout_builder.create_container(modal, self.config)
 
     def create_header(self, container, title):
-        """Create header using layout builder."""
         self.header_frame = self.layout_builder.create_header(
             container, title, self.fonts, self.config
         )
@@ -483,7 +470,6 @@ class BaseQuestionModal(BaseModal):
         self.selected_image_source_path = None
 
     def resize(self, scale):
-        """Resize modal and all widgets based on scale factor."""
         if not self.modal or not self.modal.winfo_exists():
             return
 
@@ -834,7 +820,6 @@ class DeleteConfirmationModal(BaseModal):
     # close() method inherited from BaseModal
 
     def resize(self, scale):
-        """Resize modal and all widgets based on scale factor."""
         if not self.modal or not self.modal.winfo_exists():
             return
 
