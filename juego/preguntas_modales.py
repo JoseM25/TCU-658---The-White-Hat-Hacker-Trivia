@@ -12,18 +12,18 @@ class BaseQuestionModal:
     BASE_DIMENSIONS = (1280, 720)
 
     BASE_SIZES = {
-        "width": 760,
-        "height": 520,
-        "header_height": 72,
-        "padding_x": 24,
-        "padding_y": 24,
-        "button_width": 130,
-        "button_height": 46,
-        "entry_height": 44,
-        "image_button_width": 140,
-        "image_button_height": 36,
-        "corner_radius": 16,
-        "button_corner_radius": 14,
+        "width": 480,
+        "height": 360,
+        "header_height": 52,
+        "padding_x": 14,
+        "padding_y": 14,
+        "button_width": 110,
+        "button_height": 36,
+        "entry_height": 36,
+        "image_button_width": 110,
+        "image_button_height": 28,
+        "corner_radius": 12,
+        "button_corner_radius": 10,
     }
 
     FONT_SPECS = {
@@ -78,7 +78,7 @@ class BaseQuestionModal:
                 new_size = int(base_size * scale)
                 self.fonts[name].configure(size=max(10, new_size))
 
-    def limit_title_length(self):
+    def limit_title_length(self, *args):
         value = self.title_var.get()
         if len(value) > TITLE_MAX_LENGTH:
             self.title_var.set(value[:TITLE_MAX_LENGTH])
@@ -103,9 +103,9 @@ class BaseQuestionModal:
             "text_color": self.config.TEXT_DARK,
             "border_color": self.config.BORDER_MEDIUM,
             "border_width": 2,
-            "height": 44,
+            "height": self.BASE_SIZES["entry_height"],
             "font": self.fonts["body"],
-            "corner_radius": 16,
+            "corner_radius": self.BASE_SIZES["corner_radius"],
         }
         return ctk.CTkEntry(
             parent, placeholder_text=placeholder, **{**defaults, **kwargs}
@@ -117,15 +117,18 @@ class BaseQuestionModal:
                 "font": self.fonts["button"],
                 "fg_color": self.config.PRIMARY_BLUE,
                 "hover_color": self.config.PRIMARY_BLUE_HOVER,
-                "width": 130,
-                "height": 46,
-                "corner_radius": 14,
+                "width": self.BASE_SIZES["button_width"],
+                "height": self.BASE_SIZES["button_height"],
+                "corner_radius": self.BASE_SIZES["button_corner_radius"],
             }
         else:
             defaults = {
                 "font": self.fonts["cancel_button"],
                 "fg_color": self.config.BUTTON_CANCEL_BG,
                 "text_color": self.config.TEXT_WHITE,
+                "width": self.BASE_SIZES["button_width"],
+                "height": self.BASE_SIZES["button_height"],
+                "corner_radius": self.BASE_SIZES["button_corner_radius"],
                 "hover_color": self.config.BUTTON_CANCEL_HOVER,
                 "width": 130,
                 "height": 46,
@@ -230,8 +233,8 @@ class BaseQuestionModal:
             self.image_picker_frame,
             "Choose File",
             self.on_select_image,
-            width=140,
-            height=36,
+            width=self.BASE_SIZES["image_button_width"],
+            height=self.BASE_SIZES["image_button_height"],
         )
         self.choose_file_button.grid(row=0, column=1, sticky="e")
 
@@ -268,10 +271,10 @@ class BaseQuestionModal:
         self,
         modal,
         root,
-        width_ratio=0.6,
-        height_ratio=0.6,
-        min_width=760,
-        min_height=520,
+        width_ratio=0.5,
+        height_ratio=0.5,
+        min_width=480,
+        min_height=360,
     ):
         screen_width = modal.winfo_screenwidth()
         screen_height = modal.winfo_screenheight()
@@ -433,11 +436,13 @@ class BaseQuestionModal:
         # Resize header
         if self.header_frame:
             self.header_frame.configure(height=s(self.BASE_SIZES["header_height"]))
-            self.header_frame.grid_configure(pady=(0, s(24)))
+            self.header_frame.grid_configure(pady=(0, s(self.BASE_SIZES["padding_y"])))
 
         # Resize form fields container
+        padding_x = self.BASE_SIZES["padding_x"]
+        padding_y = self.BASE_SIZES["padding_y"]
         if self.form_frame:
-            self.form_frame.grid_configure(padx=s(24), pady=(0, s(24)))
+            self.form_frame.grid_configure(padx=s(padding_x), pady=(0, s(padding_y)))
 
         # Resize buttons frame
         if self.buttons_frame:
@@ -729,12 +734,12 @@ class DeleteConfirmationModal:
     BASE_DIMENSIONS = (1280, 720)
 
     BASE_SIZES = {
-        "width": 760,
-        "height": 420,
-        "header_height": 72,
-        "button_width": 130,
-        "button_height": 46,
-        "button_corner_radius": 14,
+        "width": 420,
+        "height": 260,
+        "header_height": 52,
+        "button_width": 110,
+        "button_height": 36,
+        "button_corner_radius": 10,
     }
 
     FONT_SPECS = {

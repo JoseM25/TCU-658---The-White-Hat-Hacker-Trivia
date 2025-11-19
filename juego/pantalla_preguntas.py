@@ -1569,13 +1569,34 @@ class ManageQuestionsScreen:
         if needs_render:
             self.render_question_list()
 
-        if self.current_modal:
-            try:
-                self.current_modal.resize(scale)
-            except (AttributeError, tk.TclError):
-                pass
+        self.resize_current_modal()
 
         self._resize_job = None
+
+    def resize_current_modal(self):
+        if not self.current_modal:
+            return
+
+        root = None
+        try:
+            root = self.parent.winfo_toplevel()
+        except tk.TclError:
+            root = self.parent
+
+        scale = None
+        if hasattr(self.current_modal, "get_responsive_scale"):
+            try:
+                scale = self.current_modal.get_responsive_scale(root)
+            except tk.TclError:
+                scale = None
+
+        if scale is None:
+            return
+
+        try:
+            self.current_modal.resize(scale)
+        except (AttributeError, tk.TclError):
+            pass
 
     def on_resize(self, event):
         if event.widget is not self.parent:
@@ -1615,9 +1636,7 @@ class ManageQuestionsScreen:
             self.parent, ui_config, self.image_handler, self.handle_add_save
         )
         self.current_modal.show()
-        # Apply initial scale
-        if self.current_scale:
-            self.current_modal.resize(self.current_scale)
+        self.resize_current_modal()
 
     def handle_add_save(self, title, definition, source_image_path):
         if not self.validate_title_unique(title):
@@ -1666,9 +1685,7 @@ class ManageQuestionsScreen:
             question=self.current_question,
         )
         self.current_modal.show()
-        # Apply initial scale
-        if self.current_scale:
-            self.current_modal.resize(self.current_scale)
+        self.resize_current_modal()
 
     def handle_edit_save(self, title, definition, image_path):
         if not self.validate_title_unique(
@@ -1728,9 +1745,7 @@ class ManageQuestionsScreen:
             self.parent, ui_config, self.handle_delete_confirm
         )
         self.current_modal.show()
-        # Apply initial scale
-        if self.current_scale:
-            self.current_modal.resize(self.current_scale)
+        self.resize_current_modal()
 
     def handle_delete_confirm(self):
         if self.current_question and self.delete_question(self.current_question):
