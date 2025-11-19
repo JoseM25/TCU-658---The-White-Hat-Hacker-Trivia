@@ -7,8 +7,23 @@ import customtkinter as ctk
 TITLE_MAX_LENGTH = 50
 
 
+class QuestionFormMode:
+
+    __slots__ = ("title", "requires_image", "existing_image_hint")
+
+    def __init__(self, title, requires_image, existing_image_hint=""):
+        self.title = title
+        self.requires_image = requires_image
+        self.existing_image_hint = existing_image_hint
+
+    def __repr__(self):
+        return (
+            f"QuestionFormMode(title={self.title!r}, requires_image={self.requires_image}, "
+            f"existing_image_hint={self.existing_image_hint!r})"
+        )
+
+
 class BaseModal:
-    """Base class providing common modal functionality for responsive UI modals."""
 
     BASE_DIMENSIONS = (1280, 720)
 
@@ -20,7 +35,6 @@ class BaseModal:
         self.font_base_sizes = {}
 
     def init_fonts(self, font_specs):
-        """Initialize fonts from font specifications dictionary."""
         for name, (family, size, weight) in font_specs.items():
             font = (
                 ctk.CTkFont(family=family, size=size, weight=weight)
@@ -31,21 +45,18 @@ class BaseModal:
             self.font_base_sizes[name] = size
 
     def update_fonts(self, scale):
-        """Update all font sizes based on scale factor."""
         for name, base_size in self.font_base_sizes.items():
             if name in self.fonts:
                 new_size = int(base_size * scale)
                 self.fonts[name].configure(size=max(10, new_size))
 
     def safe_try(self, func):
-        """Execute function safely, ignoring TclErrors."""
         try:
             func()
         except tk.TclError:
             pass
 
     def calculate_position(self, modal, root, width, height):
-        """Calculate centered position for modal window."""
         screen_width, screen_height = (
             modal.winfo_screenwidth(),
             modal.winfo_screenheight(),
@@ -61,7 +72,6 @@ class BaseModal:
         return pos_x, pos_y
 
     def get_responsive_scale(self, root, base_sizes=None):
-        """Calculate responsive scale factor based on parent dimensions."""
         if not root:
             return 1.0
 
@@ -85,7 +95,6 @@ class BaseModal:
         return scale
 
     def close(self):
-        """Close and cleanup modal window."""
         if self.modal and self.modal.winfo_exists():
             self.safe_try(self.modal.grab_release)
             self.safe_try(self.modal.destroy)
@@ -93,7 +102,6 @@ class BaseModal:
 
 
 class BaseQuestionModal(BaseModal):
-    """Modal for adding/editing questions with form fields and image selection."""
 
     BASE_SIZES = {
         "width": 480,
@@ -142,7 +150,7 @@ class BaseQuestionModal(BaseModal):
         self.image_input_frame = None
         self.image_picker_frame = None
 
-    def limit_title_length(self):
+    def limit_title_length(self, *_):
         value = self.title_var.get()
         if len(value) > TITLE_MAX_LENGTH:
             self.title_var.set(value[:TITLE_MAX_LENGTH])
@@ -483,11 +491,9 @@ class BaseQuestionModal(BaseModal):
         return form_data
 
     def get_responsive_scale(self, root, base_sizes=None):
-        """Get responsive scale using base implementation with our BASE_SIZES."""
         return super().get_responsive_scale(root, self.BASE_SIZES)
 
     def close(self):
-        """Close modal and clear form-specific references."""
         super().close()
         self.concept_entry = None
         self.definition_textbox = None
@@ -581,67 +587,29 @@ class BaseQuestionModal(BaseModal):
             self.image_feedback_label.configure(wraplength=s(360))
 
 
-class AddQuestionModal(BaseQuestionModal):
+class QuestionFormModal(BaseQuestionModal):
 
-    def __init__(self, parent, config, image_handler, on_save_callback):
+    def __init__(
+        self,
+        parent,
+        config,
+        image_handler,
+        on_save_callback,
+        mode: QuestionFormMode,
+        question=None,
+    ):
         super().__init__(parent, config, image_handler)
         self.on_save_callback = on_save_callback
-
-    def show(self):
-        self.open_modal("Add Question", self.handle_save)
-
-    def handle_save(self):
-        form_data = self.get_validated_form_data()
-        if not form_data:
-            return
-
-        title, definition = form_data["title"], form_data["definition"]
-
-        if not self.selected_image_source_path:
-            messagebox.showwarning(
-                "Missing Information", "Please choose an illustration for the question."
-            )
-            self.update_image_feedback("Select an image before saving.")
-            return
-
-        source_path = Path(self.selected_image_source_path)
-        if not source_path.exists():
-            messagebox.showerror(
-                "Image Not Found",
-                "The selected image could not be located. Please choose a different file.",
-            )
-            self.update_image_feedback("Selected file is no longer available.")
-            self.reset_image_display()
-            return
-
-        # Call the save callback and only close if it returns True (success)
-        if self.on_save_callback:
-            result = self.on_save_callback(title, definition, source_path)
-            # If callback returns False, validation failed - keep modal open
-            if result is False:
-                return
-
-        self.close()
-
-
-class EditQuestionModal(BaseQuestionModal):
-
-    def __init__(self, parent, config, image_handler, on_save_callback, question=None):
-        super().__init__(parent, config, image_handler)
-        self.on_save_callback = on_save_callback
-        self.initial_image_path = None
+        self.mode = mode
         self.question = question
+        self.initial_image_path = ""
 
-    def show(self, current_question=None):
-        question_to_show = current_question or self.question
-        if not question_to_show:
-            return
-
-        self.open_modal(
-            "Edit Question",
-            self.handle_save,
-            after_setup=lambda: self.populate_form(question_to_show),
-        )
+    def show(self, question=None):
+        self.question = question or self.question
+        after_setup = None
+        if self.question:
+            after_setup = lambda: self.populate_form(self.question)
+        self.open_modal(self.mode.title, self.handle_save, after_setup=after_setup)
 
     def populate_form(self, current_question):
         current_title = (current_question.get("title") or "").strip()
@@ -663,43 +631,63 @@ class EditQuestionModal(BaseQuestionModal):
             self.image_display_label.configure(
                 text=display_name, text_color=self.config.TEXT_DARK
             )
+            hint = (
+                self.mode.existing_image_hint
+                or "Current image will be kept unless you choose a new file."
+            )
             self.image_feedback_label.configure(
-                text="Current image will be kept unless you choose a new file.",
+                text=hint,
                 text_color=self.config.TEXT_LIGHT,
             )
 
         self.initial_image_path = existing_image_path
+
+    def resolve_image_value(self):
+        if self.selected_image_source_path:
+            source_path = Path(self.selected_image_source_path)
+            if not source_path.exists():
+                messagebox.showerror(
+                    "Image Not Found",
+                    "The selected image could not be located. Please choose a different file.",
+                )
+                self.update_image_feedback("Selected file is no longer available.")
+                self.reset_image_display()
+                return None
+
+            if not self.image_handler.validate_image_extension(source_path):
+                messagebox.showwarning(
+                    "Unsupported File", "Please choose a PNG or JPG image."
+                )
+                self.update_image_feedback("Unsupported file extension.")
+                return None
+
+            return source_path
+
+        if self.initial_image_path:
+            return self.initial_image_path
+
+        if self.mode.requires_image:
+            messagebox.showwarning(
+                "Missing Information", "Please choose an illustration for the question."
+            )
+            self.update_image_feedback("Select an image before saving.")
+            return None
+
+        return ""
 
     def handle_save(self):
         form_data = self.get_validated_form_data()
         if not form_data:
             return
 
-        title, definition = form_data["title"], form_data["definition"]
+        image_value = self.resolve_image_value()
+        if image_value is None:
+            return
 
-        image_path = self.initial_image_path or ""
-
-        if self.selected_image_source_path:
-            source_path = Path(self.selected_image_source_path)
-            if not source_path.exists():
-                messagebox.showerror(
-                    "Image Not Found", "The selected image could not be located."
-                )
-                self.update_image_feedback("Selected file is no longer available.")
-                return
-
-            if not self.image_handler.validate_image_extension(source_path):
-                messagebox.showwarning(
-                    "Unsupported File", "Please choose a PNG or JPG image."
-                )
-                return
-
-            image_path = source_path
-
-        # Call the save callback and only close if it returns True (success)
         if self.on_save_callback:
-            result = self.on_save_callback(title, definition, image_path)
-            # If callback returns False, validation failed - keep modal open
+            result = self.on_save_callback(
+                form_data["title"], form_data["definition"], image_value
+            )
             if result is False:
                 return
 
@@ -707,11 +695,39 @@ class EditQuestionModal(BaseQuestionModal):
 
     def close(self):
         super().close()
-        self.initial_image_path = None
+        self.initial_image_path = ""
+
+
+class AddQuestionModal(QuestionFormModal):
+
+    def __init__(self, parent, config, image_handler, on_save_callback):
+        super().__init__(
+            parent,
+            config,
+            image_handler,
+            on_save_callback,
+            mode=QuestionFormMode(title="Add Question", requires_image=True),
+        )
+
+
+class EditQuestionModal(QuestionFormModal):
+
+    def __init__(self, parent, config, image_handler, on_save_callback, question=None):
+        super().__init__(
+            parent,
+            config,
+            image_handler,
+            on_save_callback,
+            mode=QuestionFormMode(
+                title="Edit Question",
+                requires_image=False,
+                existing_image_hint="Current image will be kept unless you choose a new file.",
+            ),
+            question=question,
+        )
 
 
 class DeleteConfirmationModal(BaseModal):
-    """Simple confirmation modal for delete operations."""
 
     BASE_SIZES = {
         "width": 420,
@@ -744,7 +760,6 @@ class DeleteConfirmationModal(BaseModal):
         self.confirm_button = None
 
     def get_responsive_scale(self, root, base_sizes=None):
-        """Get responsive scale using base implementation with our BASE_SIZES."""
         return super().get_responsive_scale(root, self.BASE_SIZES)
 
     def show(self):

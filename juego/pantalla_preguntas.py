@@ -15,6 +15,175 @@ from juego.preguntas_modales import (
 )
 
 
+SCREEN_BASE_DIMENSIONS = (1280, 720)
+SCREEN_SCALE_LIMITS = (0.18, 1.90)
+SCREEN_RESIZE_DELAY = 80
+SCREEN_GLOBAL_SCALE_FACTOR = 0.55
+SCREEN_HEADER_SIZE_MULTIPLIER = 1.18
+SCREEN_SIDEBAR_WEIGHT = 24
+SCREEN_DETAIL_WEIGHT = 76
+
+SCREEN_ICONS = {"audio": "volume.svg", "search": "search.svg", "back": "arrow.svg"}
+
+SCREEN_COLORS = {
+    "header_bg": "#1C2534",
+    "header_hover": "#273246",
+    "primary": "#1D6CFF",
+    "primary_hover": "#0F55C9",
+    "secondary": "#00CFC5",
+    "secondary_hover": "#04AFA6",
+    "danger": "#FF4F60",
+    "danger_hover": "#E53949",
+    "success": "#047857",
+    "bg_light": "#F5F7FA",
+    "bg_white": "#FFFFFF",
+    "bg_modal": "#202632",
+    "border_light": "#D2DAE6",
+    "border_medium": "#CBD5E1",
+    "search_bg": "#D1D8E0",
+    "text_dark": "#111827",
+    "text_medium": "#1F2937",
+    "text_light": "#4B5563",
+    "text_lighter": "#6B7280",
+    "text_white": "#FFFFFF",
+    "text_placeholder": "#F5F7FA",
+    "text_error": "#DC2626",
+    "btn_cancel": "#E5E7EB",
+    "btn_cancel_hover": "#CBD5E1",
+    "question_bg": "transparent",
+    "question_text": "#1F2937",
+    "question_hover": "#E2E8F0",
+    "question_selected": "#1D6CFF",
+}
+
+SCREEN_SIZES = {
+    "max_questions": 8,
+    "detail_image": (220, 220),
+    "audio_icon": (32, 32),
+    "search_icon": (16, 16),
+    "back_icon": (20, 20),
+    "question_btn_height": 50,
+    "question_margin": 8,
+    "question_padding": 4,
+    "question_corner_radius": 12,
+}
+
+SCREEN_DEFINITION_PADDING_PROFILE = [
+    (360, 8),
+    (480, 10),
+    (640, 12),
+    (800, 14),
+    (1024, 16),
+    (1280, 18),
+    (1600, 20),
+    (1920, 22),
+    (2560, 24),
+    (3200, 26),
+    (3840, 28),
+]
+
+SCREEN_DEFINITION_WRAP_FILL_PROFILE = [
+    (360, 0.90),
+    (480, 0.92),
+    (640, 0.94),
+    (800, 0.95),
+    (1024, 0.96),
+    (1280, 0.955),
+    (1600, 0.945),
+    (1920, 0.940),
+    (2560, 0.935),
+    (3200, 0.930),
+    (3840, 0.925),
+]
+
+SCREEN_DEFINITION_WRAP_PIXEL_PROFILE = [
+    (360, 320),
+    (480, 420),
+    (640, 560),
+    (800, 720),
+    (1024, 900),
+    (1280, 1100),
+    (1600, 1300),
+    (1920, 1500),
+    (2560, 1800),
+    (3200, 2050),
+    (3840, 2200),
+]
+
+SCREEN_DEFINITION_WRAP_LIMITS = (240, 2200)
+SCREEN_DEFINITION_STACK_BREAKPOINT = 520
+SCREEN_VIEWPORT_WRAP_RATIO_PROFILE = [
+    (360, 0.75),
+    (3840, 0.75),
+]
+
+SCREEN_SIDEBAR_WIDTH_PROFILE = [
+    (720, 0.26),
+    (960, 0.27),
+    (1280, 0.28),
+    (1440, 0.29),
+    (1600, 0.30),
+    (1920, 0.30),
+    (2560, 0.31),
+    (3200, 0.31),
+    (3840, 0.32),
+]
+
+SCREEN_LOW_RES_SCALE_PROFILE = [
+    (360, 0.62),
+    (480, 0.72),
+    (600, 0.82),
+    (720, 1.00),
+]
+
+SCREEN_FONT_SPECS = {
+    "title": ("Poppins ExtraBold", 44, "bold", 16),
+    "body": ("Poppins Medium", 18, None, 9),
+    "button": ("Poppins SemiBold", 16, "bold", 9),
+    "header_button": ("Poppins SemiBold", 22, "bold", 12),
+    "cancel_button": ("Poppins ExtraBold", 16, "bold", 9),
+    "search": ("Poppins SemiBold", 18, "bold", 9),
+    "question": ("Poppins SemiBold", 18, "bold", 9),
+    "detail_title": ("Poppins ExtraBold", 38, "bold", 12),
+    "dialog_title": ("Poppins SemiBold", 24, "bold", 12),
+    "dialog_body": ("Poppins Medium", 16, None, 9),
+    "dialog_label": ("Poppins SemiBold", 16, "bold", 9),
+}
+
+
+class ScreenFontRegistry:
+    """Creates and stores CTkFont instances with their responsive metadata."""
+
+    def __init__(self, specs):
+        self._fonts = {}
+        self.base_sizes = {}
+        self.min_sizes = {}
+
+        for name, (family, size, weight, min_size) in specs.items():
+            font = (
+                ctk.CTkFont(family=family, size=size, weight=weight)
+                if weight
+                else ctk.CTkFont(family=family, size=size)
+            )
+            self._fonts[name] = font
+            self.base_sizes[name] = size
+            self.min_sizes[name] = min_size or 10
+
+    def get(self, name):
+        return self._fonts[name]
+
+    def items(self):
+        return self._fonts.items()
+
+    def as_dict(self):
+        return dict(self._fonts)
+
+    def attach_attributes(self, target):
+        """Expose font objects as `<name>_font` on the target for backwards compatibility."""
+        for name, font in self._fonts.items():
+            setattr(target, f"{name}_font", font)
+
+
 class QuestionPersistenceError(Exception):
     """Raised when the questions file cannot be updated."""
 
@@ -127,197 +296,23 @@ class QuestionRepository:
         return True
 
     def is_title_unique(self, title, exclude_question=None):
+        """Return True when title is unique, ignoring optional question reference."""
         normalized = (title or "").strip().lower()
+        if not normalized:
+            return False
+
         for question in self.questions:
-            if question is exclude_question:
+            if exclude_question is not None and question is exclude_question:
                 continue
-            if question.get("title", "").strip().lower() == normalized:
+            if (question.get("title") or "").strip().lower() == normalized:
                 return False
         return True
 
 
-class ManageQuestionsScreen:
+class QuestionScreenViewMixin:
+    """Shared UI construction and responsive behavior for the manage questions screen."""
 
-    BASE_DIMENSIONS = (1280, 720)
-    SCALE_LIMITS = (0.18, 1.90)
-    RESIZE_DELAY = 80
-    GLOBAL_SCALE_FACTOR = 0.55
-    HEADER_SIZE_MULTIPLIER = 1.18
-    SIDEBAR_WEIGHT = 24
-    DETAIL_WEIGHT = 76
-
-    # File and directory paths
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    QUESTIONS_FILE = BASE_DIR / "datos" / "preguntas.json"
-    IMAGES_DIR = BASE_DIR / "recursos" / "imagenes"
-    AUDIO_DIR = BASE_DIR / "recursos" / "audio"
-
-    # Icon filenames
-    ICONS = {"audio": "volume.svg", "search": "search.svg", "back": "arrow.svg"}
-
-    # UI Colors
-    COLORS = {
-        "header_bg": "#1C2534",
-        "header_hover": "#273246",
-        "primary": "#1D6CFF",
-        "primary_hover": "#0F55C9",
-        "secondary": "#00CFC5",
-        "secondary_hover": "#04AFA6",
-        "danger": "#FF4F60",
-        "danger_hover": "#E53949",
-        "success": "#047857",
-        "bg_light": "#F5F7FA",
-        "bg_white": "#FFFFFF",
-        "bg_modal": "#202632",
-        "border_light": "#D2DAE6",
-        "border_medium": "#CBD5E1",
-        "search_bg": "#D1D8E0",
-        "text_dark": "#111827",
-        "text_medium": "#1F2937",
-        "text_light": "#4B5563",
-        "text_lighter": "#6B7280",
-        "text_white": "#FFFFFF",
-        "text_placeholder": "#F5F7FA",
-        "text_error": "#DC2626",
-        "btn_cancel": "#E5E7EB",
-        "btn_cancel_hover": "#CBD5E1",
-        "question_bg": "transparent",
-        "question_text": "#1F2937",
-        "question_hover": "#E2E8F0",
-        "question_selected": "#1D6CFF",
-    }
-
-    # UI Sizes
-    SIZES = {
-        "max_questions": 8,
-        "detail_image": (220, 220),
-        "audio_icon": (32, 32),
-        "search_icon": (16, 16),
-        "back_icon": (20, 20),
-        "question_btn_height": 50,
-        "question_margin": 8,
-        "question_padding": 4,
-        "question_corner_radius": 12,
-    }
-
-    DEFINITION_PADDING_PROFILE = [
-        (360, 8),
-        (480, 10),
-        (640, 12),
-        (800, 14),
-        (1024, 16),
-        (1280, 18),
-        (1600, 20),
-        (1920, 22),
-        (2560, 24),
-        (3200, 26),
-        (3840, 28),
-    ]
-
-    DEFINITION_WRAP_FILL_PROFILE = [
-        (360, 0.90),
-        (480, 0.92),
-        (640, 0.94),
-        (800, 0.95),
-        (1024, 0.96),
-        (1280, 0.955),
-        (1600, 0.945),
-        (1920, 0.940),
-        (2560, 0.935),
-        (3200, 0.930),
-        (3840, 0.925),
-    ]
-
-    DEFINITION_WRAP_PIXEL_PROFILE = [
-        (360, 320),
-        (480, 420),
-        (640, 560),
-        (800, 720),
-        (1024, 900),
-        (1280, 1100),
-        (1600, 1300),
-        (1920, 1500),
-        (2560, 1800),
-        (3200, 2050),
-        (3840, 2200),
-    ]
-
-    DEFINITION_WRAP_LIMITS = (240, 2200)
-    DEFINITION_STACK_BREAKPOINT = 520
-    VIEWPORT_WRAP_RATIO_PROFILE = [
-        (360, 0.75),
-        (3840, 0.75),
-    ]
-
-    SIDEBAR_WIDTH_PROFILE = [
-        (720, 0.26),
-        (960, 0.27),
-        (1280, 0.28),
-        (1440, 0.29),
-        (1600, 0.30),
-        (1920, 0.30),
-        (2560, 0.31),
-        (3200, 0.31),
-        (3840, 0.32),
-    ]
-
-    LOW_RES_SCALE_PROFILE = [
-        (360, 0.62),
-        (480, 0.72),
-        (600, 0.82),
-        (720, 1.00),
-    ]
-
-    FONT_SPECS = {
-        "title": ("Poppins ExtraBold", 44, "bold", 16),
-        "body": ("Poppins Medium", 18, None, 9),
-        "button": ("Poppins SemiBold", 16, "bold", 9),
-        "header_button": ("Poppins SemiBold", 22, "bold", 12),
-        "cancel_button": ("Poppins ExtraBold", 16, "bold", 9),
-        "search": ("Poppins SemiBold", 18, "bold", 9),
-        "question": ("Poppins SemiBold", 18, "bold", 9),
-        "detail_title": ("Poppins ExtraBold", 38, "bold", 12),
-        "dialog_title": ("Poppins SemiBold", 24, "bold", 12),
-        "dialog_body": ("Poppins Medium", 16, None, 9),
-        "dialog_label": ("Poppins SemiBold", 16, "bold", 9),
-    }
-
-    def __init__(self, parent, on_return_callback=None):
-        self.parent = parent
-        self.on_return_callback = on_return_callback
-
-        # Declare font attributes (set in init_fonts)
-        self.title_font = None
-        self.body_font = None
-        self.button_font = None
-        self.header_button_font = None
-        self.cancel_button_font = None
-        self.search_font = None
-        self.question_font = None
-        self.detail_title_font = None
-        self.dialog_title_font = None
-        self.dialog_body_font = None
-        self.dialog_label_font = None
-
-        self.font_base_sizes = {}
-        self.font_min_sizes = {}
-
-        # Initialize fonts
-        self.init_fonts()
-
-        # Initialize services
-        self.tts = TTSService(self.AUDIO_DIR)
-        self.image_handler = ImageHandler(self.IMAGES_DIR)
-        self.repository = QuestionRepository(self.QUESTIONS_FILE)
-
-        # Question management state
-        self.questions = self.repository.questions
-        self.filtered_questions = list(self.questions)
-
-        # UI State
-        self.current_question = (
-            self.filtered_questions[0] if self.filtered_questions else None
-        )
+    def _init_question_screen_view(self):
         self.selected_question_button = None
         self.detail_visible = False
 
@@ -399,67 +394,13 @@ class ManageQuestionsScreen:
         self.parent.bind("<Button-1>", self.handle_global_click, add="+")
         self.parent.bind("<Configure>", self.on_resize)
 
-    def init_fonts(self):
-        for name, (family, size, weight, min_size) in self.FONT_SPECS.items():
-            font = (
-                ctk.CTkFont(family=family, size=size, weight=weight)
-                if weight
-                else ctk.CTkFont(family=family, size=size)
-            )
-            setattr(self, f"{name}_font", font)
-            self.font_base_sizes[name] = size
-            self.font_min_sizes[name] = min_size or 10
-
-    def create_modal_ui_config(self, keys):
-        color_map = {
-            "BG_LIGHT": "bg_light",
-            "BG_WHITE": "bg_white",
-            "BG_MODAL_HEADER": "bg_modal",
-            "BORDER_MEDIUM": "border_medium",
-            "PRIMARY_BLUE": "primary",
-            "PRIMARY_BLUE_HOVER": "primary_hover",
-            "BUTTON_CANCEL_BG": "btn_cancel",
-            "BUTTON_CANCEL_HOVER": "btn_cancel_hover",
-            "TEXT_DARK": "text_dark",
-            "TEXT_WHITE": "text_white",
-            "TEXT_LIGHT": "text_light",
-            "TEXT_ERROR": "text_error",
-            "SUCCESS_GREEN": "success",
-            "DANGER_RED": "danger",
-            "DANGER_RED_HOVER": "danger_hover",
-        }
-
-        config_dict = {k: self.COLORS[v] for k, v in color_map.items() if k in keys}
-
-        font_keys = [
-            "dialog_title_font",
-            "dialog_label_font",
-            "dialog_body_font",
-            "body_font",
-            "button_font",
-            "cancel_button_font",
-        ]
-        config_dict.update({k: getattr(self, k) for k in font_keys if k in keys})
-
-        return SimpleNamespace(**config_dict)
-
-    def show_save_error(self, error):
-        message = (
-            "Unable to update the questions file. "
-            f"Please check permissions and try again.\n\nDetails: {error}"
-        )
-        try:
-            messagebox.showerror("Save error", message)
-        except tk.TclError:
-            print(f"Save error: {message}")
-
-    def filter_questions(self, query):
-        query = (query or "").strip().lower()
-        self.filtered_questions = (
-            [q for q in self.questions if query in q.get("title", "").lower()]
-            if query
-            else list(self.questions)
-        )
+    def clear_search(self):
+        """Clear the search entry text if present."""
+        if self.search_entry and self.search_entry.winfo_exists():
+            try:
+                self.search_entry.delete(0, tk.END)
+            except tk.TclError:
+                pass
 
     def build_ui(self):
         self.parent.grid_rowconfigure(0, weight=1)
@@ -1669,6 +1610,112 @@ class ManageQuestionsScreen:
                 pass
         self._resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
+
+class ManageQuestionsScreen(QuestionScreenViewMixin):
+
+    BASE_DIMENSIONS = SCREEN_BASE_DIMENSIONS
+    SCALE_LIMITS = SCREEN_SCALE_LIMITS
+    RESIZE_DELAY = SCREEN_RESIZE_DELAY
+    GLOBAL_SCALE_FACTOR = SCREEN_GLOBAL_SCALE_FACTOR
+    HEADER_SIZE_MULTIPLIER = SCREEN_HEADER_SIZE_MULTIPLIER
+    SIDEBAR_WEIGHT = SCREEN_SIDEBAR_WEIGHT
+    DETAIL_WEIGHT = SCREEN_DETAIL_WEIGHT
+
+    ICONS = SCREEN_ICONS
+    COLORS = SCREEN_COLORS
+    SIZES = SCREEN_SIZES
+    DEFINITION_PADDING_PROFILE = SCREEN_DEFINITION_PADDING_PROFILE
+    DEFINITION_WRAP_FILL_PROFILE = SCREEN_DEFINITION_WRAP_FILL_PROFILE
+    DEFINITION_WRAP_PIXEL_PROFILE = SCREEN_DEFINITION_WRAP_PIXEL_PROFILE
+    DEFINITION_WRAP_LIMITS = SCREEN_DEFINITION_WRAP_LIMITS
+    DEFINITION_STACK_BREAKPOINT = SCREEN_DEFINITION_STACK_BREAKPOINT
+    VIEWPORT_WRAP_RATIO_PROFILE = SCREEN_VIEWPORT_WRAP_RATIO_PROFILE
+    SIDEBAR_WIDTH_PROFILE = SCREEN_SIDEBAR_WIDTH_PROFILE
+    LOW_RES_SCALE_PROFILE = SCREEN_LOW_RES_SCALE_PROFILE
+    FONT_SPECS = SCREEN_FONT_SPECS
+
+    # File and directory paths
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    QUESTIONS_FILE = BASE_DIR / "datos" / "preguntas.json"
+    IMAGES_DIR = BASE_DIR / "recursos" / "imagenes"
+    AUDIO_DIR = BASE_DIR / "recursos" / "audio"
+
+    def __init__(self, parent, on_return_callback=None):
+        self.parent = parent
+        self.on_return_callback = on_return_callback
+
+        self.font_registry = ScreenFontRegistry(self.FONT_SPECS)
+        self.font_registry.attach_attributes(self)
+        self.font_base_sizes = dict(self.font_registry.base_sizes)
+        self.font_min_sizes = dict(self.font_registry.min_sizes)
+
+        # Initialize services
+        self.tts = TTSService(self.AUDIO_DIR)
+        self.image_handler = ImageHandler(self.IMAGES_DIR)
+        self.repository = QuestionRepository(self.QUESTIONS_FILE)
+
+        # Question management state
+        self.questions = self.repository.questions
+        self.filtered_questions = list(self.questions)
+
+        # UI State
+        self.current_modal = None
+        self.current_question = (
+            self.filtered_questions[0] if self.filtered_questions else None
+        )
+        self._init_question_screen_view()
+
+    def create_modal_ui_config(self, keys):
+        color_map = {
+            "BG_LIGHT": "bg_light",
+            "BG_WHITE": "bg_white",
+            "BG_MODAL_HEADER": "bg_modal",
+            "BORDER_MEDIUM": "border_medium",
+            "PRIMARY_BLUE": "primary",
+            "PRIMARY_BLUE_HOVER": "primary_hover",
+            "BUTTON_CANCEL_BG": "btn_cancel",
+            "BUTTON_CANCEL_HOVER": "btn_cancel_hover",
+            "TEXT_DARK": "text_dark",
+            "TEXT_WHITE": "text_white",
+            "TEXT_LIGHT": "text_light",
+            "TEXT_ERROR": "text_error",
+            "SUCCESS_GREEN": "success",
+            "DANGER_RED": "danger",
+            "DANGER_RED_HOVER": "danger_hover",
+        }
+
+        config_dict = {k: self.COLORS[v] for k, v in color_map.items() if k in keys}
+
+        font_keys = [
+            "dialog_title_font",
+            "dialog_label_font",
+            "dialog_body_font",
+            "body_font",
+            "button_font",
+            "cancel_button_font",
+        ]
+        config_dict.update({k: getattr(self, k) for k in font_keys if k in keys})
+
+        return SimpleNamespace(**config_dict)
+
+    def show_save_error(self, error):
+        message = (
+            "Unable to update the questions file. "
+            f"Please check permissions and try again.\n\nDetails: {error}"
+        )
+        try:
+            messagebox.showerror("Save error", message)
+        except tk.TclError:
+            print(f"Save error: {message}")
+
+    def filter_questions(self, query):
+        query = (query or "").strip().lower()
+        self.filtered_questions = (
+            [q for q in self.questions if query in q.get("title", "").lower()]
+            if query
+            else list(self.questions)
+        )
+
     def get_standard_modal_keys(self):
         return [
             "BG_LIGHT",
@@ -1725,11 +1772,7 @@ class ManageQuestionsScreen:
 
         self.filtered_questions = list(self.questions)
         self.current_question = new_question
-        if self.search_entry:
-            try:
-                self.search_entry.delete(0, tk.END)
-            except tk.TclError:
-                pass
+        self.clear_search()
         self.render_question_list()
         # After render_question_list, selected_question_button is updated
         # Only call on_question_selected if button was found and set during render
