@@ -19,38 +19,30 @@ class QuestionPersistenceError(Exception):
     """Raised when the questions file cannot be updated."""
 
 
-class QuestionRepository:
+class QuestionFileStorage:
+    """Handles file I/O for questions data."""
+
     def __init__(self, json_path):
         self.json_path = Path(json_path)
-        self.questions = []
-        self.load()
 
-    def _replace_questions(self, new_questions):
-        self.questions.clear()
-        self.questions.extend(new_questions)
-
-    def load(self):
+    def load_questions(self):
+        """Load and parse questions from JSON file."""
         if not self.json_path.exists():
-            self.questions.clear()
-            return self.questions
+            return []
 
         try:
             raw_text = self.json_path.read_text(encoding="utf-8")
         except OSError as error:
             print(f"Warning: Unable to read {self.json_path}: {error}")
-            self.questions.clear()
-            return self.questions
+            return []
 
         try:
             data = json.loads(raw_text)
         except json.JSONDecodeError:
-            self.questions.clear()
-            return self.questions
+            return []
 
         raw_questions = (
-            data.get("questions", [])
-            if hasattr(data, "get")
-            else (data or [])
+            data.get("questions", []) if hasattr(data, "get") else (data or [])
         )
 
         normalized = []
@@ -66,10 +58,10 @@ class QuestionRepository:
                 {"title": title, "definition": definition, "image": image}
             )
 
-        self._replace_questions(normalized)
-        return self.questions
+        return normalized
 
-    def save(self, questions):
+    def save_questions(self, questions):
+        """Save questions list to JSON file."""
         payload = {"questions": questions}
         try:
             self.json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -82,7 +74,24 @@ class QuestionRepository:
                 f"Unable to write {self.json_path}: {error}"
             ) from error
 
-        self._replace_questions(questions)
+
+class QuestionRepository:
+    """Manages question data with CRUD operations."""
+
+    def __init__(self, json_path):
+        self.storage = QuestionFileStorage(json_path)
+        self.questions = []
+        self.load()
+
+    def load(self):
+        """Load questions from storage."""
+        self.questions = self.storage.load_questions()
+        return self.questions
+
+    def save(self, questions):
+        """Save questions to storage and update local cache."""
+        self.storage.save_questions(questions)
+        self.questions = list(questions)
         return self.questions
 
     def add_question(self, title, definition, image_path):
@@ -91,7 +100,11 @@ class QuestionRepository:
         return new_question
 
     def update_question(self, old_question, title, definition, image_path):
-        updated_question = {"title": title, "definition": definition, "image": image_path}
+        updated_question = {
+            "title": title,
+            "definition": definition,
+            "image": image_path,
+        }
         try:
             index = self.questions.index(old_question)
         except ValueError:
@@ -733,25 +746,9 @@ class ManageQuestionsScreen:
         self.detail_definition_textbox.grid(row=0, column=1, sticky="nsew")
         self.detail_definition_textbox.configure(state="disabled")
 
-    def render_question_list(self):
-        if not self.list_container or not self.list_container.winfo_exists():
-            return
-
-        # Clear existing widgets
-        for child in self.list_container.winfo_children():
-            child.destroy()
-
+    def _create_list_frame_container(self, is_scrollable):
+        """Create the outer and inner frames for the question list."""
         c = self.COLORS
-        s = self.size_state
-        questions = self.filtered_questions
-        search_query = self.search_entry.get() if self.search_entry else ""
-
-        # Check if selected question is visible
-        selected_visible = (
-            self.current_question in questions if self.current_question else False
-        )
-        if not selected_visible and self.current_question:
-            self.clear_detail_panel()
 
         # Create outer frame for border and background
         outer_frame = ctk.CTkFrame(
@@ -770,10 +767,6 @@ class ManageQuestionsScreen:
         )
         outer_frame.grid_columnconfigure(0, weight=1)
         outer_frame.grid_rowconfigure(0, weight=1)
-
-        is_scrollable = len(questions) > s.get(
-            "max_questions", self.SIZES["max_questions"]
-        )
 
         # Create inner list frame (transparent)
         frame_config = {
@@ -801,52 +794,96 @@ class ManageQuestionsScreen:
             except tk.TclError:
                 pass
 
-        if not questions:
-            # Show empty state
-            empty_text = (
-                "No questions match your search."
-                if search_query.strip()
-                else "No questions available."
-            )
-            ctk.CTkLabel(
-                list_frame,
-                text=empty_text,
-                font=self.body_font,
-                text_color=c["text_lighter"],
-            ).grid(row=1, column=0, padx=24, pady=(12, 24))
+        return list_frame
+
+    def _show_empty_list_state(self, list_frame, has_search_query):
+        """Display empty state message when no questions are available."""
+        c = self.COLORS
+        empty_text = (
+            "No questions match your search."
+            if has_search_query
+            else "No questions available."
+        )
+        ctk.CTkLabel(
+            list_frame,
+            text=empty_text,
+            font=self.body_font,
+            text_color=c["text_lighter"],
+        ).grid(row=1, column=0, padx=24, pady=(12, 24))
+
+    def _create_question_button(self, parent, question, is_selected, button_config):
+        """Create a single question button with appropriate styling."""
+        c = self.COLORS
+        button = ctk.CTkButton(
+            parent,
+            text=question.get("title", ""),
+            font=self.question_font,
+            text_color=c["text_white"] if is_selected else c["question_text"],
+            fg_color=c["question_selected"] if is_selected else c["question_bg"],
+            hover_color=(
+                c["question_selected"] if is_selected else c["question_hover"]
+            ),
+            border_width=0,
+            **button_config,
+        )
+
+        # Configure command to properly capture references
+        button.configure(
+            command=lambda q=question, b=button: self.on_question_selected(q, b)
+        )
+        return button
+
+    def render_question_list(self):
+        """Render the list of questions with buttons."""
+        if not self.list_container or not self.list_container.winfo_exists():
             return
+
+        # Clear existing widgets
+        for child in self.list_container.winfo_children():
+            child.destroy()
+
+        s = self.size_state
+        questions = self.filtered_questions
+        search_query = self.search_entry.get() if self.search_entry else ""
+
+        # Check if selected question is visible
+        selected_visible = (
+            self.current_question in questions if self.current_question else False
+        )
+        if not selected_visible and self.current_question:
+            self.clear_detail_panel()
+
+        # Create container frames
+        is_scrollable = len(questions) > s.get(
+            "max_questions", self.SIZES["max_questions"]
+        )
+        list_frame = self._create_list_frame_container(is_scrollable)
+
+        # Show empty state if no questions
+        if not questions:
+            self._show_empty_list_state(list_frame, search_query.strip())
+            return
+
+        # Prepare button configuration
+        button_config = {
+            "height": s.get("question_btn_height", self.SIZES["question_btn_height"]),
+            "corner_radius": s.get(
+                "question_corner_radius", self.SIZES["question_corner_radius"]
+            ),
+        }
+        button_margin = s.get("question_margin", self.SIZES["question_margin"])
+        button_padding = s.get("question_padding", self.SIZES["question_padding"])
 
         # Render question buttons
         self.selected_question_button = None
         first_button = None
-        button_height = s.get("question_btn_height", self.SIZES["question_btn_height"])
-        button_margin = s.get("question_margin", self.SIZES["question_margin"])
-        button_padding = s.get("question_padding", self.SIZES["question_padding"])
-        corner_radius = s.get(
-            "question_corner_radius", self.SIZES["question_corner_radius"]
-        )
 
         for index, question in enumerate(questions, start=0):
             is_selected = selected_visible and question is self.current_question
 
-            # Create button without command first
-            button = ctk.CTkButton(
-                list_frame,
-                text=question.get("title", ""),
-                font=self.question_font,
-                text_color=c["text_white"] if is_selected else c["question_text"],
-                fg_color=c["question_selected"] if is_selected else c["question_bg"],
-                hover_color=(
-                    c["question_selected"] if is_selected else c["question_hover"]
-                ),
-                border_width=0,
-                height=button_height,
-                corner_radius=corner_radius,
-            )
-
-            # Configure command after button is created to properly capture reference
-            button.configure(
-                command=lambda q=question, b=button: self.on_question_selected(q, b)
+            # Create button
+            button = self._create_question_button(
+                list_frame, question, is_selected, button_config
             )
 
             # Adjust padding for scrollbar if needed
@@ -869,11 +906,12 @@ class ManageQuestionsScreen:
             if is_selected:
                 self.selected_question_button = button
 
+        # Auto-select first question if none selected
         if not self.current_question and first_button:
-            # Automatically select the first available question when nothing is selected
             self.on_question_selected(questions[0], first_button)
             return
 
+        # Show detail panel for current selection
         if (
             self.current_question
             and self.selected_question_button

@@ -7,9 +7,93 @@ import customtkinter as ctk
 TITLE_MAX_LENGTH = 50
 
 
-class BaseQuestionModal:
+class BaseModal:
+    """Base class providing common modal functionality for responsive UI modals."""
 
     BASE_DIMENSIONS = (1280, 720)
+
+    def __init__(self, parent, config):
+        self.parent = parent
+        self.config = config
+        self.modal = None
+        self.fonts = {}
+        self.font_base_sizes = {}
+
+    def init_fonts(self, font_specs):
+        """Initialize fonts from font specifications dictionary."""
+        for name, (family, size, weight) in font_specs.items():
+            font = (
+                ctk.CTkFont(family=family, size=size, weight=weight)
+                if weight
+                else ctk.CTkFont(family=family, size=size)
+            )
+            self.fonts[name] = font
+            self.font_base_sizes[name] = size
+
+    def update_fonts(self, scale):
+        """Update all font sizes based on scale factor."""
+        for name, base_size in self.font_base_sizes.items():
+            if name in self.fonts:
+                new_size = int(base_size * scale)
+                self.fonts[name].configure(size=max(10, new_size))
+
+    def safe_try(self, func):
+        """Execute function safely, ignoring TclErrors."""
+        try:
+            func()
+        except tk.TclError:
+            pass
+
+    def calculate_position(self, modal, root, width, height):
+        """Calculate centered position for modal window."""
+        screen_width, screen_height = (
+            modal.winfo_screenwidth(),
+            modal.winfo_screenheight(),
+        )
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            pos_x = root.winfo_rootx() + max((root.winfo_width() - width) // 2, 0)
+            pos_y = root.winfo_rooty() + max((root.winfo_height() - height) // 2, 0)
+        else:
+            pos_x = max((screen_width - width) // 2, 0)
+            pos_y = max((screen_height - height) // 2, 0)
+
+        return pos_x, pos_y
+
+    def get_responsive_scale(self, root, base_sizes=None):
+        """Calculate responsive scale factor based on parent dimensions."""
+        if not root:
+            return 1.0
+
+        parent_width = root.winfo_width()
+        parent_height = root.winfo_height()
+        base_w, base_h = self.BASE_DIMENSIONS
+
+        # Calculate raw scale
+        scale = min(parent_width / base_w, parent_height / base_h)
+
+        # Apply boost for lower resolutions to ensure usability
+        if base_sizes and parent_height <= 500:
+            target_height = parent_height * 0.85
+            target_scale = target_height / base_sizes["height"]
+            scale = max(scale, target_scale)
+        elif base_sizes and parent_height <= 600:
+            target_height = parent_height * 0.75
+            target_scale = target_height / base_sizes["height"]
+            scale = max(scale, target_scale)
+
+        return scale
+
+    def close(self):
+        """Close and cleanup modal window."""
+        if self.modal and self.modal.winfo_exists():
+            self.safe_try(self.modal.grab_release)
+            self.safe_try(self.modal.destroy)
+        self.modal = None
+
+
+class BaseQuestionModal(BaseModal):
+    """Modal for adding/editing questions with form fields and image selection."""
 
     BASE_SIZES = {
         "width": 480,
@@ -35,10 +119,8 @@ class BaseQuestionModal:
     }
 
     def __init__(self, parent, config, image_handler):
-        self.parent = parent
-        self.config = config
+        super().__init__(parent, config)
         self.image_handler = image_handler
-        self.modal = None
         self.concept_entry = None
         self.definition_textbox = None
         self.image_display_label = None
@@ -47,10 +129,8 @@ class BaseQuestionModal:
         self.title_var = tk.StringVar()
         self.title_var.trace("w", self.limit_title_length)
 
-        # Fonts
-        self.fonts = {}
-        self.font_base_sizes = {}
-        self.init_fonts()
+        # Initialize fonts
+        self.init_fonts(self.FONT_SPECS)
 
         # Widget references for resizing
         self.header_frame = None
@@ -62,32 +142,10 @@ class BaseQuestionModal:
         self.image_input_frame = None
         self.image_picker_frame = None
 
-    def init_fonts(self):
-        for name, (family, size, weight) in self.FONT_SPECS.items():
-            font = (
-                ctk.CTkFont(family=family, size=size, weight=weight)
-                if weight
-                else ctk.CTkFont(family=family, size=size)
-            )
-            self.fonts[name] = font
-            self.font_base_sizes[name] = size
-
-    def update_fonts(self, scale):
-        for name, base_size in self.font_base_sizes.items():
-            if name in self.fonts:
-                new_size = int(base_size * scale)
-                self.fonts[name].configure(size=max(10, new_size))
-
     def limit_title_length(self):
         value = self.title_var.get()
         if len(value) > TITLE_MAX_LENGTH:
             self.title_var.set(value[:TITLE_MAX_LENGTH])
-
-    def safe_try(self, func):
-        try:
-            func()
-        except tk.TclError:
-            pass
 
     def create_label(self, parent, text, **kwargs):
         defaults = {
@@ -264,9 +322,7 @@ class BaseQuestionModal:
         )
         self.save_button.grid(row=0, column=2, sticky="w", padx=(32, 0))
 
-    def setup_modal_ui(
-        self, modal, title, on_save_callback, on_cancel_callback=None
-    ):
+    def setup_modal_ui(self, modal, title, on_save_callback, on_cancel_callback=None):
         container = self.create_container(modal)
         self.create_header(container, title)
         self.create_form_fields(container)
@@ -328,21 +384,6 @@ class BaseQuestionModal:
             max(min_height, int(parent_height * height_ratio)), screen_height - 80
         )
         return width, height
-
-    def calculate_position(self, modal, root, width, height):
-        screen_width, screen_height = (
-            modal.winfo_screenwidth(),
-            modal.winfo_screenheight(),
-        )
-
-        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            pos_x = root.winfo_rootx() + max((root.winfo_width() - width) // 2, 0)
-            pos_y = root.winfo_rooty() + max((root.winfo_height() - height) // 2, 0)
-        else:
-            pos_x = max((screen_width - width) // 2, 0)
-            pos_y = max((screen_height - height) // 2, 0)
-
-        return pos_x, pos_y
 
     def position_modal(self, modal, root, width, height):
         modal.update_idletasks()
@@ -441,40 +482,18 @@ class BaseQuestionModal:
             return None
         return form_data
 
-    def close(self):
-        if self.modal and self.modal.winfo_exists():
-            self.safe_try(self.modal.grab_release)
-            self.modal.destroy()
+    def get_responsive_scale(self, root, base_sizes=None):
+        """Get responsive scale using base implementation with our BASE_SIZES."""
+        return super().get_responsive_scale(root, self.BASE_SIZES)
 
-        self.modal = None
+    def close(self):
+        """Close modal and clear form-specific references."""
+        super().close()
         self.concept_entry = None
         self.definition_textbox = None
         self.image_display_label = None
         self.image_feedback_label = None
         self.selected_image_source_path = None
-
-    def get_responsive_scale(self, root):
-        if not root:
-            return 1.0
-
-        parent_width = root.winfo_width()
-        parent_height = root.winfo_height()
-        base_w, base_h = self.BASE_DIMENSIONS
-
-        # Calculate raw scale
-        scale = min(parent_width / base_w, parent_height / base_h)
-
-        # Apply boost for lower resolutions to ensure usability
-        if parent_height <= 500:
-            target_height = parent_height * 0.85
-            target_scale = target_height / self.BASE_SIZES["height"]
-            scale = max(scale, target_scale)
-        elif parent_height <= 600:
-            target_height = parent_height * 0.75
-            target_scale = target_height / self.BASE_SIZES["height"]
-            scale = max(scale, target_scale)
-
-        return scale
 
     def resize(self, scale):
         if not self.modal or not self.modal.winfo_exists():
@@ -691,9 +710,8 @@ class EditQuestionModal(BaseQuestionModal):
         self.initial_image_path = None
 
 
-class DeleteConfirmationModal:
-
-    BASE_DIMENSIONS = (1280, 720)
+class DeleteConfirmationModal(BaseModal):
+    """Simple confirmation modal for delete operations."""
 
     BASE_SIZES = {
         "width": 420,
@@ -712,15 +730,11 @@ class DeleteConfirmationModal:
     }
 
     def __init__(self, parent, config, on_confirm_callback):
-        self.parent = parent
-        self.config = config
+        super().__init__(parent, config)
         self.on_confirm_callback = on_confirm_callback
-        self.modal = None
 
-        # Fonts
-        self.fonts = {}
-        self.font_base_sizes = {}
-        self.init_fonts()
+        # Initialize fonts
+        self.init_fonts(self.FONT_SPECS)
 
         # Widget references
         self.header_frame = None
@@ -729,64 +743,9 @@ class DeleteConfirmationModal:
         self.cancel_button = None
         self.confirm_button = None
 
-    def init_fonts(self):
-        for name, (family, size, weight) in self.FONT_SPECS.items():
-            font = (
-                ctk.CTkFont(family=family, size=size, weight=weight)
-                if weight
-                else ctk.CTkFont(family=family, size=size)
-            )
-            self.fonts[name] = font
-            self.font_base_sizes[name] = size
-
-    def update_fonts(self, scale):
-        for name, base_size in self.font_base_sizes.items():
-            if name in self.fonts:
-                new_size = int(base_size * scale)
-                self.fonts[name].configure(size=max(10, new_size))
-
-    def safe_try(self, func):
-        try:
-            func()
-        except tk.TclError:
-            pass
-
-    def calculate_position(self, modal, root, width, height):
-        screen_width, screen_height = (
-            modal.winfo_screenwidth(),
-            modal.winfo_screenheight(),
-        )
-
-        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            pos_x = root.winfo_rootx() + max((root.winfo_width() - width) // 2, 0)
-            pos_y = root.winfo_rooty() + max((root.winfo_height() - height) // 2, 0)
-        else:
-            pos_x = max((screen_width - width) // 2, 0)
-            pos_y = max((screen_height - height) // 2, 0)
-        return pos_x, pos_y
-
-    def get_responsive_scale(self, root):
-        if not root:
-            return 1.0
-
-        parent_width = root.winfo_width()
-        parent_height = root.winfo_height()
-        base_w, base_h = self.BASE_DIMENSIONS
-
-        # Calculate raw scale
-        scale = min(parent_width / base_w, parent_height / base_h)
-
-        # Apply boost for lower resolutions to ensure usability
-        if parent_height <= 500:
-            target_height = parent_height * 0.85
-            target_scale = target_height / self.BASE_SIZES["height"]
-            scale = max(scale, target_scale)
-        elif parent_height <= 600:
-            target_height = parent_height * 0.75
-            target_scale = target_height / self.BASE_SIZES["height"]
-            scale = max(scale, target_scale)
-
-        return scale
+    def get_responsive_scale(self, root, base_sizes=None):
+        """Get responsive scale using base implementation with our BASE_SIZES."""
+        return super().get_responsive_scale(root, self.BASE_SIZES)
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -884,11 +843,7 @@ class DeleteConfirmationModal:
 
         self.close()
 
-    def close(self):
-        if self.modal and self.modal.winfo_exists():
-            self.safe_try(self.modal.grab_release)
-            self.safe_try(self.modal.destroy)
-        self.modal = None
+    # close() method inherited from BaseModal
 
     def resize(self, scale):
         if not self.modal or not self.modal.winfo_exists():
