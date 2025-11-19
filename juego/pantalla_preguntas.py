@@ -13,6 +13,11 @@ from juego.preguntas_modales import (
     EditQuestionModal,
     DeleteConfirmationModal,
 )
+from juego.responsive_helpers import (
+    ResponsiveScaler,
+    SizeStateCalculator,
+    LayoutCalculator,
+)
 
 
 SCREEN_BASE_DIMENSIONS = (1280, 720)
@@ -1082,70 +1087,39 @@ class QuestionScreenViewMixin:
         return max(120, visible_width)
 
     def interpolate_profile(self, value, profile):
-        # Map actual widths into tuned spacing/wrap values using linear segments
-        if not profile:
-            return value
-        if value is None:
-            value = profile[-1][0]
-        sample_value = profile[0][1]
-
-        def cast(result):
-            if isinstance(sample_value, float):
-                return float(result)
-            return int(round(result))
-
-        lower_bound, lower_value = profile[0]
-        if value <= lower_bound:
-            return cast(lower_value)
-        for upper_bound, upper_value in profile[1:]:
-            if value <= upper_bound:
-                span = upper_bound - lower_bound or 1
-                ratio = (value - lower_bound) / span
-                interpolated = lower_value + ratio * (upper_value - lower_value)
-                return cast(interpolated)
-            lower_bound, lower_value = upper_bound, upper_value
-        return cast(profile[-1][1])
+        """Interpolate value using profile - delegated to scaler."""
+        return self.scaler.interpolate_profile(value, profile)
 
     def clamp_value(self, value, min_value=None, max_value=None):
-        if min_value is not None:
-            value = max(min_value, value)
-        if max_value is not None:
-            value = min(max_value, value)
-        return value
+        """Clamp value between optional min and max - delegated to scaler."""
+        return self.scaler.clamp_value(value, min_value, max_value)
 
     def get_wrap_ratio(self, width=None):
+        """Calculate text wrap ratio - delegated to layout calculator."""
         target_width = (
             width if width is not None else self.size_state.get("detail_width_estimate")
         )
         if not target_width:
             target_width = self.BASE_DIMENSIONS[0] * 0.6
-        ratio = self.interpolate_profile(
-            target_width, self.DEFINITION_WRAP_FILL_PROFILE
-        )
-        return self.clamp_value(ratio, 0.78, 0.985)
+        return self.layout_calc.calculate_wrap_ratio(target_width)
 
     def compute_definition_padding(self, width=None):
+        """Calculate definition padding - delegated to layout calculator."""
         target_width = width if width is not None else self.get_effective_detail_width()
-        pad = self.interpolate_profile(target_width, self.DEFINITION_PADDING_PROFILE)
-        min_pad = self.scale_value(8, self.current_scale or 1, 6, 16)
-        max_pad = self.scale_value(36, self.current_scale or 1, 24, 60)
-        small_width = target_width <= 640
-        if small_width:
-            pad *= 0.7
-            pad = max(6, pad)
-        return self.clamp_value(pad, min_pad, max_pad)
+        return self.layout_calc.compute_definition_padding(
+            target_width, self.current_scale
+        )
 
     def get_sidebar_share(self, window_width):
-        if not window_width or window_width <= 0:
-            window_width = self.BASE_DIMENSIONS[0]
-        profile_share = self.interpolate_profile(
-            window_width, self.SIDEBAR_WIDTH_PROFILE
-        )
-        total_weight = self.SIDEBAR_WEIGHT + self.DETAIL_WEIGHT
-        base_share = self.SIDEBAR_WEIGHT / total_weight if total_weight else 0.26
-        return self.clamp_value(profile_share, base_share, 0.32)
+        """Calculate sidebar width share - delegated to size calculator."""
+        return self.size_calc.get_sidebar_share(window_width)
+
+    def scale_value(self, base, scale, min_value=None, max_value=None):
+        """Scale value with optional clamping - delegated to scaler."""
+        return self.scaler.scale_value(base, scale, min_value, max_value)
 
     def apply_title_wraplength(self):
+        """Update title label wrap length based on current width."""
         if not self.detail_title_label or not self.detail_title_label.winfo_exists():
             return
         fallback = self.size_state.get("detail_width_estimate", 600)
@@ -1154,63 +1128,21 @@ class QuestionScreenViewMixin:
         wrap_target = max(120, width)
         self.detail_title_label.configure(wraplength=wrap_target)
 
-    def scale_value(self, base, scale, min_value=None, max_value=None):
-        value = base * scale
-        if min_value is not None:
-            value = max(min_value, value)
-        if max_value is not None:
-            value = min(max_value, value)
-        return int(round(value))
-
     def header_value(self, value):
         return value * self.HEADER_SIZE_MULTIPLIER
 
     def update_size_state(self, scale, window_width):
-        self.size_state["question_btn_height"] = self.scale_value(50, scale, 26, 86)
-        self.size_state["question_margin"] = self.scale_value(8, scale, 3, 18)
-        self.size_state["question_padding"] = self.scale_value(4, scale, 2, 14)
-        self.size_state["question_corner_radius"] = self.scale_value(12, scale, 5, 20)
-        self.size_state["max_questions"] = max(
-            4, min(12, int(round(self.SIZES["max_questions"] * scale)))
-        )
+        """Update size state using calculator - much simpler now."""
+        self.size_state = self.size_calc.calculate_sizes(scale, window_width)
 
-        detail_size = (
-            self.scale_value(220, scale, 110, 420),
-            self.scale_value(220, scale, 110, 420),
-        )
-        self.size_state["detail_image"] = detail_size
-        panel_height = self.scale_value(520, scale, 320, 880)
-        scroll_height = max(200, panel_height - self.scale_value(150, scale, 90, 260))
-        self.size_state["detail_panel_height"] = panel_height
-        self.size_state["detail_scroll_height"] = scroll_height
-
-        self.list_frame_padding = self.scale_value(8, scale, 4, 24)
-        self.list_frame_corner_radius = self.scale_value(24, scale, 12, 40)
-
-        sidebar_base = 280
-        detail_base = 820
-        sidebar_minsize = self.scale_value(sidebar_base, scale, 220, 560)
-        raw_detail_min = self.scale_value(detail_base, scale, 320, 1400)
-        gutter = self.scale_value(60, scale, 32, 110)
-        estimated_sidebar_width = max(
-            sidebar_minsize,
-            int(round(window_width * self.get_sidebar_share(window_width))),
-        )
-        available_width = max(220, window_width - estimated_sidebar_width - gutter)
-        detail_minsize = min(raw_detail_min, available_width)
-        estimated_detail_width = max(detail_minsize, available_width)
-        scrollbar_offset = self.scale_value(22, scale, 12, 36)
-        self.size_state["scrollbar_offset_base"] = scrollbar_offset
-        self.size_state["scrollbar_offset_active"] = scrollbar_offset
-
+        # Update grid column sizes if main frame exists
         if self.main_frame and self.main_frame.winfo_exists():
-            self.main_frame.grid_columnconfigure(0, minsize=sidebar_minsize)
-            self.main_frame.grid_columnconfigure(2, minsize=detail_minsize)
-        self.size_state["detail_width_estimate"] = estimated_detail_width
-        self.size_state["window_width"] = window_width
-        self.size_state["sidebar_width_estimate"] = estimated_sidebar_width
-        pad_estimate = self.compute_definition_padding(estimated_detail_width)
-        self.size_state["definition_pad_estimate"] = pad_estimate * 2
+            self.main_frame.grid_columnconfigure(
+                0, minsize=self.size_state["sidebar_minsize"]
+            )
+            self.main_frame.grid_columnconfigure(
+                2, minsize=self.size_state["detail_minsize"]
+            )
 
     def update_fonts(self, scale):
         for name, base_size in self.font_base_sizes.items():
@@ -1477,23 +1409,26 @@ class QuestionScreenViewMixin:
             self.detail_title_label.configure(height=title_height)
 
     def update_definition_audio_layout(self, container_width, scale):
+        """Update audio button layout based on available width."""
         if not self.definition_row or not self.definition_row.winfo_exists():
             return
         if not self.definition_audio_button or not self.detail_definition_textbox:
             return
 
-        stack_threshold = self.scale_value(
-            self.DEFINITION_STACK_BREAKPOINT, scale, 220, 640
+        # Use layout calculator to determine if we should stack
+        should_stack = self.layout_calc.should_stack_layout(
+            container_width, scale, self.DEFINITION_STACK_BREAKPOINT
         )
-        should_stack = container_width <= stack_threshold
         target_inline = not should_stack
+
         if target_inline == self.definition_layout_inline:
-            return
+            return  # No change needed
 
         self.definition_layout_inline = target_inline
         stack_gap = self.scale_value(10, scale, 6, 22)
 
         if should_stack:
+            # Vertical stack layout
             self.definition_row.grid_columnconfigure(0, weight=1)
             self.definition_row.grid_columnconfigure(1, weight=0)
             self.definition_audio_button.grid_configure(
@@ -1508,6 +1443,7 @@ class QuestionScreenViewMixin:
                 row=1, column=0, columnspan=2, sticky="nsew"
             )
         else:
+            # Horizontal inline layout
             self.definition_row.grid_columnconfigure(0, weight=0)
             self.definition_row.grid_columnconfigure(1, weight=1)
             self.definition_audio_button.grid_configure(
@@ -1523,6 +1459,7 @@ class QuestionScreenViewMixin:
             )
 
     def apply_responsive(self):
+        """Apply responsive scaling to all UI elements - simplified."""
         if not self.parent or not self.parent.winfo_exists():
             return
 
@@ -1530,23 +1467,14 @@ class QuestionScreenViewMixin:
         height = max(self.parent.winfo_height(), 1)
         self.current_window_width = width
         self.current_window_height = height
-        base_w, base_h = self.BASE_DIMENSIONS
 
-        raw_scale = min(width / base_w, height / base_h)
-        min_scale, max_scale = self.SCALE_LIMITS
-        scaled = raw_scale * self.GLOBAL_SCALE_FACTOR
-        if width <= 900:
-            scaled *= 0.88
-        if height <= 550:
-            scaled *= 0.92
-        min_dimension = min(width, height)
-        extra_low_res_penalty = self.interpolate_profile(
-            min_dimension, self.LOW_RES_SCALE_PROFILE
+        # Calculate scale using helper
+        scale = self.scaler.calculate_scale(
+            width, height, low_res_profile=self.LOW_RES_SCALE_PROFILE
         )
-        scaled *= extra_low_res_penalty
-        scale = max(min_scale, min(max_scale, scaled))
         self.current_scale = scale
 
+        # Update all sizes and layouts
         self.update_size_state(scale, width)
         self.update_fonts(scale)
         self.refresh_icons(scale)
@@ -1554,6 +1482,7 @@ class QuestionScreenViewMixin:
         self.update_sidebar_layout(scale)
         self.update_detail_layout(scale)
 
+        # Check if question list needs re-rendering
         metrics_snapshot = (
             self.size_state.get("question_btn_height"),
             self.size_state.get("question_margin"),
@@ -1572,7 +1501,6 @@ class QuestionScreenViewMixin:
             self.render_question_list()
 
         self.resize_current_modal()
-
         self._resize_job = None
 
     def resize_current_modal(self):
@@ -1644,10 +1572,28 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.parent = parent
         self.on_return_callback = on_return_callback
 
+        # Initialize font registry
         self.font_registry = ScreenFontRegistry(self.FONT_SPECS)
         self.font_registry.attach_attributes(self)
         self.font_base_sizes = dict(self.font_registry.base_sizes)
         self.font_min_sizes = dict(self.font_registry.min_sizes)
+
+        # Initialize responsive helpers
+        self.scaler = ResponsiveScaler(
+            base_dimensions=self.BASE_DIMENSIONS,
+            scale_limits=self.SCALE_LIMITS,
+            global_scale_factor=self.GLOBAL_SCALE_FACTOR,
+        )
+
+        # Prepare profiles for calculators
+        profiles = {
+            "sidebar_width": self.SIDEBAR_WIDTH_PROFILE,
+            "definition_padding": self.DEFINITION_PADDING_PROFILE,
+            "wrap_fill": self.DEFINITION_WRAP_FILL_PROFILE,
+        }
+
+        self.size_calc = SizeStateCalculator(self.scaler, self.SIZES, profiles)
+        self.layout_calc = LayoutCalculator(self.scaler, profiles)
 
         # Initialize services
         self.tts = TTSService(self.AUDIO_DIR)
