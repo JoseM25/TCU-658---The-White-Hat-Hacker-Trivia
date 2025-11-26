@@ -5,6 +5,8 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.tts_service import TTSService
+
 
 class GameScreen:
     # Constantes de diseño base
@@ -74,6 +76,7 @@ class GameScreen:
         # Estado del juego
         self.current_question = None
         self.questions = []
+        self.available_questions = []  # Preguntas sin responder
         self.score = 0
         self.current_answer = ""
         self.timer_seconds = 0
@@ -106,10 +109,20 @@ class GameScreen:
         self.star_icon = None
         self.timer_icon_label = None
         self.star_icon_label = None
+        self.wildcards_frame = None
+        self.wildcard_x2_btn = None
+        self.wildcard_hint_btn = None
+        self.wildcard_freeze_btn = None
+        self.info_icon = None
+        self.info_icon_label = None
 
         # Rutas
         self.images_dir = os.path.join("recursos", "imagenes")
+        self.audio_dir = os.path.join("recursos", "audio")
         self.questions_path = os.path.join("datos", "preguntas.json")
+
+        # Inicializar TTS
+        self.tts = TTSService(self.audio_dir)
 
         # Crear fuentes
         self.create_fonts()
@@ -204,16 +217,21 @@ class GameScreen:
         self.header_frame.grid(row=0, column=0, sticky="ew")
         self.header_frame.grid_propagate(False)
 
-        # Configurar columnas del header
-        self.header_frame.grid_columnconfigure(0, weight=0)  # Back button
-        self.header_frame.grid_columnconfigure(1, weight=1)  # Timer (izquierda)
-        self.header_frame.grid_columnconfigure(2, weight=1)  # Score (centro)
-        self.header_frame.grid_columnconfigure(3, weight=1)  # Audio (derecha)
+        # Configurar columnas del header - 3 columnas con peso igual para centrar
+        self.header_frame.grid_columnconfigure(0, weight=1)  # Izquierda (Menu + Timer)
+        self.header_frame.grid_columnconfigure(
+            1, weight=0
+        )  # Centro (Score) - sin peso, tamaño fijo
+        self.header_frame.grid_columnconfigure(2, weight=1)  # Derecha (Audio)
         self.header_frame.grid_rowconfigure(0, weight=1)
+
+        # Left container (Menu + Timer)
+        left_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        left_container.grid(row=0, column=0, sticky="w", padx=(12, 0))
 
         # Back button
         self.back_button = ctk.CTkButton(
-            self.header_frame,
+            left_container,
             text="← Menu",
             font=self.header_label_font,
             width=110,
@@ -224,14 +242,14 @@ class GameScreen:
             corner_radius=8,
             command=self.return_to_menu,
         )
-        self.back_button.grid(row=0, column=0, sticky="w", padx=(24, 16))
+        self.back_button.grid(row=0, column=0, padx=(0, 16))
 
-        # Timer container (izquierda)
-        timer_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        timer_container.grid(row=0, column=1, sticky="w", padx=24)
-
-        # Cargar icono de reloj
+        # Cargar iconos
         self.load_header_icons()
+
+        # Timer container
+        timer_container = ctk.CTkFrame(left_container, fg_color="transparent")
+        timer_container.grid(row=0, column=1, padx=(8, 0))
 
         self.timer_icon_label = ctk.CTkLabel(
             timer_container,
@@ -248,9 +266,9 @@ class GameScreen:
         )
         self.timer_label.grid(row=0, column=1)
 
-        # Score container (centro)
+        # Score container (centro absoluto)
         score_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        score_container.grid(row=0, column=2, sticky="")
+        score_container.grid(row=0, column=1)
 
         self.star_icon_label = ctk.CTkLabel(
             score_container,
@@ -269,7 +287,7 @@ class GameScreen:
 
         # Audio toggle container (derecha)
         audio_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        audio_container.grid(row=0, column=3, sticky="e", padx=24)
+        audio_container.grid(row=0, column=2, sticky="e", padx=(0, 24))
 
         # Cargar iconos de audio
         self.load_audio_icons()
@@ -323,6 +341,17 @@ class GameScreen:
             self.audio_icon_on = None
         self.audio_icon_off = None  # Usaremos emoji por ahora
 
+    def load_info_icon(self):
+        info_svg_path = os.path.join(self.images_dir, "info.svg")
+        try:
+            img = self.load_svg_image(info_svg_path, scale=self.SVG_RASTER_SCALE)
+            if img:
+                self.info_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(24, 24)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.info_icon = None
+
     def build_question_container(self):
         # Container principal para el contenido de la pregunta
         self.question_container = ctk.CTkFrame(
@@ -334,14 +363,21 @@ class GameScreen:
         )
         self.question_container.grid(row=1, column=0, sticky="nsew", padx=40, pady=20)
 
-        # Configurar grid interno
-        self.question_container.grid_columnconfigure(0, weight=1)
-        self.question_container.grid_rowconfigure(0, weight=0)  # Imagen
-        self.question_container.grid_rowconfigure(1, weight=1)  # Definición
-        self.question_container.grid_rowconfigure(2, weight=0)  # Cajas de respuesta
+        # Configurar grid interno - contenido a la izquierda, wildcards a la derecha
+        self.question_container.grid_columnconfigure(0, weight=1)  # Contenido principal
+        self.question_container.grid_columnconfigure(1, weight=0)  # Wildcards
+        self.question_container.grid_rowconfigure(0, weight=1)
+
+        # Frame para contenido principal (imagen, definición, respuesta)
+        content_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
+        content_frame.grid(row=0, column=0, sticky="nsew")
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_rowconfigure(0, weight=0)  # Imagen
+        content_frame.grid_rowconfigure(1, weight=1)  # Definición
+        content_frame.grid_rowconfigure(2, weight=0)  # Cajas de respuesta
 
         # Frame para imagen
-        image_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
+        image_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         image_frame.grid(row=0, column=0, pady=(20, 10))
 
         self.image_label = ctk.CTkLabel(
@@ -355,27 +391,124 @@ class GameScreen:
         self.image_label.grid(row=0, column=0)
 
         # Frame para definición
-        definition_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
+        definition_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         definition_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=10)
         definition_frame.grid_columnconfigure(0, weight=1)
         definition_frame.grid_rowconfigure(0, weight=1)
 
+        # Cargar icono de info
+        self.load_info_icon()
+
+        # Frame interno para centrar el icono + definición juntos
+        definition_inner = ctk.CTkFrame(definition_frame, fg_color="transparent")
+        definition_inner.grid(row=0, column=0, sticky="")
+
+        # Icono de info a la izquierda del texto
+        self.info_icon_label = ctk.CTkLabel(
+            definition_inner,
+            text="",
+            image=self.info_icon,
+        )
+        self.info_icon_label.grid(row=0, column=0, sticky="n", padx=(0, 8), pady=(2, 0))
+
         self.definition_label = ctk.CTkLabel(
-            definition_frame,
+            definition_inner,
             text="Loading question...",
             font=self.definition_font,
             text_color=self.COLORS["text_medium"],
             wraplength=600,
-            justify="center",
-            anchor="center",
+            justify="left",
+            anchor="w",
         )
-        self.definition_label.grid(row=0, column=0, sticky="nsew")
+        self.definition_label.grid(row=0, column=1, sticky="w")
 
         # Frame para cajas de respuesta
-        self.answer_boxes_frame = ctk.CTkFrame(
-            self.question_container, fg_color="transparent"
-        )
+        self.answer_boxes_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 24))
+
+        # Frame para wildcards (lado derecho)
+        self.build_wildcards_panel()
+
+    def build_wildcards_panel(self):
+        """Build the wildcards panel on the right side of the question container."""
+        # Frame contenedor de wildcards
+        self.wildcards_frame = ctk.CTkFrame(
+            self.question_container,
+            fg_color="transparent",
+        )
+        self.wildcards_frame.grid(row=0, column=1, sticky="ns", padx=(0, 24), pady=24)
+
+        # Configurar para centrar verticalmente los botones
+        self.wildcards_frame.grid_rowconfigure(0, weight=1)
+        self.wildcards_frame.grid_rowconfigure(4, weight=1)
+
+        # Tamaño de los botones circulares
+        wildcard_size = 56
+        wildcard_font_size = 18
+
+        # Wildcard X2 - Amarillo (#FFC553)
+        self.wildcard_x2_btn = ctk.CTkButton(
+            self.wildcards_frame,
+            text="X2",
+            font=ctk.CTkFont(
+                family="Poppins ExtraBold", size=wildcard_font_size, weight="bold"
+            ),
+            width=wildcard_size,
+            height=wildcard_size,
+            corner_radius=wildcard_size,
+            fg_color="#FFC553",
+            hover_color="#E5B04A",
+            text_color="white",
+            command=self.on_wildcard_x2,
+        )
+        self.wildcard_x2_btn.grid(row=1, column=0, pady=8)
+
+        # Wildcard Hint (A) - Turquesa (#00CFC5)
+        self.wildcard_hint_btn = ctk.CTkButton(
+            self.wildcards_frame,
+            text="A",
+            font=ctk.CTkFont(
+                family="Poppins ExtraBold", size=wildcard_font_size, weight="bold"
+            ),
+            width=wildcard_size,
+            height=wildcard_size,
+            corner_radius=wildcard_size,
+            fg_color="#00CFC5",
+            hover_color="#00B5AD",
+            text_color="white",
+            command=self.on_wildcard_hint,
+        )
+        self.wildcard_hint_btn.grid(row=2, column=0, pady=8)
+
+        # Wildcard Freeze (Snowflake) - Azul (#005DFF)
+        self.wildcard_freeze_btn = ctk.CTkButton(
+            self.wildcards_frame,
+            text="❄",
+            font=ctk.CTkFont(family="Segoe UI Emoji", size=wildcard_font_size),
+            width=wildcard_size,
+            height=wildcard_size,
+            corner_radius=wildcard_size,
+            fg_color="#005DFF",
+            hover_color="#0048CC",
+            text_color="white",
+            command=self.on_wildcard_freeze,
+        )
+        self.wildcard_freeze_btn.grid(row=3, column=0, pady=8)
+
+    def on_wildcard_x2(self):
+        """Handle X2 wildcard - doubles points for current question."""
+        # No functionality yet
+        print("X2 wildcard activated")
+
+    def on_wildcard_hint(self):
+        """Handle Hint wildcard - reveals a letter."""
+        # No functionality yet
+        print("Hint wildcard activated")
+
+    def on_wildcard_freeze(self):
+        """Handle Freeze wildcard - freezes the timer."""
+        # No functionality yet
+        print("Freeze wildcard activated")
 
     def build_keyboard(self):
         self.keyboard_frame = ctk.CTkFrame(
@@ -429,9 +562,11 @@ class GameScreen:
             font=self.button_font,
             width=140,
             height=48,
-            fg_color=self.COLORS["warning_yellow"],
-            hover_color=self.COLORS["warning_hover"],
-            text_color=self.COLORS["text_dark"],
+            fg_color=self.COLORS["bg_light"],
+            hover_color=self.COLORS["border_medium"],
+            text_color="black",
+            border_width=2,
+            border_color="black",
             corner_radius=12,
             command=self.on_skip,
         )
@@ -444,8 +579,8 @@ class GameScreen:
             font=self.button_font,
             width=140,
             height=48,
-            fg_color=self.COLORS["success_green"],
-            hover_color=self.COLORS["success_hover"],
+            fg_color="#005DFF",
+            hover_color="#003BB8",
             text_color="white",
             corner_radius=12,
             command=self.on_check,
@@ -474,11 +609,22 @@ class GameScreen:
             self.answer_box_labels.append(box)
 
     def load_random_question(self):
+        # Detener TTS anterior antes de cargar nueva pregunta
+        self.tts.stop()
+
         if not self.questions:
             self.definition_label.configure(text="No questions available!")
             return
 
-        self.current_question = random.choice(self.questions)
+        # Si no hay preguntas disponibles, reiniciar el pool
+        if not self.available_questions:
+            self.available_questions = list(self.questions)
+
+        # Seleccionar una pregunta aleatoria del pool disponible
+        self.current_question = random.choice(self.available_questions)
+        # Removerla del pool para que no se repita
+        self.available_questions.remove(self.current_question)
+
         self.current_answer = ""
         self.timer_seconds = 0
 
@@ -494,6 +640,10 @@ class GameScreen:
 
         # Cargar imagen
         self.load_question_image()
+
+        # Leer definición en voz alta si el audio está habilitado
+        if self.audio_enabled and definition and definition != "No definition":
+            self.tts.speak(definition)
 
     def load_question_image(self):
         if not self.current_question:
@@ -575,8 +725,14 @@ class GameScreen:
         self.audio_enabled = not self.audio_enabled
         if self.audio_enabled:
             self.audio_toggle_btn.configure(text="🔊")
+            # Leer la definición actual si hay una pregunta
+            if self.current_question:
+                definition = self.current_question.get("definition", "").strip()
+                if definition:
+                    self.tts.speak(definition)
         else:
             self.audio_toggle_btn.configure(text="🔇")
+            self.tts.stop()
 
     def on_skip(self):
         print("Skip pressed")
@@ -732,9 +888,11 @@ class GameScreen:
 
     def return_to_menu(self):
         self.stop_timer()
+        self.tts.stop()
         if self.on_return_callback:
             self.on_return_callback()
 
     def cleanup(self):
         self.stop_timer()
+        self.tts.stop()
         self.parent.unbind("<Configure>")
