@@ -779,7 +779,9 @@ class QuestionScreenViewMixin:
 
         # Check if selected question is visible
         selected_visible = (
-            self.current_question in questions if self.current_question else False
+            any(q is self.current_question for q in questions)
+            if self.current_question
+            else False
         )
         if not selected_visible and self.current_question:
             self.clear_detail_panel()
@@ -820,7 +822,7 @@ class QuestionScreenViewMixin:
             # Adjust padding for scrollbar if needed
             btn_padx = button_margin
             if is_scrollable:
-                offset = s.get("scrollbar_offset_active", 22)
+                offset = s.get("scrollbar_offset", 22)
                 btn_padx = (button_margin, button_margin + offset)
 
             button.grid(
