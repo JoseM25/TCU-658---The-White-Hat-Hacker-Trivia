@@ -1,0 +1,740 @@
+import os
+import json
+import random
+import customtkinter as ctk
+from PIL import Image, ImageTk
+from tksvg import SvgImage as TkSvgImage
+
+
+class GameScreen:
+    # Constantes de diseño base
+    BASE_DIMENSIONS = (1280, 720)
+    BASE_FONT_SIZES = {
+        "timer": 24,
+        "score": 28,
+        "definition": 16,
+        "keyboard": 18,
+        "answer_box": 20,
+        "button": 20,
+        "header_label": 14,
+    }
+    SCALE_LIMITS = (0.50, 1.60)
+    RESIZE_DELAY = 80
+    SVG_RASTER_SCALE = 2.0
+
+    # Tamaños base para elementos
+    BASE_IMAGE_SIZE = 180
+    IMAGE_MIN_SIZE = 100
+    IMAGE_MAX_SIZE = 280
+
+    BASE_KEY_SIZE = 44
+    KEY_MIN_SIZE = 32
+    KEY_MAX_SIZE = 60
+
+    BASE_ANSWER_BOX_SIZE = 40
+    ANSWER_BOX_MIN_SIZE = 28
+    ANSWER_BOX_MAX_SIZE = 56
+
+    # Colores del tema (consistentes con el resto del proyecto)
+    COLORS = {
+        "primary_blue": "#005DFF",
+        "primary_hover": "#003BB8",
+        "success_green": "#00CFC5",
+        "success_hover": "#009B94",
+        "warning_yellow": "#FFC553",
+        "warning_hover": "#CC9A42",
+        "danger_red": "#FF4F60",
+        "danger_hover": "#CC3F4D",
+        "text_dark": "#202632",
+        "text_medium": "#3A3F4B",
+        "text_light": "#7A7A7A",
+        "bg_light": "#F5F7FA",
+        "bg_card": "#FFFFFF",
+        "border_light": "#E2E7F3",
+        "border_medium": "#D3DBEA",
+        "header_bg": "#202632",
+        "key_bg": "#E8ECF2",
+        "key_hover": "#D0D6E0",
+        "key_pressed": "#B8C0D0",
+        "answer_box_empty": "#E2E7F3",
+        "answer_box_filled": "#D0D6E0",
+    }
+
+    # Disposición del teclado QWERTY
+    KEYBOARD_LAYOUT = [
+        ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+        ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+        ["Z", "X", "C", "V", "B", "N", "M", "⌫"],
+    ]
+
+    def __init__(self, parent, on_return_callback=None):
+        self.parent = parent
+        self.on_return_callback = on_return_callback
+
+        # Estado del juego
+        self.current_question = None
+        self.questions = []
+        self.score = 0
+        self.current_answer = ""
+        self.timer_seconds = 0
+        self.audio_enabled = True
+        self.timer_running = False
+        self.timer_job = None
+
+        # Referencias a widgets
+        self.resize_job = None
+        self.main = None
+        self.header_frame = None
+        self.back_button = None
+        self.timer_label = None
+        self.score_label = None
+        self.audio_toggle_btn = None
+        self.question_container = None
+        self.image_label = None
+        self.definition_label = None
+        self.answer_boxes_frame = None
+        self.answer_box_labels = []
+        self.keyboard_frame = None
+        self.keyboard_buttons = []
+        self.action_buttons_frame = None
+        self.skip_button = None
+        self.check_button = None
+        self.current_image = None
+        self.audio_icon_on = None
+        self.audio_icon_off = None
+        self.clock_icon = None
+        self.star_icon = None
+        self.timer_icon_label = None
+        self.star_icon_label = None
+
+        # Rutas
+        self.images_dir = os.path.join("recursos", "imagenes")
+        self.questions_path = os.path.join("datos", "preguntas.json")
+
+        # Crear fuentes
+        self.create_fonts()
+
+        # Construir UI
+        self.load_questions()
+        self.build_ui()
+
+        # Vincular eventos
+        self.parent.bind("<Configure>", self.on_resize)
+        self.apply_responsive()
+
+        # Iniciar juego
+        self.load_random_question()
+        self.start_timer()
+
+    def create_fonts(self):
+        self.timer_font = ctk.CTkFont(
+            family="Poppins SemiBold",
+            size=self.BASE_FONT_SIZES["timer"],
+            weight="bold",
+        )
+        self.score_font = ctk.CTkFont(
+            family="Poppins ExtraBold",
+            size=self.BASE_FONT_SIZES["score"],
+            weight="bold",
+        )
+        self.definition_font = ctk.CTkFont(
+            family="Open Sans Regular",
+            size=self.BASE_FONT_SIZES["definition"],
+        )
+        self.keyboard_font = ctk.CTkFont(
+            family="Poppins SemiBold",
+            size=self.BASE_FONT_SIZES["keyboard"],
+            weight="bold",
+        )
+        self.answer_box_font = ctk.CTkFont(
+            family="Poppins ExtraBold",
+            size=self.BASE_FONT_SIZES["answer_box"],
+            weight="bold",
+        )
+        self.button_font = ctk.CTkFont(
+            family="Poppins SemiBold",
+            size=self.BASE_FONT_SIZES["button"],
+        )
+        self.header_label_font = ctk.CTkFont(
+            family="Poppins SemiBold",
+            size=self.BASE_FONT_SIZES["header_label"],
+        )
+
+    def load_questions(self):
+        try:
+            with open(self.questions_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                self.questions = data.get("questions", [])
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Error loading questions: {e}")
+            self.questions = []
+
+    def build_ui(self):
+        # Limpiar widgets existentes
+        for widget in self.parent.winfo_children():
+            widget.destroy()
+
+        # Configurar grid del parent
+        self.parent.grid_rowconfigure(0, weight=1)
+        self.parent.grid_columnconfigure(0, weight=1)
+
+        # Frame principal
+        self.main = ctk.CTkFrame(self.parent, fg_color="transparent")
+        self.main.grid(row=0, column=0, sticky="nsew")
+
+        # Configurar grid del main
+        self.main.grid_rowconfigure(0, weight=0)  # Header
+        self.main.grid_rowconfigure(1, weight=1)  # Contenido principal
+        self.main.grid_rowconfigure(2, weight=0)  # Teclado
+        self.main.grid_rowconfigure(3, weight=0)  # Botones de acción
+        self.main.grid_columnconfigure(0, weight=1)
+
+        self.build_header()
+        self.build_question_container()
+        self.build_keyboard()
+        self.build_action_buttons()
+
+    def build_header(self):
+        self.header_frame = ctk.CTkFrame(
+            self.main,
+            fg_color=self.COLORS["header_bg"],
+            height=60,
+            corner_radius=0,
+        )
+        self.header_frame.grid(row=0, column=0, sticky="ew")
+        self.header_frame.grid_propagate(False)
+
+        # Configurar columnas del header
+        self.header_frame.grid_columnconfigure(0, weight=0)  # Back button
+        self.header_frame.grid_columnconfigure(1, weight=1)  # Timer (izquierda)
+        self.header_frame.grid_columnconfigure(2, weight=1)  # Score (centro)
+        self.header_frame.grid_columnconfigure(3, weight=1)  # Audio (derecha)
+        self.header_frame.grid_rowconfigure(0, weight=1)
+
+        # Back button
+        self.back_button = ctk.CTkButton(
+            self.header_frame,
+            text="← Menu",
+            font=self.header_label_font,
+            width=110,
+            height=44,
+            fg_color="transparent",
+            hover_color="#273246",
+            text_color="white",
+            corner_radius=8,
+            command=self.return_to_menu,
+        )
+        self.back_button.grid(row=0, column=0, sticky="w", padx=(24, 16))
+
+        # Timer container (izquierda)
+        timer_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        timer_container.grid(row=0, column=1, sticky="w", padx=24)
+
+        # Cargar icono de reloj
+        self.load_header_icons()
+
+        self.timer_icon_label = ctk.CTkLabel(
+            timer_container,
+            text="",
+            image=self.clock_icon,
+        )
+        self.timer_icon_label.grid(row=0, column=0, padx=(0, 8))
+
+        self.timer_label = ctk.CTkLabel(
+            timer_container,
+            text="00:00",
+            font=self.timer_font,
+            text_color="white",
+        )
+        self.timer_label.grid(row=0, column=1)
+
+        # Score container (centro)
+        score_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        score_container.grid(row=0, column=2, sticky="")
+
+        self.star_icon_label = ctk.CTkLabel(
+            score_container,
+            text="",
+            image=self.star_icon,
+        )
+        self.star_icon_label.grid(row=0, column=0, padx=(0, 8))
+
+        self.score_label = ctk.CTkLabel(
+            score_container,
+            text="0",
+            font=self.score_font,
+            text_color="white",
+        )
+        self.score_label.grid(row=0, column=1)
+
+        # Audio toggle container (derecha)
+        audio_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        audio_container.grid(row=0, column=3, sticky="e", padx=24)
+
+        # Cargar iconos de audio
+        self.load_audio_icons()
+
+        self.audio_toggle_btn = ctk.CTkButton(
+            audio_container,
+            text="🔊",
+            font=self.timer_font,
+            width=48,
+            height=40,
+            fg_color="transparent",
+            hover_color=self.COLORS["primary_hover"],
+            text_color="white",
+            corner_radius=8,
+            command=self.toggle_audio,
+        )
+        self.audio_toggle_btn.grid(row=0, column=0)
+
+    def load_header_icons(self):
+        # Cargar icono de reloj
+        clock_svg_path = os.path.join(self.images_dir, "clock.svg")
+        try:
+            img = self.load_svg_image(clock_svg_path, scale=self.SVG_RASTER_SCALE)
+            if img:
+                self.clock_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(24, 24)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.clock_icon = None
+
+        # Cargar icono de estrella
+        star_svg_path = os.path.join(self.images_dir, "star.svg")
+        try:
+            img = self.load_svg_image(star_svg_path, scale=self.SVG_RASTER_SCALE)
+            if img:
+                self.star_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(24, 24)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.star_icon = None
+
+    def load_audio_icons(self):
+        volume_svg_path = os.path.join(self.images_dir, "volume.svg")
+        try:
+            img = self.load_svg_image(volume_svg_path, scale=self.SVG_RASTER_SCALE)
+            if img:
+                self.audio_icon_on = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(24, 24)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.audio_icon_on = None
+        self.audio_icon_off = None  # Usaremos emoji por ahora
+
+    def build_question_container(self):
+        # Container principal para el contenido de la pregunta
+        self.question_container = ctk.CTkFrame(
+            self.main,
+            fg_color=self.COLORS["bg_card"],
+            corner_radius=20,
+            border_width=2,
+            border_color=self.COLORS["border_light"],
+        )
+        self.question_container.grid(row=1, column=0, sticky="nsew", padx=40, pady=20)
+
+        # Configurar grid interno
+        self.question_container.grid_columnconfigure(0, weight=1)
+        self.question_container.grid_rowconfigure(0, weight=0)  # Imagen
+        self.question_container.grid_rowconfigure(1, weight=1)  # Definición
+        self.question_container.grid_rowconfigure(2, weight=0)  # Cajas de respuesta
+
+        # Frame para imagen
+        image_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
+        image_frame.grid(row=0, column=0, pady=(20, 10))
+
+        self.image_label = ctk.CTkLabel(
+            image_frame,
+            text="",
+            fg_color=self.COLORS["bg_light"],
+            corner_radius=16,
+            width=self.BASE_IMAGE_SIZE,
+            height=self.BASE_IMAGE_SIZE,
+        )
+        self.image_label.grid(row=0, column=0)
+
+        # Frame para definición
+        definition_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
+        definition_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=10)
+        definition_frame.grid_columnconfigure(0, weight=1)
+        definition_frame.grid_rowconfigure(0, weight=1)
+
+        self.definition_label = ctk.CTkLabel(
+            definition_frame,
+            text="Loading question...",
+            font=self.definition_font,
+            text_color=self.COLORS["text_medium"],
+            wraplength=600,
+            justify="center",
+            anchor="center",
+        )
+        self.definition_label.grid(row=0, column=0, sticky="nsew")
+
+        # Frame para cajas de respuesta
+        self.answer_boxes_frame = ctk.CTkFrame(
+            self.question_container, fg_color="transparent"
+        )
+        self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 24))
+
+    def build_keyboard(self):
+        self.keyboard_frame = ctk.CTkFrame(
+            self.main,
+            fg_color="transparent",
+        )
+        self.keyboard_frame.grid(row=2, column=0, pady=(0, 16))
+
+        self.keyboard_buttons.clear()
+
+        for row_idx, row_keys in enumerate(self.KEYBOARD_LAYOUT):
+            row_frame = ctk.CTkFrame(self.keyboard_frame, fg_color="transparent")
+            row_frame.grid(row=row_idx, column=0, pady=4)
+
+            for col_idx, key in enumerate(row_keys):
+                # El botón de borrar es más ancho
+                if key == "⌫":
+                    width = int(self.BASE_KEY_SIZE * 1.8)
+                    fg_color = self.COLORS["danger_red"]
+                    hover_color = self.COLORS["danger_hover"]
+                    text_color = "white"
+                else:
+                    width = self.BASE_KEY_SIZE
+                    fg_color = self.COLORS["key_bg"]
+                    hover_color = self.COLORS["key_hover"]
+                    text_color = self.COLORS["text_dark"]
+
+                btn = ctk.CTkButton(
+                    row_frame,
+                    text=key,
+                    font=self.keyboard_font,
+                    width=width,
+                    height=self.BASE_KEY_SIZE,
+                    fg_color=fg_color,
+                    hover_color=hover_color,
+                    text_color=text_color,
+                    corner_radius=8,
+                    command=lambda k=key: self.on_key_press(k),
+                )
+                btn.grid(row=0, column=col_idx, padx=3)
+                self.keyboard_buttons.append(btn)
+
+    def build_action_buttons(self):
+        self.action_buttons_frame = ctk.CTkFrame(self.main, fg_color="transparent")
+        self.action_buttons_frame.grid(row=3, column=0, pady=(0, 24))
+
+        # Botón Skip
+        self.skip_button = ctk.CTkButton(
+            self.action_buttons_frame,
+            text="Skip",
+            font=self.button_font,
+            width=140,
+            height=48,
+            fg_color=self.COLORS["warning_yellow"],
+            hover_color=self.COLORS["warning_hover"],
+            text_color=self.COLORS["text_dark"],
+            corner_radius=12,
+            command=self.on_skip,
+        )
+        self.skip_button.grid(row=0, column=0, padx=16)
+
+        # Botón Check
+        self.check_button = ctk.CTkButton(
+            self.action_buttons_frame,
+            text="Check",
+            font=self.button_font,
+            width=140,
+            height=48,
+            fg_color=self.COLORS["success_green"],
+            hover_color=self.COLORS["success_hover"],
+            text_color="white",
+            corner_radius=12,
+            command=self.on_check,
+        )
+        self.check_button.grid(row=0, column=1, padx=16)
+
+    def create_answer_boxes(self, word_length):
+        # Limpiar cajas existentes
+        for widget in self.answer_boxes_frame.winfo_children():
+            widget.destroy()
+        self.answer_box_labels.clear()
+
+        # Crear nuevas cajas
+        for i in range(word_length):
+            box = ctk.CTkLabel(
+                self.answer_boxes_frame,
+                text="",
+                font=self.answer_box_font,
+                width=self.BASE_ANSWER_BOX_SIZE,
+                height=self.BASE_ANSWER_BOX_SIZE,
+                fg_color=self.COLORS["answer_box_empty"],
+                corner_radius=8,
+                text_color=self.COLORS["text_dark"],
+            )
+            box.grid(row=0, column=i, padx=3)
+            self.answer_box_labels.append(box)
+
+    def load_random_question(self):
+        if not self.questions:
+            self.definition_label.configure(text="No questions available!")
+            return
+
+        self.current_question = random.choice(self.questions)
+        self.current_answer = ""
+        self.timer_seconds = 0
+
+        # Actualizar definición
+        definition = self.current_question.get("definition", "No definition")
+        self.definition_label.configure(text=definition)
+
+        # Crear cajas de respuesta basadas en la longitud del título
+        title = self.current_question.get("title", "")
+        # Remover espacios para contar solo letras
+        clean_title = title.replace(" ", "")
+        self.create_answer_boxes(len(clean_title))
+
+        # Cargar imagen
+        self.load_question_image()
+
+    def load_question_image(self):
+        if not self.current_question:
+            return
+
+        image_path = self.current_question.get("image", "")
+        if not image_path:
+            self.image_label.configure(image=None, text="No Image")
+            return
+
+        try:
+            # Resolver ruta de imagen
+            if not os.path.isabs(image_path):
+                image_path = os.path.join(
+                    os.path.dirname(os.path.dirname(__file__)), image_path
+                )
+
+            if os.path.exists(image_path):
+                pil_image = Image.open(image_path).convert("RGBA")
+
+                # Calcular tamaño manteniendo proporción
+                width, height = pil_image.size
+                max_size = self.BASE_IMAGE_SIZE
+                scale = min(max_size / width, max_size / height)
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+
+                self.current_image = ctk.CTkImage(
+                    light_image=pil_image,
+                    dark_image=pil_image,
+                    size=(new_width, new_height),
+                )
+                self.image_label.configure(
+                    image=self.current_image,
+                    text="",
+                    width=max_size,
+                    height=max_size,
+                )
+            else:
+                self.image_label.configure(image=None, text="Image not found")
+        except (FileNotFoundError, OSError, ValueError) as e:
+            print(f"Error loading image: {e}")
+            self.image_label.configure(image=None, text="Error loading image")
+
+    def on_key_press(self, key):
+        if not self.current_question:
+            return
+
+        title = self.current_question.get("title", "")
+        clean_title = title.replace(" ", "")
+        max_length = len(clean_title)
+
+        if key == "⌫":
+            # Borrar último carácter
+            if self.current_answer:
+                self.current_answer = self.current_answer[:-1]
+        else:
+            # Agregar letra si hay espacio
+            if len(self.current_answer) < max_length:
+                self.current_answer += key
+
+        # Actualizar cajas de respuesta
+        self.update_answer_boxes()
+
+    def update_answer_boxes(self):
+        for i, box in enumerate(self.answer_box_labels):
+            if i < len(self.current_answer):
+                box.configure(
+                    text=self.current_answer[i],
+                    fg_color=self.COLORS["answer_box_filled"],
+                )
+            else:
+                box.configure(
+                    text="",
+                    fg_color=self.COLORS["answer_box_empty"],
+                )
+
+    def toggle_audio(self):
+        self.audio_enabled = not self.audio_enabled
+        if self.audio_enabled:
+            self.audio_toggle_btn.configure(text="🔊")
+        else:
+            self.audio_toggle_btn.configure(text="🔇")
+
+    def on_skip(self):
+        print("Skip pressed")
+        self.load_random_question()
+
+    def on_check(self):
+        if not self.current_question:
+            return
+
+        title = self.current_question.get("title", "")
+        clean_title = title.replace(" ", "").upper()
+        user_answer = self.current_answer.upper()
+
+        if user_answer == clean_title:
+            print("Correct!")
+            self.score += 100
+            self.score_label.configure(text=str(self.score))
+            self.load_random_question()
+        else:
+            print(f"Incorrect! Expected: {clean_title}, Got: {user_answer}")
+
+    def start_timer(self):
+        self.timer_running = True
+        self.update_timer()
+
+    def stop_timer(self):
+        self.timer_running = False
+        if self.timer_job:
+            self.parent.after_cancel(self.timer_job)
+            self.timer_job = None
+
+    def update_timer(self):
+        if not self.timer_running:
+            return
+
+        self.timer_seconds += 1
+        minutes = self.timer_seconds // 60
+        seconds = self.timer_seconds % 60
+        self.timer_label.configure(text=f"{minutes:02d}:{seconds:02d}")
+
+        self.timer_job = self.parent.after(1000, self.update_timer)
+
+    def on_resize(self, event):
+        if event.widget is not self.parent:
+            return
+
+        if self.resize_job:
+            self.parent.after_cancel(self.resize_job)
+        self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
+
+    def apply_responsive(self):
+        width = max(self.parent.winfo_width(), 1)
+        height = max(self.parent.winfo_height(), 1)
+
+        # Calcular factor de escala
+        scale = min(width / self.BASE_DIMENSIONS[0], height / self.BASE_DIMENSIONS[1])
+        scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
+
+        # Actualizar fuentes
+        self.timer_font.configure(
+            size=int(max(14, self.BASE_FONT_SIZES["timer"] * scale))
+        )
+        self.score_font.configure(
+            size=int(max(16, self.BASE_FONT_SIZES["score"] * scale))
+        )
+        self.definition_font.configure(
+            size=int(max(12, self.BASE_FONT_SIZES["definition"] * scale))
+        )
+        self.keyboard_font.configure(
+            size=int(max(12, self.BASE_FONT_SIZES["keyboard"] * scale))
+        )
+        self.answer_box_font.configure(
+            size=int(max(14, self.BASE_FONT_SIZES["answer_box"] * scale))
+        )
+        self.button_font.configure(
+            size=int(max(12, self.BASE_FONT_SIZES["button"] * scale))
+        )
+        self.header_label_font.configure(
+            size=int(max(10, self.BASE_FONT_SIZES["header_label"] * scale))
+        )
+
+        # Actualizar header
+        header_height = int(max(48, 60 * scale))
+        self.header_frame.configure(height=header_height)
+
+        # Actualizar back button
+        back_width = int(max(70, 90 * scale))
+        back_height = int(max(28, 36 * scale))
+        self.back_button.configure(width=back_width, height=back_height)
+
+        # Actualizar tamaño de imagen
+        image_size = int(
+            max(
+                self.IMAGE_MIN_SIZE,
+                min(self.IMAGE_MAX_SIZE, self.BASE_IMAGE_SIZE * scale),
+            )
+        )
+        self.image_label.configure(width=image_size, height=image_size)
+
+        # Actualizar current_image si existe
+        if self.current_image and self.current_question:
+            self.load_question_image()
+
+        # Actualizar wraplength de definición
+        wrap_length = int(max(300, min(800, 600 * scale)))
+        self.definition_label.configure(wraplength=wrap_length)
+
+        # Actualizar tamaño de cajas de respuesta
+        box_size = int(
+            max(
+                self.ANSWER_BOX_MIN_SIZE,
+                min(self.ANSWER_BOX_MAX_SIZE, self.BASE_ANSWER_BOX_SIZE * scale),
+            )
+        )
+        for box in self.answer_box_labels:
+            box.configure(width=box_size, height=box_size)
+
+        # Actualizar tamaño de teclas
+        key_size = int(
+            max(
+                self.KEY_MIN_SIZE,
+                min(self.KEY_MAX_SIZE, self.BASE_KEY_SIZE * scale),
+            )
+        )
+        for btn in self.keyboard_buttons:
+            current_text = btn.cget("text")
+            if current_text == "⌫":
+                btn.configure(width=int(key_size * 1.8), height=key_size)
+            else:
+                btn.configure(width=key_size, height=key_size)
+
+        # Actualizar botones de acción
+        button_width = int(max(100, 140 * scale))
+        button_height = int(max(36, 48 * scale))
+        self.skip_button.configure(width=button_width, height=button_height)
+        self.check_button.configure(width=button_width, height=button_height)
+
+        # Actualizar padding del container
+        container_padx = int(max(20, 40 * scale))
+        container_pady = int(max(12, 20 * scale))
+        self.question_container.grid_configure(padx=container_padx, pady=container_pady)
+
+        self.resize_job = None
+
+    def load_svg_image(self, svg_path, scale=1.0):
+        try:
+            svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
+            pil = ImageTk.getimage(svg_photo).convert("RGBA")
+            return pil
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Error loading SVG image '{svg_path}': {e}")
+            return None
+
+    def return_to_menu(self):
+        self.stop_timer()
+        if self.on_return_callback:
+            self.on_return_callback()
+
+    def cleanup(self):
+        self.stop_timer()
+        self.parent.unbind("<Configure>")

@@ -2,6 +2,7 @@
 from juego.pantalla_creditos import CreditsScreen
 from juego.pantalla_instrucciones import InstructionsScreen
 from juego.pantalla_preguntas import ManageQuestionsScreen
+from juego.pantalla_juego import GameScreen
 
 
 class AppController:
@@ -27,3 +28,6 @@ class AppController:
         self.current_screen = ManageQuestionsScreen(
             self.root, on_return_callback=self.show_menu
         )
+
+    def start_game(self):
+        self.current_screen = GameScreen(self.root, on_return_callback=self.show_menu)

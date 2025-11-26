@@ -268,10 +268,13 @@ class MenuScreen:
             return None
 
     def start_game(self):
-        print("Iniciando juego...")
-        messagebox.showinfo(
-            "Juego Iniciado", "Aquí va la lógica para iniciar el juego."
-        )
+        if self.app_controller:
+            self.app_controller.start_game()
+        else:
+            print("Iniciando juego...")
+            messagebox.showinfo(
+                "Juego Iniciado", "Aquí va la lógica para iniciar el juego."
+            )
 
     def show_instructions(self):
         if self.app_controller:
