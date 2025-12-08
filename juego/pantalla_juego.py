@@ -23,6 +23,7 @@ class GameScreen:
     SCALE_LIMITS = (0.50, 1.60)
     RESIZE_DELAY = 80
     SVG_RASTER_SCALE = 2.0
+    AUDIO_ICON_SIZE = 28
 
     BASE_IMAGE_SIZE = 180
     IMAGE_MIN_SIZE = 100
@@ -161,7 +162,7 @@ class GameScreen:
         )
         self.header_button_font = ctk.CTkFont(
             family="Poppins SemiBold",
-            size=22,
+            size=20,
             weight="bold",
         )
         self.header_label_font = ctk.CTkFont(
@@ -227,8 +228,8 @@ class GameScreen:
             compound="left",
             anchor="w",
             font=self.header_button_font,
-            width=110,
-            height=44,
+            width=96,
+            height=40,
             fg_color="transparent",
             hover_color=self.COLORS["header_hover"],
             text_color="white",
@@ -286,7 +287,7 @@ class GameScreen:
             width=48,
             height=40,
             fg_color="transparent",
-            hover_color=self.COLORS["primary_hover"],
+            hover_color=self.COLORS["header_hover"],
             text_color="white",
             corner_radius=8,
             command=self.toggle_audio,
@@ -343,7 +344,11 @@ class GameScreen:
                     setattr(
                         self,
                         attr,
-                        ctk.CTkImage(light_image=img, dark_image=img, size=(24, 24)),
+                        ctk.CTkImage(
+                            light_image=img,
+                            dark_image=img,
+                            size=(self.AUDIO_ICON_SIZE, self.AUDIO_ICON_SIZE),
+                        ),
                     )
             except (FileNotFoundError, OSError, ValueError):
                 setattr(self, attr, None)
@@ -792,7 +797,7 @@ class GameScreen:
         self.button_font.configure(
             size=int(max(12, self.BASE_FONT_SIZES["button"] * scale))
         )
-        self.header_button_font.configure(size=int(max(12, min(36, 22 * scale))))
+        self.header_button_font.configure(size=int(max(12, min(32, 20 * scale))))
         self.header_label_font.configure(
             size=int(max(10, self.BASE_FONT_SIZES["header_label"] * scale))
         )
@@ -804,9 +809,9 @@ class GameScreen:
         pad_bottom = clamp_scaled(32, 14, 72)
         pad_left = clamp_scaled(24, 10, 60)
         pad_right = clamp_scaled(16, 8, 48)
-        back_width = clamp_scaled(110, 80, 220)
-        back_height = clamp_scaled(44, 32, 80)
-        back_corner = clamp_scaled(8, 6, 20)
+        back_width = clamp_scaled(96, 70, 170)
+        back_height = clamp_scaled(40, 30, 64)
+        back_corner = clamp_scaled(8, 6, 16)
 
         header_height = max(
             back_height + pad_top + pad_bottom, int(max(48, 60 * scale))
