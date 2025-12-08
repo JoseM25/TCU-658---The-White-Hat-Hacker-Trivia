@@ -6,8 +6,9 @@ from juego.pantalla_juego import GameScreen
 
 
 class AppController:
-    def __init__(self, root):
+    def __init__(self, root, tts_service=None):
         self.root = root
+        self.tts = tts_service
         self.current_screen = None
         self.show_menu()
 
@@ -26,8 +27,10 @@ class AppController:
 
     def show_manage_questions(self):
         self.current_screen = ManageQuestionsScreen(
-            self.root, on_return_callback=self.show_menu
+            self.root, on_return_callback=self.show_menu, tts_service=self.tts
         )
 
     def start_game(self):
-        self.current_screen = GameScreen(self.root, on_return_callback=self.show_menu)
+        self.current_screen = GameScreen(
+            self.root, on_return_callback=self.show_menu, tts_service=self.tts
+        )

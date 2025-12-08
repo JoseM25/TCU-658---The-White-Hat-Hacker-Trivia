@@ -1545,7 +1545,7 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
     IMAGES_DIR = BASE_DIR / "recursos" / "imagenes"
     AUDIO_DIR = BASE_DIR / "recursos" / "audio"
 
-    def __init__(self, parent, on_return_callback=None):
+    def __init__(self, parent, on_return_callback=None, tts_service=None):
         self.parent = parent
         self.on_return_callback = on_return_callback
 
@@ -1573,7 +1573,7 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.layout_calc = LayoutCalculator(self.scaler, profiles)
 
         # Initialize services
-        self.tts = TTSService(self.AUDIO_DIR)
+        self.tts = tts_service or TTSService(self.AUDIO_DIR)
         self.image_handler = ImageHandler(self.IMAGES_DIR)
         self.repository = QuestionRepository(self.QUESTIONS_FILE)
 

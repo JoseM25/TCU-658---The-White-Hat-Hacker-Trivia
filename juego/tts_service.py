@@ -19,9 +19,18 @@ class TTSService:
         self.config_path = Path(model_dir) / f"{model_name}.json"
         self._voice = None
         self._speaking_thread = None
+        self._load_lock = threading.Lock()
+        self._load_error = None
+
+    def preload(self):
+        """Load the voice model once so subsequent calls are fast."""
+        self._ensure_voice_loaded()
 
     def speak(self, text):
         if not text or not text.strip():
+            return
+
+        if not self._ensure_voice_loaded():
             return
 
         self.stop()
@@ -32,11 +41,8 @@ class TTSService:
 
     def speak_worker(self, text):
         try:
-            # Lazy-load voice model on first use
             if not self._voice:
-                self._voice = PiperVoice.load(
-                    str(self.model_path), str(self.config_path)
-                )
+                return
 
             # Synthesize audio to WAV in memory
             buffer = io.BytesIO()
@@ -68,3 +74,20 @@ class TTSService:
             winsound.PlaySound(None, winsound.SND_PURGE)
         except Exception:  # pylint: disable=broad-except
             pass
+
+    def _ensure_voice_loaded(self):
+        """Load the Piper voice once, caching the result."""
+        if self._voice or self._load_error:
+            return self._voice
+
+        with self._load_lock:
+            if self._voice or self._load_error:
+                return self._voice
+            try:
+                self._voice = PiperVoice.load(
+                    str(self.model_path), str(self.config_path)
+                )
+            except Exception as error:  # pylint: disable=broad-except
+                self._load_error = error
+                print(f"Warning: Unable to load TTS voice: {error}")
+        return self._voice

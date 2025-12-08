@@ -69,7 +69,7 @@ class GameScreen:
         ["Z", "X", "C", "V", "B", "N", "M", "⌫"],
     ]
 
-    def __init__(self, parent, on_return_callback=None):
+    def __init__(self, parent, on_return_callback=None, tts_service=None):
         self.parent = parent
         self.on_return_callback = on_return_callback
 
@@ -121,8 +121,8 @@ class GameScreen:
         self.audio_dir = os.path.join("recursos", "audio")
         self.questions_path = os.path.join("datos", "preguntas.json")
 
-        # Inicializar TTS
-        self.tts = TTSService(self.audio_dir)
+        # Inicializar TTS (compartido)
+        self.tts = tts_service or TTSService(self.audio_dir)
 
         # Crear fuentes
         self.create_fonts()
