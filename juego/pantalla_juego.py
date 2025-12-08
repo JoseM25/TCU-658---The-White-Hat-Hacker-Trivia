@@ -458,18 +458,14 @@ class GameScreen:
         )
         self.question_container.grid(row=1, column=0, sticky="nsew", padx=40, pady=20)
 
+        # Two columns: left for the card content, right for wildcards
         self.question_container.grid_columnconfigure(0, weight=1)
         self.question_container.grid_columnconfigure(1, weight=0)
-        self.question_container.grid_rowconfigure(0, weight=1)
+        self.question_container.grid_rowconfigure(0, weight=0)
+        self.question_container.grid_rowconfigure(1, weight=1)
+        self.question_container.grid_rowconfigure(2, weight=0)
 
-        content_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
-        content_frame.grid(row=0, column=0, sticky="nsew")
-        content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_rowconfigure(0, weight=0)
-        content_frame.grid_rowconfigure(1, weight=1)
-        content_frame.grid_rowconfigure(2, weight=0)
-
-        image_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        image_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
         image_frame.grid(row=0, column=0, pady=(20, 10))
 
         self.image_label = ctk.CTkLabel(
@@ -482,7 +478,7 @@ class GameScreen:
         )
         self.image_label.grid(row=0, column=0)
 
-        definition_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        definition_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
         definition_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=10)
         definition_frame.grid_columnconfigure(0, weight=1)
         definition_frame.grid_rowconfigure(0, weight=1)
@@ -510,7 +506,9 @@ class GameScreen:
         )
         self.definition_label.grid(row=0, column=1, sticky="w")
 
-        self.answer_boxes_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        self.answer_boxes_frame = ctk.CTkFrame(
+            self.question_container, fg_color="transparent"
+        )
         self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 24))
 
         self.build_wildcards_panel()
@@ -521,7 +519,9 @@ class GameScreen:
             self.question_container,
             fg_color="transparent",
         )
-        self.wildcards_frame.grid(row=0, column=1, sticky="ns", padx=(0, 24), pady=24)
+        self.wildcards_frame.grid(
+            row=0, column=1, rowspan=3, sticky="ns", padx=(0, 24), pady=24
+        )
 
         self.wildcards_frame.grid_rowconfigure(0, weight=1)
         self.wildcards_frame.grid_rowconfigure(4, weight=1)
