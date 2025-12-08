@@ -23,7 +23,9 @@ class GameScreen:
     SCALE_LIMITS = (0.50, 1.60)
     RESIZE_DELAY = 80
     SVG_RASTER_SCALE = 2.0
-    AUDIO_ICON_SIZE = 28
+    AUDIO_ICON_BASE_SIZE = 36
+    AUDIO_ICON_MIN_SIZE = 28
+    AUDIO_ICON_MAX_SIZE = 48
     DELETE_ICON_BASE_SIZE = 26
 
     BASE_IMAGE_SIZE = 180
@@ -334,6 +336,8 @@ class GameScreen:
         self.audio_icon_on = None
         self.audio_icon_off = None
 
+        icon_size = self.calculate_audio_icon_size(scale=1.0)
+
         icon_specs = [
             ("audio_icon_on", "volume-white.svg"),
             ("audio_icon_off", "volume-mute.svg"),
@@ -350,11 +354,51 @@ class GameScreen:
                         ctk.CTkImage(
                             light_image=img,
                             dark_image=img,
-                            size=(self.AUDIO_ICON_SIZE, self.AUDIO_ICON_SIZE),
+                            size=(icon_size, icon_size),
                         ),
                     )
             except (FileNotFoundError, OSError, ValueError):
                 setattr(self, attr, None)
+
+    def calculate_audio_icon_size(self, scale, back_height=None):
+        base_scaled = self.AUDIO_ICON_BASE_SIZE * scale
+        size_targets = [
+            base_scaled,
+            self.timer_font.cget("size"),
+            self.score_font.cget("size"),
+        ]
+        if back_height:
+            size_targets.append(back_height * 0.85)
+        target_size = max(size_targets)
+        return int(
+            max(
+                self.AUDIO_ICON_MIN_SIZE,
+                min(self.AUDIO_ICON_MAX_SIZE, target_size),
+            )
+        )
+
+    def update_audio_icon_size(self, icon_size, back_height=None, corner_radius=None):
+        for icon in (self.audio_icon_on, self.audio_icon_off):
+            if icon:
+                icon.configure(size=(icon_size, icon_size))
+
+        if not self.audio_toggle_btn:
+            return
+
+        current_width = int(self.audio_toggle_btn.cget("width"))
+        current_height = int(self.audio_toggle_btn.cget("height"))
+
+        audio_height = max(current_height, int(icon_size + 8), int(back_height or 0))
+        audio_width = max(current_width, int(icon_size + 12), audio_height)
+
+        kwargs = {
+            "width": audio_width,
+            "height": audio_height,
+        }
+        if corner_radius is not None:
+            kwargs["corner_radius"] = corner_radius
+
+        self.audio_toggle_btn.configure(**kwargs)
 
     def update_audio_button_icon(self):
         if not self.audio_toggle_btn:
@@ -862,6 +906,9 @@ class GameScreen:
             self.back_button.configure(
                 width=back_width, height=back_height, corner_radius=back_corner
             )
+
+        audio_icon_size = self.calculate_audio_icon_size(scale, back_height)
+        self.update_audio_icon_size(audio_icon_size, back_height, back_corner)
 
         image_size = int(
             max(
