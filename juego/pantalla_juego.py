@@ -280,7 +280,8 @@ class GameScreen:
 
         self.audio_toggle_btn = ctk.CTkButton(
             audio_container,
-            text="🔊",
+            text="",
+            image=self.audio_icon_on,
             font=self.timer_font,
             width=48,
             height=40,
@@ -291,6 +292,7 @@ class GameScreen:
             command=self.toggle_audio,
         )
         self.audio_toggle_btn.grid(row=0, column=0)
+        self.update_audio_button_icon()
 
     def load_header_icons(self):
 
@@ -325,16 +327,37 @@ class GameScreen:
             self.star_icon = None
 
     def load_audio_icons(self):
-        volume_svg_path = os.path.join(self.images_dir, "volume.svg")
-        try:
-            img = self.load_svg_image(volume_svg_path, scale=self.SVG_RASTER_SCALE)
-            if img:
-                self.audio_icon_on = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(24, 24)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.audio_icon_on = None
+        self.audio_icon_on = None
         self.audio_icon_off = None
+
+        icon_specs = [
+            ("audio_icon_on", "volume-white.svg"),
+            ("audio_icon_off", "volume-mute.svg"),
+        ]
+
+        for attr, filename in icon_specs:
+            svg_path = os.path.join(self.images_dir, filename)
+            try:
+                img = self.load_svg_image(svg_path, scale=self.SVG_RASTER_SCALE)
+                if img:
+                    setattr(
+                        self,
+                        attr,
+                        ctk.CTkImage(light_image=img, dark_image=img, size=(24, 24)),
+                    )
+            except (FileNotFoundError, OSError, ValueError):
+                setattr(self, attr, None)
+
+    def update_audio_button_icon(self):
+        if not self.audio_toggle_btn:
+            return
+
+        icon = self.audio_icon_on if self.audio_enabled else self.audio_icon_off
+        if icon:
+            self.audio_toggle_btn.configure(image=icon, text="")
+        else:
+            fallback_text = "On" if self.audio_enabled else "Off"
+            self.audio_toggle_btn.configure(image=None, text=fallback_text)
 
     def load_info_icon(self):
         info_svg_path = os.path.join(self.images_dir, "info.svg")
@@ -686,15 +709,13 @@ class GameScreen:
 
     def toggle_audio(self):
         self.audio_enabled = not self.audio_enabled
+        self.update_audio_button_icon()
         if self.audio_enabled:
-            self.audio_toggle_btn.configure(text="🔊")
-
             if self.current_question:
                 definition = self.current_question.get("definition", "").strip()
                 if definition:
                     self.tts.speak(definition)
         else:
-            self.audio_toggle_btn.configure(text="🔇")
             self.tts.stop()
 
     def on_skip(self):
