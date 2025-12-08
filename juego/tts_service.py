@@ -61,13 +61,14 @@ class TTSService:
                 tmp.flush()
                 winsound.PlaySound(tmp.name, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
-        except Exception:
-            pass
+        except (OSError, wave.Error, RuntimeError, ValueError) as error:
+            logging.exception("Failed to synthesize speech: %s", error)
 
     def stop(self):
         try:
             winsound.PlaySound(None, winsound.SND_PURGE)
-        except Exception:
+        except (RuntimeError, OSError):
+            # Ignore playback errors when trying to stop audio.
             pass
 
     def _ensure_voice_loaded(self):
@@ -81,7 +82,7 @@ class TTSService:
                 self._voice = PiperVoice.load(
                     str(self.model_path), str(self.config_path)
                 )
-            except Exception as error:
+            except (FileNotFoundError, OSError, RuntimeError, ValueError) as error:
                 self._load_error = error
                 print(f"Warning: Unable to load TTS voice: {error}")
         return self._voice
