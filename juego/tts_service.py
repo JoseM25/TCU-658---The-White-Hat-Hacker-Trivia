@@ -8,7 +8,6 @@ from tempfile import NamedTemporaryFile
 
 from piper.voice import PiperVoice
 
-# Suppress Piper warnings
 logging.getLogger("piper.voice").setLevel(logging.ERROR)
 
 
@@ -23,7 +22,6 @@ class TTSService:
         self._load_error = None
 
     def preload(self):
-        """Load the voice model once so subsequent calls are fast."""
         self._ensure_voice_loaded()
 
     def speak(self, text):
@@ -44,7 +42,6 @@ class TTSService:
             if not self._voice:
                 return
 
-            # Synthesize audio to WAV in memory
             buffer = io.BytesIO()
             wav_file = wave.open(buffer, "wb")
             wav_configured = False
@@ -59,24 +56,21 @@ class TTSService:
 
             wav_file.close()
 
-            # Play audio from temporary file
             with NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp.write(buffer.getvalue())
                 tmp.flush()
                 winsound.PlaySound(tmp.name, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
-        except Exception:  # pylint: disable=broad-except
-            # Silently fail - TTS is non-critical
+        except Exception:
             pass
 
     def stop(self):
         try:
             winsound.PlaySound(None, winsound.SND_PURGE)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             pass
 
     def _ensure_voice_loaded(self):
-        """Load the Piper voice once, caching the result."""
         if self._voice or self._load_error:
             return self._voice
 
@@ -87,7 +81,7 @@ class TTSService:
                 self._voice = PiperVoice.load(
                     str(self.model_path), str(self.config_path)
                 )
-            except Exception as error:  # pylint: disable=broad-except
+            except Exception as error:
                 self._load_error = error
                 print(f"Warning: Unable to load TTS voice: {error}")
         return self._voice

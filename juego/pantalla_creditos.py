@@ -61,12 +61,11 @@ class CreditsScreen:
         self.main = ctk.CTkFrame(self.parent, fg_color="transparent")
         self.main.grid(row=0, column=0, sticky="nsew")
 
-        # Configurar grid del main frame
-        self.main.grid_rowconfigure(0, weight=0)  # Logo
-        self.main.grid_rowconfigure(1, weight=0)  # Título
-        self.main.grid_rowconfigure(2, weight=0)  # Línea divisoria
-        self.main.grid_rowconfigure(3, weight=1)  # Cuerpo de texto
-        self.main.grid_rowconfigure(4, weight=0)  # Botón
+        self.main.grid_rowconfigure(0, weight=0)
+        self.main.grid_rowconfigure(1, weight=0)
+        self.main.grid_rowconfigure(2, weight=0)
+        self.main.grid_rowconfigure(3, weight=1)
+        self.main.grid_rowconfigure(4, weight=0)
         self.main.grid_columnconfigure(0, weight=1)
 
         self.logo_section()
@@ -130,7 +129,6 @@ class CreditsScreen:
         self.body_container.grid_columnconfigure(0, weight=1)
         self.body_container.grid_rowconfigure(0, weight=1)
 
-        # Crear un frame para el texto
         text_frame = ctk.CTkFrame(self.body_container, fg_color="transparent")
         text_frame.grid(row=0, column=0, sticky="nsew")
         text_frame.grid_columnconfigure(0, weight=1)
@@ -194,7 +192,6 @@ class CreditsScreen:
         scale = min(w / self.BASE_DIMENSIONS[0], h / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
 
-        # Letra
         self.title_font.configure(
             size=int(max(16, self.BASE_FONT_SIZES["title"] * scale))
         )
@@ -203,7 +200,6 @@ class CreditsScreen:
             size=int(max(12, self.BASE_FONT_SIZES["button"] * scale))
         )
 
-        # Logo
         if self.logo_image:
             desired = int(
                 max(
@@ -232,7 +228,6 @@ class CreditsScreen:
         if self.divider_bar:
             self.divider_bar.configure(height=int(max(3, min(10, 8 * scale))))
 
-        # Botones
         self.return_button.configure(
             height=int(max(30, 50 * scale)),
             width=int(max(150, 200 * scale)),
@@ -245,7 +240,6 @@ class CreditsScreen:
         )
         self.button_container.grid_configure(pady=(top_pad, bottom_pad))
 
-        # Ajustar wraplength del texto
         if self.body_label:
             self.body_label.configure(wraplength=max(260, body_w - 40))
 

@@ -6,7 +6,7 @@ from tksvg import SvgImage as TkSvgImage
 
 
 class MenuScreen:
-    # Constantes
+
     BASE_DIMENSIONS = (1280, 720)
     BASE_FONT_SIZES = {"title": 48, "button": 24}
     BASE_LOGO_SIZE = 150
@@ -30,7 +30,6 @@ class MenuScreen:
 
         self.footer_items = []
 
-        # Crear Fuentes
         self.title_font = ctk.CTkFont(
             family="Poppins ExtraBold",
             size=self.BASE_FONT_SIZES["title"],
@@ -57,10 +56,10 @@ class MenuScreen:
         self.main = ctk.CTkFrame(self.parent, fg_color="transparent")
         self.main.grid(row=0, column=0, sticky="nsew")
 
-        self.main.grid_rowconfigure(0, weight=0)  # Logo
-        self.main.grid_rowconfigure(1, weight=0)  # Titulo
-        self.main.grid_rowconfigure(2, weight=1)  # Botones
-        self.main.grid_rowconfigure(3, weight=0)  # Footer
+        self.main.grid_rowconfigure(0, weight=0)
+        self.main.grid_rowconfigure(1, weight=0)
+        self.main.grid_rowconfigure(2, weight=1)
+        self.main.grid_rowconfigure(3, weight=0)
         self.main.grid_columnconfigure(0, weight=1)
 
         self.logo_section()
@@ -110,7 +109,7 @@ class MenuScreen:
         self.title_label.grid(row=0, column=0, pady=0, sticky="n")
 
     def buttons_section(self):
-        # Configuracion botones
+
         button_configs = [
             ("Play", "#005DFF", "#003BB8", "start_game"),
             ("Instructions", "#00CFC5", "#009B94", "show_instructions"),
@@ -121,7 +120,6 @@ class MenuScreen:
         outer = ctk.CTkFrame(self.main, fg_color="transparent")
         outer.grid(row=2, column=0, sticky="nsew", pady=(0, 16))
 
-        # Configurar columnas con tamano uniforme
         for c in range(3):
             outer.grid_columnconfigure(c, weight=1, uniform="buttons")
         outer.grid_rowconfigure(0, weight=1)
@@ -159,7 +157,6 @@ class MenuScreen:
             footer.grid_columnconfigure(c, weight=1)
         footer.grid_rowconfigure(0, weight=1)
 
-        # Configuracion logos Footer
         footer_images = [
             ("UCRLogo.png", (120, 60), "w", 50, "UCR"),
             ("ELMLogo.png", (140, 30), "", 10, "ELM"),
@@ -200,7 +197,6 @@ class MenuScreen:
         w = max(self.parent.winfo_width(), 1)
         h = max(self.parent.winfo_height(), 1)
 
-        # Calcular factor de escala
         scale = min(w / self.BASE_DIMENSIONS[0], h / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
 
@@ -211,14 +207,12 @@ class MenuScreen:
             size=int(max(12, self.BASE_FONT_SIZES["button"] * scale))
         )
 
-        # Actualizar botones
         pad_y = int(max(4, min(12, 10 * scale)))
         height = int(max(24, 48 * scale))
         for button in self.menu_buttons:
             button.grid_configure(pady=pad_y)
             button.configure(height=height)
 
-        # Actualizar Logo si tamano cambia mucho
         if self.logo_image is not None:
             desired = int(
                 max(
@@ -234,7 +228,6 @@ class MenuScreen:
             img = item["image"]
             w, h = item["base_size"]
 
-            # Calcular nuevo tamano
             new_width = int(
                 max(
                     self.FOOTER_MIN_SIZE[0],

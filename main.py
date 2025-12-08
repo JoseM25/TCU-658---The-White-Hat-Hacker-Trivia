@@ -27,7 +27,6 @@ root.grid_columnconfigure(0, weight=1)
 
 root.configure(fg_color="#F5F7FA")
 
-# Preload TTS voice once at startup so screens can share it
 tts_service = TTSService(AUDIO_DIR)
 tts_service.preload()
 

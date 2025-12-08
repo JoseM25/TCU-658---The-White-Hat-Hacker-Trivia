@@ -11,13 +11,11 @@ class ResponsiveScaler:
 
         scaled = raw_scale * self.global_scale_factor
 
-        # Apply resolution penalties
         if width <= 900:
             scaled *= 0.88
         if height <= 550:
             scaled *= 0.92
 
-        # Extra low resolution penalty
         if low_res_profile:
             min_dimension = min(width, height)
             penalty = self.interpolate_profile(min_dimension, low_res_profile)
@@ -85,7 +83,6 @@ class SizeStateCalculator:
             "scrollbar_offset": s(22, scale, 12, 36),
         }
 
-        # Detail panel sizes
         detail_image_size = (s(220, scale, 110, 420), s(220, scale, 110, 420))
         sizes["detail_image"] = detail_image_size
         sizes["detail_panel_height"] = s(520, scale, 320, 880)
@@ -93,7 +90,6 @@ class SizeStateCalculator:
             200, sizes["detail_panel_height"] - s(150, scale, 90, 260)
         )
 
-        # Calculate sidebar/detail widths
         sidebar_share = self._get_sidebar_share(window_width)
         gutter = s(60, scale, 32, 110)
 

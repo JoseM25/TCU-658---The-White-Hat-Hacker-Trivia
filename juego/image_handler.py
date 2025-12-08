@@ -74,7 +74,6 @@ class ImageHandler:
         if width <= 0 or height <= 0:
             return None
 
-        # Scale to fit within max_size
         max_width, max_height = max_size
         scale = min(max_width / width, max_height / height, 1)
 
@@ -83,7 +82,6 @@ class ImageHandler:
 
         resized_image = self.resize_image(prepared_image, (new_width, new_height))
 
-        # Create a transparent background of max_size to ensure consistent dimensions
         final_image = Image.new("RGBA", max_size, (0, 0, 0, 0))
         paste_x = (max_width - new_width) // 2
         paste_y = (max_height - new_height) // 2
@@ -124,14 +122,12 @@ class ImageHandler:
     def copy_image_to_project(self, source_path):
         images_dir, source = self.resolve_paths(source_path)
 
-        # Check if already in images directory
         try:
             sub_path = source.relative_to(images_dir)
             return Path("recursos") / "imagenes" / sub_path
         except ValueError:
-            pass  # Not in directory, need to copy
+            pass
 
-        # Ensure images directory exists
         try:
             self.images_dir.mkdir(parents=True, exist_ok=True)
         except OSError as error:
@@ -141,7 +137,6 @@ class ImageHandler:
             )
             return None
 
-        # Copy with unique filename
         destination = self.get_unique_destination(source_path)
         try:
             shutil.copy2(source_path, destination)

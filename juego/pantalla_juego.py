@@ -9,7 +9,7 @@ from juego.tts_service import TTSService
 
 
 class GameScreen:
-    # Constantes de diseño base
+
     BASE_DIMENSIONS = (1280, 720)
     BASE_FONT_SIZES = {
         "timer": 24,
@@ -24,7 +24,6 @@ class GameScreen:
     RESIZE_DELAY = 80
     SVG_RASTER_SCALE = 2.0
 
-    # Tamaños base para elementos
     BASE_IMAGE_SIZE = 180
     IMAGE_MIN_SIZE = 100
     IMAGE_MAX_SIZE = 280
@@ -37,7 +36,6 @@ class GameScreen:
     ANSWER_BOX_MIN_SIZE = 28
     ANSWER_BOX_MAX_SIZE = 56
 
-    # Colores del tema (consistentes con el resto del proyecto)
     COLORS = {
         "primary_blue": "#005DFF",
         "primary_hover": "#003BB8",
@@ -55,6 +53,7 @@ class GameScreen:
         "border_light": "#E2E7F3",
         "border_medium": "#D3DBEA",
         "header_bg": "#202632",
+        "header_hover": "#273246",
         "key_bg": "#E8ECF2",
         "key_hover": "#D0D6E0",
         "key_pressed": "#B8C0D0",
@@ -62,7 +61,6 @@ class GameScreen:
         "answer_box_filled": "#D0D6E0",
     }
 
-    # Disposición del teclado QWERTY
     KEYBOARD_LAYOUT = [
         ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
         ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
@@ -73,10 +71,9 @@ class GameScreen:
         self.parent = parent
         self.on_return_callback = on_return_callback
 
-        # Estado del juego
         self.current_question = None
         self.questions = []
-        self.available_questions = []  # Preguntas sin responder
+        self.available_questions = []
         self.score = 0
         self.current_answer = ""
         self.timer_seconds = 0
@@ -84,11 +81,11 @@ class GameScreen:
         self.timer_running = False
         self.timer_job = None
 
-        # Referencias a widgets
         self.resize_job = None
         self.main = None
         self.header_frame = None
         self.back_button = None
+        self.back_arrow_icon = None
         self.timer_label = None
         self.score_label = None
         self.audio_toggle_btn = None
@@ -116,26 +113,20 @@ class GameScreen:
         self.info_icon = None
         self.info_icon_label = None
 
-        # Rutas
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
         self.questions_path = os.path.join("datos", "preguntas.json")
 
-        # Inicializar TTS (compartido)
         self.tts = tts_service or TTSService(self.audio_dir)
 
-        # Crear fuentes
         self.create_fonts()
 
-        # Construir UI
         self.load_questions()
         self.build_ui()
 
-        # Vincular eventos
         self.parent.bind("<Configure>", self.on_resize)
         self.apply_responsive()
 
-        # Iniciar juego
         self.load_random_question()
         self.start_timer()
 
@@ -168,6 +159,11 @@ class GameScreen:
             family="Poppins SemiBold",
             size=self.BASE_FONT_SIZES["button"],
         )
+        self.header_button_font = ctk.CTkFont(
+            family="Poppins SemiBold",
+            size=22,
+            weight="bold",
+        )
         self.header_label_font = ctk.CTkFont(
             family="Poppins SemiBold",
             size=self.BASE_FONT_SIZES["header_label"],
@@ -183,23 +179,20 @@ class GameScreen:
             self.questions = []
 
     def build_ui(self):
-        # Limpiar widgets existentes
+
         for widget in self.parent.winfo_children():
             widget.destroy()
 
-        # Configurar grid del parent
         self.parent.grid_rowconfigure(0, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
 
-        # Frame principal
         self.main = ctk.CTkFrame(self.parent, fg_color="transparent")
         self.main.grid(row=0, column=0, sticky="nsew")
 
-        # Configurar grid del main
-        self.main.grid_rowconfigure(0, weight=0)  # Header
-        self.main.grid_rowconfigure(1, weight=1)  # Contenido principal
-        self.main.grid_rowconfigure(2, weight=0)  # Teclado
-        self.main.grid_rowconfigure(3, weight=0)  # Botones de acción
+        self.main.grid_rowconfigure(0, weight=0)
+        self.main.grid_rowconfigure(1, weight=1)
+        self.main.grid_rowconfigure(2, weight=0)
+        self.main.grid_rowconfigure(3, weight=0)
         self.main.grid_columnconfigure(0, weight=1)
 
         self.build_header()
@@ -217,37 +210,33 @@ class GameScreen:
         self.header_frame.grid(row=0, column=0, sticky="ew")
         self.header_frame.grid_propagate(False)
 
-        # Configurar columnas del header - 3 columnas con peso igual para centrar
-        self.header_frame.grid_columnconfigure(0, weight=1)  # Izquierda (Menu + Timer)
-        self.header_frame.grid_columnconfigure(
-            1, weight=0
-        )  # Centro (Score) - sin peso, tamaño fijo
-        self.header_frame.grid_columnconfigure(2, weight=1)  # Derecha (Audio)
+        self.header_frame.grid_columnconfigure(0, weight=1)
+        self.header_frame.grid_columnconfigure(1, weight=0)
+        self.header_frame.grid_columnconfigure(2, weight=1)
         self.header_frame.grid_rowconfigure(0, weight=1)
 
-        # Left container (Menu + Timer)
         left_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        left_container.grid(row=0, column=0, sticky="w", padx=(12, 0))
+        left_container.grid(row=0, column=0, sticky="w", padx=(0, 0))
 
-        # Back button
+        self.load_header_icons()
+
         self.back_button = ctk.CTkButton(
             left_container,
-            text="← Menu",
-            font=self.header_label_font,
+            text="Menu",
+            image=self.back_arrow_icon,
+            compound="left",
+            anchor="w",
+            font=self.header_button_font,
             width=110,
             height=44,
             fg_color="transparent",
-            hover_color="#273246",
+            hover_color=self.COLORS["header_hover"],
             text_color="white",
             corner_radius=8,
             command=self.return_to_menu,
         )
         self.back_button.grid(row=0, column=0, padx=(0, 16))
 
-        # Cargar iconos
-        self.load_header_icons()
-
-        # Timer container
         timer_container = ctk.CTkFrame(left_container, fg_color="transparent")
         timer_container.grid(row=0, column=1, padx=(8, 0))
 
@@ -266,7 +255,6 @@ class GameScreen:
         )
         self.timer_label.grid(row=0, column=1)
 
-        # Score container (centro absoluto)
         score_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
         score_container.grid(row=0, column=1)
 
@@ -285,11 +273,9 @@ class GameScreen:
         )
         self.score_label.grid(row=0, column=1)
 
-        # Audio toggle container (derecha)
         audio_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
         audio_container.grid(row=0, column=2, sticky="e", padx=(0, 24))
 
-        # Cargar iconos de audio
         self.load_audio_icons()
 
         self.audio_toggle_btn = ctk.CTkButton(
@@ -307,7 +293,17 @@ class GameScreen:
         self.audio_toggle_btn.grid(row=0, column=0)
 
     def load_header_icons(self):
-        # Cargar icono de reloj
+
+        arrow_svg_path = os.path.join(self.images_dir, "arrow.svg")
+        try:
+            img = self.load_svg_image(arrow_svg_path, scale=self.SVG_RASTER_SCALE)
+            if img:
+                self.back_arrow_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(20, 20)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.back_arrow_icon = None
+
         clock_svg_path = os.path.join(self.images_dir, "clock.svg")
         try:
             img = self.load_svg_image(clock_svg_path, scale=self.SVG_RASTER_SCALE)
@@ -318,7 +314,6 @@ class GameScreen:
         except (FileNotFoundError, OSError, ValueError):
             self.clock_icon = None
 
-        # Cargar icono de estrella
         star_svg_path = os.path.join(self.images_dir, "star.svg")
         try:
             img = self.load_svg_image(star_svg_path, scale=self.SVG_RASTER_SCALE)
@@ -339,7 +334,7 @@ class GameScreen:
                 )
         except (FileNotFoundError, OSError, ValueError):
             self.audio_icon_on = None
-        self.audio_icon_off = None  # Usaremos emoji por ahora
+        self.audio_icon_off = None
 
     def load_info_icon(self):
         info_svg_path = os.path.join(self.images_dir, "info.svg")
@@ -353,7 +348,7 @@ class GameScreen:
             self.info_icon = None
 
     def build_question_container(self):
-        # Container principal para el contenido de la pregunta
+
         self.question_container = ctk.CTkFrame(
             self.main,
             fg_color=self.COLORS["bg_card"],
@@ -363,20 +358,17 @@ class GameScreen:
         )
         self.question_container.grid(row=1, column=0, sticky="nsew", padx=40, pady=20)
 
-        # Configurar grid interno - contenido a la izquierda, wildcards a la derecha
-        self.question_container.grid_columnconfigure(0, weight=1)  # Contenido principal
-        self.question_container.grid_columnconfigure(1, weight=0)  # Wildcards
+        self.question_container.grid_columnconfigure(0, weight=1)
+        self.question_container.grid_columnconfigure(1, weight=0)
         self.question_container.grid_rowconfigure(0, weight=1)
 
-        # Frame para contenido principal (imagen, definición, respuesta)
         content_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
         content_frame.grid(row=0, column=0, sticky="nsew")
         content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_rowconfigure(0, weight=0)  # Imagen
-        content_frame.grid_rowconfigure(1, weight=1)  # Definición
-        content_frame.grid_rowconfigure(2, weight=0)  # Cajas de respuesta
+        content_frame.grid_rowconfigure(0, weight=0)
+        content_frame.grid_rowconfigure(1, weight=1)
+        content_frame.grid_rowconfigure(2, weight=0)
 
-        # Frame para imagen
         image_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         image_frame.grid(row=0, column=0, pady=(20, 10))
 
@@ -390,20 +382,16 @@ class GameScreen:
         )
         self.image_label.grid(row=0, column=0)
 
-        # Frame para definición
         definition_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         definition_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=10)
         definition_frame.grid_columnconfigure(0, weight=1)
         definition_frame.grid_rowconfigure(0, weight=1)
 
-        # Cargar icono de info
         self.load_info_icon()
 
-        # Frame interno para centrar el icono + definición juntos
         definition_inner = ctk.CTkFrame(definition_frame, fg_color="transparent")
         definition_inner.grid(row=0, column=0, sticky="")
 
-        # Icono de info a la izquierda del texto
         self.info_icon_label = ctk.CTkLabel(
             definition_inner,
             text="",
@@ -422,31 +410,25 @@ class GameScreen:
         )
         self.definition_label.grid(row=0, column=1, sticky="w")
 
-        # Frame para cajas de respuesta
         self.answer_boxes_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 24))
 
-        # Frame para wildcards (lado derecho)
         self.build_wildcards_panel()
 
     def build_wildcards_panel(self):
-        """Build the wildcards panel on the right side of the question container."""
-        # Frame contenedor de wildcards
+
         self.wildcards_frame = ctk.CTkFrame(
             self.question_container,
             fg_color="transparent",
         )
         self.wildcards_frame.grid(row=0, column=1, sticky="ns", padx=(0, 24), pady=24)
 
-        # Configurar para centrar verticalmente los botones
         self.wildcards_frame.grid_rowconfigure(0, weight=1)
         self.wildcards_frame.grid_rowconfigure(4, weight=1)
 
-        # Tamaño de los botones circulares
         wildcard_size = 56
         wildcard_font_size = 18
 
-        # Wildcard X2 - Amarillo (#FFC553)
         self.wildcard_x2_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="X2",
@@ -463,7 +445,6 @@ class GameScreen:
         )
         self.wildcard_x2_btn.grid(row=1, column=0, pady=8)
 
-        # Wildcard Hint (A) - Turquesa (#00CFC5)
         self.wildcard_hint_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="A",
@@ -480,7 +461,6 @@ class GameScreen:
         )
         self.wildcard_hint_btn.grid(row=2, column=0, pady=8)
 
-        # Wildcard Freeze (Snowflake) - Azul (#005DFF)
         self.wildcard_freeze_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="❄",
@@ -496,18 +476,12 @@ class GameScreen:
         self.wildcard_freeze_btn.grid(row=3, column=0, pady=8)
 
     def on_wildcard_x2(self):
-        """Handle X2 wildcard - doubles points for current question."""
-        # No functionality yet
         print("X2 wildcard activated")
 
     def on_wildcard_hint(self):
-        """Handle Hint wildcard - reveals a letter."""
-        # No functionality yet
         print("Hint wildcard activated")
 
     def on_wildcard_freeze(self):
-        """Handle Freeze wildcard - freezes the timer."""
-        # No functionality yet
         print("Freeze wildcard activated")
 
     def build_keyboard(self):
@@ -524,7 +498,7 @@ class GameScreen:
             row_frame.grid(row=row_idx, column=0, pady=4)
 
             for col_idx, key in enumerate(row_keys):
-                # El botón de borrar es más ancho
+
                 if key == "⌫":
                     width = int(self.BASE_KEY_SIZE * 1.8)
                     fg_color = self.COLORS["danger_red"]
@@ -555,7 +529,6 @@ class GameScreen:
         self.action_buttons_frame = ctk.CTkFrame(self.main, fg_color="transparent")
         self.action_buttons_frame.grid(row=3, column=0, pady=(0, 24))
 
-        # Botón Skip
         self.skip_button = ctk.CTkButton(
             self.action_buttons_frame,
             text="Skip",
@@ -572,7 +545,6 @@ class GameScreen:
         )
         self.skip_button.grid(row=0, column=0, padx=16)
 
-        # Botón Check
         self.check_button = ctk.CTkButton(
             self.action_buttons_frame,
             text="Check",
@@ -588,12 +560,11 @@ class GameScreen:
         self.check_button.grid(row=0, column=1, padx=16)
 
     def create_answer_boxes(self, word_length):
-        # Limpiar cajas existentes
+
         for widget in self.answer_boxes_frame.winfo_children():
             widget.destroy()
         self.answer_box_labels.clear()
 
-        # Crear nuevas cajas
         for i in range(word_length):
             box = ctk.CTkLabel(
                 self.answer_boxes_frame,
@@ -609,39 +580,33 @@ class GameScreen:
             self.answer_box_labels.append(box)
 
     def load_random_question(self):
-        # Detener TTS anterior antes de cargar nueva pregunta
+
         self.tts.stop()
 
         if not self.questions:
             self.definition_label.configure(text="No questions available!")
             return
 
-        # Si no hay preguntas disponibles, reiniciar el pool
         if not self.available_questions:
             self.available_questions = list(self.questions)
 
-        # Seleccionar una pregunta aleatoria del pool disponible
         self.current_question = random.choice(self.available_questions)
-        # Removerla del pool para que no se repita
+
         self.available_questions.remove(self.current_question)
 
         self.current_answer = ""
         self.timer_seconds = 0
 
-        # Actualizar definición
         definition = self.current_question.get("definition", "No definition")
         self.definition_label.configure(text=definition)
 
-        # Crear cajas de respuesta basadas en la longitud del título
         title = self.current_question.get("title", "")
-        # Remover espacios para contar solo letras
+
         clean_title = title.replace(" ", "")
         self.create_answer_boxes(len(clean_title))
 
-        # Cargar imagen
         self.load_question_image()
 
-        # Leer definición en voz alta si el audio está habilitado
         if self.audio_enabled and definition and definition != "No definition":
             self.tts.speak(definition)
 
@@ -655,7 +620,7 @@ class GameScreen:
             return
 
         try:
-            # Resolver ruta de imagen
+
             if not os.path.isabs(image_path):
                 image_path = os.path.join(
                     os.path.dirname(os.path.dirname(__file__)), image_path
@@ -664,7 +629,6 @@ class GameScreen:
             if os.path.exists(image_path):
                 pil_image = Image.open(image_path).convert("RGBA")
 
-                # Calcular tamaño manteniendo proporción
                 width, height = pil_image.size
                 max_size = self.BASE_IMAGE_SIZE
                 scale = min(max_size / width, max_size / height)
@@ -697,15 +661,14 @@ class GameScreen:
         max_length = len(clean_title)
 
         if key == "⌫":
-            # Borrar último carácter
+
             if self.current_answer:
                 self.current_answer = self.current_answer[:-1]
         else:
-            # Agregar letra si hay espacio
+
             if len(self.current_answer) < max_length:
                 self.current_answer += key
 
-        # Actualizar cajas de respuesta
         self.update_answer_boxes()
 
     def update_answer_boxes(self):
@@ -725,7 +688,7 @@ class GameScreen:
         self.audio_enabled = not self.audio_enabled
         if self.audio_enabled:
             self.audio_toggle_btn.configure(text="🔊")
-            # Leer la definición actual si hay una pregunta
+
             if self.current_question:
                 definition = self.current_question.get("definition", "").strip()
                 if definition:
@@ -787,11 +750,9 @@ class GameScreen:
         width = max(self.parent.winfo_width(), 1)
         height = max(self.parent.winfo_height(), 1)
 
-        # Calcular factor de escala
         scale = min(width / self.BASE_DIMENSIONS[0], height / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
 
-        # Actualizar fuentes
         self.timer_font.configure(
             size=int(max(14, self.BASE_FONT_SIZES["timer"] * scale))
         )
@@ -810,20 +771,35 @@ class GameScreen:
         self.button_font.configure(
             size=int(max(12, self.BASE_FONT_SIZES["button"] * scale))
         )
+        self.header_button_font.configure(size=int(max(12, min(36, 22 * scale))))
         self.header_label_font.configure(
             size=int(max(10, self.BASE_FONT_SIZES["header_label"] * scale))
         )
 
-        # Actualizar header
-        header_height = int(max(48, 60 * scale))
+        def clamp_scaled(base, min_value, max_value):
+            return int(max(min_value, min(max_value, base * scale)))
+
+        pad_top = clamp_scaled(28, 12, 64)
+        pad_bottom = clamp_scaled(32, 14, 72)
+        pad_left = clamp_scaled(24, 10, 60)
+        pad_right = clamp_scaled(16, 8, 48)
+        back_width = clamp_scaled(110, 80, 220)
+        back_height = clamp_scaled(44, 32, 80)
+        back_corner = clamp_scaled(8, 6, 20)
+
+        header_height = max(
+            back_height + pad_top + pad_bottom, int(max(48, 60 * scale))
+        )
         self.header_frame.configure(height=header_height)
 
-        # Actualizar back button
-        back_width = int(max(70, 90 * scale))
-        back_height = int(max(28, 36 * scale))
-        self.back_button.configure(width=back_width, height=back_height)
+        if self.back_button:
+            self.back_button.grid_configure(
+                padx=(pad_left, pad_right), pady=(pad_top, pad_bottom)
+            )
+            self.back_button.configure(
+                width=back_width, height=back_height, corner_radius=back_corner
+            )
 
-        # Actualizar tamaño de imagen
         image_size = int(
             max(
                 self.IMAGE_MIN_SIZE,
@@ -832,15 +808,12 @@ class GameScreen:
         )
         self.image_label.configure(width=image_size, height=image_size)
 
-        # Actualizar current_image si existe
         if self.current_image and self.current_question:
             self.load_question_image()
 
-        # Actualizar wraplength de definición
         wrap_length = int(max(300, min(800, 600 * scale)))
         self.definition_label.configure(wraplength=wrap_length)
 
-        # Actualizar tamaño de cajas de respuesta
         box_size = int(
             max(
                 self.ANSWER_BOX_MIN_SIZE,
@@ -850,7 +823,6 @@ class GameScreen:
         for box in self.answer_box_labels:
             box.configure(width=box_size, height=box_size)
 
-        # Actualizar tamaño de teclas
         key_size = int(
             max(
                 self.KEY_MIN_SIZE,
@@ -864,13 +836,11 @@ class GameScreen:
             else:
                 btn.configure(width=key_size, height=key_size)
 
-        # Actualizar botones de acción
         button_width = int(max(100, 140 * scale))
         button_height = int(max(36, 48 * scale))
         self.skip_button.configure(width=button_width, height=button_height)
         self.check_button.configure(width=button_width, height=button_height)
 
-        # Actualizar padding del container
         container_padx = int(max(20, 40 * scale))
         container_pady = int(max(12, 20 * scale))
         self.question_container.grid_configure(padx=container_padx, pady=container_pady)

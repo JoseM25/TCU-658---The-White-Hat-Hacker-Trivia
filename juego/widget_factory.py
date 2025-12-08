@@ -103,7 +103,6 @@ class ModalLayoutBuilder:
         buttons_frame = self.factory.create_frame(container)
         buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
 
-        # Configure columns: spacer, button, gap, button, spacer
         for i in range(4):
             buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
 
@@ -160,7 +159,6 @@ class ScaledWidgetResizer:
             padx = base_padding.get("padx", 0)
             pady = base_padding.get("pady", 0)
 
-            # Handle tuple padding
             if isinstance(padx, tuple):
                 padx = tuple(s(p, scale) for p in padx)
             else:

@@ -41,7 +41,6 @@ class BaseModal:
         self.fonts = {}
         self.font_base_sizes = {}
 
-        # Initialize responsive helpers
         self.scaler = ResponsiveScaler(
             base_dimensions=self.BASE_DIMENSIONS,
             scale_limits=(0.5, 2.0),
@@ -93,10 +92,8 @@ class BaseModal:
         parent_height = root.winfo_height()
         base_w, base_h = self.BASE_DIMENSIONS
 
-        # Calculate raw scale
         scale = min(parent_width / base_w, parent_height / base_h)
 
-        # Apply boost for lower resolutions to ensure usability
         if base_sizes and parent_height <= 500:
             target_height = parent_height * 0.85
             target_scale = target_height / base_sizes["height"]
@@ -154,15 +151,12 @@ class BaseQuestionModal(BaseModal):
         self.title_var = tk.StringVar()
         self.title_var.trace("w", self.limit_title_length)
 
-        # Initialize fonts
         self.init_fonts(self.FONT_SPECS)
 
-        # Initialize widget factory and helpers
         self.widget_factory = ModalWidgetFactory(config, self.fonts, self.BASE_SIZES)
         self.layout_builder = ModalLayoutBuilder(self.widget_factory)
         self.resizer = ScaledWidgetResizer(self.scaler)
 
-        # Widget references for resizing
         self.header_frame = None
         self.header_title_label = None
         self.form_frame = None
@@ -218,7 +212,6 @@ class BaseQuestionModal(BaseModal):
         self.form_frame.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
         self.form_frame.grid_columnconfigure(0, weight=1)
 
-        # Concept field
         self.create_label(self.form_frame, "Concept").grid(
             row=0, column=0, sticky="w", pady=(0, 8)
         )
@@ -227,14 +220,12 @@ class BaseQuestionModal(BaseModal):
         )
         self.concept_entry.grid(row=1, column=0, sticky="ew", pady=(0, 16))
 
-        # Definition field
         self.create_label(self.form_frame, "Definition").grid(
             row=2, column=0, sticky="w", pady=(0, 8)
         )
         self.definition_textbox = self.create_entry(self.form_frame, "Enter definition")
         self.definition_textbox.grid(row=3, column=0, sticky="ew")
 
-        # Image field
         self.create_label(self.form_frame, "Illustration").grid(
             row=4, column=0, sticky="w", pady=(16, 8)
         )
@@ -289,7 +280,7 @@ class BaseQuestionModal(BaseModal):
     def create_buttons(self, container, on_save_callback, on_cancel_callback):
         self.buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
         self.buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
-        container.grid_rowconfigure(2, weight=0)  # Ensure buttons don't expand
+        container.grid_rowconfigure(2, weight=0)
         for i in range(4):
             self.buttons_frame.grid_columnconfigure(i, weight=1 if i in (0, 3) else 0)
 
@@ -481,16 +472,13 @@ class BaseQuestionModal(BaseModal):
         self.update_fonts(scale)
         s = self.scaler.scale_value
 
-        # Resize modal window
         width = s(self.BASE_SIZES["width"], scale)
         height = s(self.BASE_SIZES["height"], scale)
 
-        # Recalculate position to keep centered
         root = self.parent.winfo_toplevel()
         pos_x, pos_y = self.calculate_position(self.modal, root, width, height)
         self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
-        # Resize header
         if self.header_frame:
             min_height = self.BASE_SIZES.get(
                 "header_min_height", int(self.BASE_SIZES["header_height"] * 0.75)
@@ -510,14 +498,12 @@ class BaseQuestionModal(BaseModal):
             )
             self.header_title_label.grid_configure(pady=(pad_top, pad_bottom))
 
-        # Resize form fields container
         if self.form_frame:
             self.form_frame.grid_configure(
                 padx=s(self.BASE_SIZES["padding_x"], scale),
                 pady=(0, s(self.BASE_SIZES["padding_y"], scale)),
             )
 
-        # Resize buttons frame and buttons
         if self.buttons_frame:
             self.buttons_frame.grid_configure(pady=(0, s(28, scale)), padx=s(20, scale))
 
@@ -529,14 +515,12 @@ class BaseQuestionModal(BaseModal):
         if self.save_button:
             self.save_button.grid_configure(padx=(s(32, scale), 0))
 
-        # Resize entries
         for entry in [self.concept_entry, self.definition_textbox]:
             self.resizer.resize_entry(entry, scale, self.BASE_SIZES)
 
         if self.concept_entry:
             self.concept_entry.grid_configure(pady=(0, s(16, scale)))
 
-        # Resize image input frame
         if self.image_input_frame:
             self.image_input_frame.configure(
                 corner_radius=s(self.BASE_SIZES["corner_radius"], scale)
@@ -731,10 +715,8 @@ class DeleteConfirmationModal(BaseModal):
         super().__init__(parent, config)
         self.on_confirm_callback = on_confirm_callback
 
-        # Initialize fonts
         self.init_fonts(self.FONT_SPECS)
 
-        # Widget references
         self.header_frame = None
         self.header_title_label = None
         self.message_label = None
@@ -743,11 +725,6 @@ class DeleteConfirmationModal(BaseModal):
         self.confirm_button = None
 
     def get_responsive_scale(self, root, base_sizes=None):
-        """
-        Keep the delete modal responsive without letting the low-res boost blow up
-        the scale. We reuse the taller form modal height as the reference so the
-        computed scale stays close to what the add/edit dialogs use.
-        """
         reference_sizes = dict(self.BASE_SIZES)
         reference_sizes["height"] = max(
             reference_sizes["height"], BaseQuestionModal.BASE_SIZES["height"]
@@ -775,7 +752,6 @@ class DeleteConfirmationModal(BaseModal):
         container.grid_columnconfigure(0, weight=1)
         container.grid_rowconfigure(1, weight=1)
 
-        # Header
         self.header_frame = ctk.CTkFrame(
             container, fg_color=self.config.BG_MODAL_HEADER, corner_radius=0, height=72
         )
@@ -794,7 +770,6 @@ class DeleteConfirmationModal(BaseModal):
             row=0, column=0, sticky="nsew", padx=24, pady=(28, 12)
         )
 
-        # Message
         self.message_label = ctk.CTkLabel(
             container,
             text="Are you sure you want to delete this question? This action is irreversible.",
@@ -806,7 +781,6 @@ class DeleteConfirmationModal(BaseModal):
         )
         self.message_label.grid(row=1, column=0, sticky="nsew", pady=(0, 20), padx=20)
 
-        # Buttons
         self.buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
         self.buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 28), padx=20)
         for i in range(4):
@@ -853,8 +827,6 @@ class DeleteConfirmationModal(BaseModal):
 
         self.close()
 
-    # close() method inherited from BaseModal
-
     def resize(self, scale):
         if not self.modal or not self.modal.winfo_exists():
             return
@@ -862,16 +834,13 @@ class DeleteConfirmationModal(BaseModal):
         self.update_fonts(scale)
         s = self.scaler.scale_value
 
-        # Resize modal window
         width = s(self.BASE_SIZES["width"], scale)
         height = s(self.BASE_SIZES["height"], scale)
 
-        # Recalculate position to keep centered
         root = self.parent.winfo_toplevel()
         pos_x, pos_y = self.calculate_position(self.modal, root, width, height)
         self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
-        # Resize header
         if self.header_frame:
             min_height = self.BASE_SIZES.get(
                 "header_min_height", int(self.BASE_SIZES["header_height"] * 0.75)
@@ -889,18 +858,15 @@ class DeleteConfirmationModal(BaseModal):
             )
             self.header_title_label.grid_configure(pady=(pad_top, pad_bottom))
 
-        # Resize message
         if self.message_label:
             self.message_label.grid_configure(pady=(0, s(20, scale)), padx=s(20, scale))
             self.message_label.configure(
                 wraplength=max(width - s(120, scale), s(360, scale))
             )
 
-        # Resize buttons frame
         if self.buttons_frame:
             self.buttons_frame.grid_configure(pady=(0, s(28, scale)), padx=s(20, scale))
 
-        # Resize buttons
         btn_width = s(self.BASE_SIZES["button_width"], scale)
         btn_height = s(self.BASE_SIZES["button_height"], scale)
         btn_radius = s(self.BASE_SIZES["button_corner_radius"], scale)

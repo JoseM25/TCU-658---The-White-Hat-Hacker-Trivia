@@ -311,7 +311,6 @@ class QuestionScreenViewMixin:
         self.selected_question_button = None
         self.detail_visible = False
 
-        # UI Components (initialized in build_ui)
         self.search_entry = None
         self.list_container = None
         self.detail_container = None
@@ -320,7 +319,6 @@ class QuestionScreenViewMixin:
         self.detail_image_label = None
         self.definition_audio_button = None
 
-        # Layout references
         self.main_frame = None
         self.header_frame = None
         self.menu_button = None
@@ -350,10 +348,8 @@ class QuestionScreenViewMixin:
         self.current_window_width = self.BASE_DIMENSIONS[0]
         self.current_window_height = self.BASE_DIMENSIONS[1]
 
-        # Modal state
         self.current_modal = None
 
-        # Cache icons
         self.detail_image_placeholder = (
             self.image_handler.create_transparent_placeholder()
         )
@@ -378,14 +374,12 @@ class QuestionScreenViewMixin:
         self.current_scale = 1.0
         self._resize_job = None
 
-        # Clear parent and build UI
         for widget in self.parent.winfo_children():
             widget.destroy()
         self.build_ui()
 
         self.apply_responsive()
 
-        # Bind click event to remove focus from search when clicking elsewhere
         self.parent.bind("<Button-1>", self.handle_global_click, add="+")
         self.parent.bind("<Configure>", self.on_resize)
 
@@ -467,14 +461,12 @@ class QuestionScreenViewMixin:
         self.controls_frame.grid(row=0, column=0, sticky="ew")
         self.controls_frame.grid_columnconfigure(0, weight=1)
 
-        # Search bar
         self.search_wrapper = ctk.CTkFrame(
             self.controls_frame, fg_color=c["search_bg"], corner_radius=18
         )
         self.search_wrapper.grid(row=0, column=0, padx=(16, 12), pady=16, sticky="ew")
         self.search_wrapper.grid_columnconfigure(1, weight=1)
 
-        # Search icon
         icon_config = {
             "text": "",
             "image": self.search_icon,
@@ -489,7 +481,6 @@ class QuestionScreenViewMixin:
         self.search_icon_label = ctk.CTkLabel(self.search_wrapper, **icon_config)
         self.search_icon_label.grid(row=0, column=0, padx=(12, 4), sticky="w")
 
-        # Search entry
         self.search_entry = ctk.CTkEntry(
             self.search_wrapper,
             placeholder_text="Search...",
@@ -505,7 +496,6 @@ class QuestionScreenViewMixin:
         for event in ("<KeyRelease>", "<<Paste>>", "<<Cut>>"):
             self.search_entry.bind(event, lambda e: self.handle_search())
 
-        # Add button
         self.add_button = ctk.CTkButton(
             self.controls_frame,
             text="Add",
@@ -554,7 +544,6 @@ class QuestionScreenViewMixin:
         self.build_detail_header()
         self.build_detail_body()
 
-        # Hide initially
         self.detail_container.grid_remove()
         self.detail_visible = False
 
@@ -578,7 +567,6 @@ class QuestionScreenViewMixin:
         )
         self.detail_title_label.grid(row=0, column=0, sticky="w", padx=(12, 0))
 
-        # Action buttons
         self.detail_action_buttons = []
         for col, (text, fg, hover, cmd) in enumerate(
             [
@@ -619,7 +607,6 @@ class QuestionScreenViewMixin:
         self.detail_content_frame.grid_columnconfigure(0, weight=1)
         self.detail_content_frame.grid_rowconfigure(1, weight=1)
 
-        # Image label
         self.detail_image_label = ctk.CTkLabel(
             self.detail_content_frame,
             text="Image placeholder",
@@ -639,7 +626,6 @@ class QuestionScreenViewMixin:
         except tk.TclError:
             pass
 
-        # Definition row with audio button
         self.definition_row = ctk.CTkFrame(
             self.detail_content_frame, fg_color="transparent"
         )
@@ -684,7 +670,6 @@ class QuestionScreenViewMixin:
     def _create_list_frame_container(self, is_scrollable):
         c = self.COLORS
 
-        # Create outer frame for border and background
         outer_frame = ctk.CTkFrame(
             self.list_container,
             fg_color=c["bg_light"],
@@ -702,7 +687,6 @@ class QuestionScreenViewMixin:
         outer_frame.grid_columnconfigure(0, weight=1)
         outer_frame.grid_rowconfigure(0, weight=1)
 
-        # Create inner list frame (transparent)
         frame_config = {
             "fg_color": "transparent",
             "border_width": 0,
@@ -711,7 +695,6 @@ class QuestionScreenViewMixin:
         FrameClass = ctk.CTkScrollableFrame if is_scrollable else ctk.CTkFrame
         list_frame = FrameClass(outer_frame, **frame_config)
 
-        # Add padding to keep content/scrollbar away from the outer border
         inner_padding = 4
         list_frame.grid(
             row=0,
@@ -759,7 +742,6 @@ class QuestionScreenViewMixin:
             **button_config,
         )
 
-        # Configure command to properly capture references
         button.configure(
             command=lambda q=question, b=button: self.on_question_selected(q, b)
         )
@@ -769,7 +751,6 @@ class QuestionScreenViewMixin:
         if not self.list_container or not self.list_container.winfo_exists():
             return
 
-        # Clear existing widgets
         for child in self.list_container.winfo_children():
             child.destroy()
 
@@ -777,7 +758,6 @@ class QuestionScreenViewMixin:
         questions = self.filtered_questions
         search_query = self.search_entry.get() if self.search_entry else ""
 
-        # Check if selected question is visible
         selected_visible = (
             any(q is self.current_question for q in questions)
             if self.current_question
@@ -786,18 +766,15 @@ class QuestionScreenViewMixin:
         if not selected_visible and self.current_question:
             self.clear_detail_panel()
 
-        # Create container frames
         is_scrollable = len(questions) > s.get(
             "max_questions", self.SIZES["max_questions"]
         )
         list_frame = self._create_list_frame_container(is_scrollable)
 
-        # Show empty state if no questions
         if not questions:
             self._show_empty_list_state(list_frame, search_query.strip())
             return
 
-        # Prepare button configuration
         button_config = {
             "height": s.get("question_btn_height", self.SIZES["question_btn_height"]),
             "corner_radius": s.get(
@@ -807,19 +784,16 @@ class QuestionScreenViewMixin:
         button_margin = s.get("question_margin", self.SIZES["question_margin"])
         button_padding = s.get("question_padding", self.SIZES["question_padding"])
 
-        # Render question buttons
         self.selected_question_button = None
         first_button = None
 
         for index, question in enumerate(questions, start=0):
             is_selected = selected_visible and question is self.current_question
 
-            # Create button
             button = self._create_question_button(
                 list_frame, question, is_selected, button_config
             )
 
-            # Adjust padding for scrollbar if needed
             btn_padx = button_margin
             if is_scrollable:
                 offset = s.get("scrollbar_offset", 22)
@@ -839,12 +813,10 @@ class QuestionScreenViewMixin:
             if is_selected:
                 self.selected_question_button = button
 
-        # Auto-select first question if none selected
         if not self.current_question and first_button:
             self.on_question_selected(questions[0], first_button)
             return
 
-        # Show detail panel for current selection
         if (
             self.current_question
             and self.selected_question_button
@@ -863,14 +835,11 @@ class QuestionScreenViewMixin:
         if not self.search_entry or not self.search_entry.winfo_exists():
             return
 
-        # Check if the click was outside the search entry
         widget = event.widget
 
-        # Check if clicked widget is the search entry or any parent widget chain
         current_widget = widget
         is_search_entry = False
 
-        # Walk up the widget hierarchy to check if search_entry is an ancestor
         while current_widget:
             if current_widget == self.search_entry:
                 is_search_entry = True
@@ -880,20 +849,17 @@ class QuestionScreenViewMixin:
             except (AttributeError, tk.TclError):
                 break
 
-        # If not clicked on search entry or its children, remove focus
         if not is_search_entry:
             self.parent.focus_set()
 
     def on_question_selected(self, question, button):
         self.tts.stop()
 
-        # Show detail panel if hidden
         if not self.detail_visible:
             self.detail_container.grid()
             self.detail_visible = True
 
         c = self.COLORS
-        # Update button selection
         if (
             self.selected_question_button
             and self.selected_question_button is not button
@@ -915,7 +881,6 @@ class QuestionScreenViewMixin:
         )
         self.selected_question_button = button
 
-        # Update detail content
         self.current_question = question
         title = question.get("title", "")
         definition = (
@@ -939,10 +904,8 @@ class QuestionScreenViewMixin:
             except tk.TclError:
                 self.apply_title_wraplength()
 
-        # Update image
         self.update_detail_image(image_path)
 
-        # Enable/disable audio button
         self.definition_audio_button.configure(
             state="normal" if question.get("definition", "").strip() else "disabled"
         )
@@ -962,7 +925,6 @@ class QuestionScreenViewMixin:
 
         self.current_detail_image = None
 
-        # Reset widgets
         if self.detail_title_label and self.detail_title_label.winfo_exists():
             self.detail_title_label.configure(text="")
         if (
@@ -1114,7 +1076,6 @@ class QuestionScreenViewMixin:
     def update_size_state(self, scale, window_width):
         self.size_state = self.size_calc.calculate_sizes(scale, window_width)
 
-        # Update grid column sizes if main frame exists
         if self.main_frame and self.main_frame.winfo_exists():
             self.main_frame.grid_columnconfigure(
                 0, minsize=self.size_state["sidebar_minsize"]
@@ -1379,7 +1340,6 @@ class QuestionScreenViewMixin:
                 self.apply_title_wraplength()
 
         if self.detail_title_label and self.detail_title_label.winfo_exists():
-            # Set fixed height for title to prevent bouncing (approx 2 lines)
             base_size = self.font_base_sizes.get("detail_title", 38)
             min_size = self.font_min_sizes.get("detail_title", 12)
             max_size = base_size * 2.2
@@ -1393,20 +1353,18 @@ class QuestionScreenViewMixin:
         if not self.definition_audio_button or not self.detail_definition_textbox:
             return
 
-        # Use layout calculator to determine if we should stack
         should_stack = self.layout_calc.should_stack_layout(
             container_width, scale, self.DEFINITION_STACK_BREAKPOINT
         )
         target_inline = not should_stack
 
         if target_inline == self.definition_layout_inline:
-            return  # No change needed
+            return
 
         self.definition_layout_inline = target_inline
         stack_gap = self.scale_value(10, scale, 6, 22)
 
         if should_stack:
-            # Vertical stack layout
             self.definition_row.grid_columnconfigure(0, weight=1)
             self.definition_row.grid_columnconfigure(1, weight=0)
             self.definition_audio_button.grid_configure(
@@ -1421,7 +1379,6 @@ class QuestionScreenViewMixin:
                 row=1, column=0, columnspan=2, sticky="nsew"
             )
         else:
-            # Horizontal inline layout
             self.definition_row.grid_columnconfigure(0, weight=0)
             self.definition_row.grid_columnconfigure(1, weight=1)
             self.definition_audio_button.grid_configure(
@@ -1445,13 +1402,11 @@ class QuestionScreenViewMixin:
         self.current_window_width = width
         self.current_window_height = height
 
-        # Calculate scale using helper
         scale = self.scaler.calculate_scale(
             width, height, low_res_profile=self.LOW_RES_SCALE_PROFILE
         )
         self.current_scale = scale
 
-        # Update all sizes and layouts
         self.update_size_state(scale, width)
         self.update_fonts(scale)
         self.refresh_icons(scale)
@@ -1459,7 +1414,6 @@ class QuestionScreenViewMixin:
         self.update_sidebar_layout(scale)
         self.update_detail_layout(scale)
 
-        # Check if question list needs re-rendering
         metrics_snapshot = (
             self.size_state.get("question_btn_height"),
             self.size_state.get("question_margin"),
@@ -1539,7 +1493,6 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
     LOW_RES_SCALE_PROFILE = SCREEN_LOW_RES_SCALE_PROFILE
     FONT_SPECS = SCREEN_FONT_SPECS
 
-    # File and directory paths
     BASE_DIR = Path(__file__).resolve().parent.parent
     QUESTIONS_FILE = BASE_DIR / "datos" / "preguntas.json"
     IMAGES_DIR = BASE_DIR / "recursos" / "imagenes"
@@ -1549,20 +1502,17 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.parent = parent
         self.on_return_callback = on_return_callback
 
-        # Initialize font registry
         self.font_registry = ScreenFontRegistry(self.FONT_SPECS)
         self.font_registry.attach_attributes(self)
         self.font_base_sizes = dict(self.font_registry.base_sizes)
         self.font_min_sizes = dict(self.font_registry.min_sizes)
 
-        # Initialize responsive helpers
         self.scaler = ResponsiveScaler(
             base_dimensions=self.BASE_DIMENSIONS,
             scale_limits=self.SCALE_LIMITS,
             global_scale_factor=self.GLOBAL_SCALE_FACTOR,
         )
 
-        # Prepare profiles for calculators
         profiles = {
             "sidebar_width": self.SIDEBAR_WIDTH_PROFILE,
             "definition_padding": self.DEFINITION_PADDING_PROFILE,
@@ -1572,16 +1522,13 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.size_calc = SizeStateCalculator(self.scaler, self.SIZES, profiles)
         self.layout_calc = LayoutCalculator(self.scaler, profiles)
 
-        # Initialize services
         self.tts = tts_service or TTSService(self.AUDIO_DIR)
         self.image_handler = ImageHandler(self.IMAGES_DIR)
         self.repository = QuestionRepository(self.QUESTIONS_FILE)
 
-        # Question management state
         self.refresh_question_cache()
         self.filtered_questions = list(self.questions)
 
-        # UI State
         self.current_modal = None
         self.current_question = (
             self.filtered_questions[0] if self.filtered_questions else None
@@ -1678,16 +1625,14 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
                 "Duplicate Question",
                 "A question with this title already exists. Please use a different title.",
             )
-            return False  # Return False to prevent modal from closing
+            return False
 
-        # Copy image to project
         relative_image_path = self.image_handler.copy_image_to_project(
             source_image_path
         )
         if not relative_image_path:
-            return False  # Error already shown, prevent modal from closing
+            return False
 
-        # Add question and update UI
         try:
             new_question = self.repository.add_question(
                 title, definition, relative_image_path.as_posix()
@@ -1701,12 +1646,10 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.current_question = new_question
         self.clear_search()
         self.render_question_list()
-        # After render_question_list, selected_question_button is updated
-        # Only call on_question_selected if button was found and set during render
         if self.selected_question_button:
             self.on_question_selected(new_question, self.selected_question_button)
 
-        return True  # Success - allow modal to close
+        return True
 
     def on_edit_clicked(self):
         if not self.current_question:
@@ -1731,17 +1674,15 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
                 "Duplicate Question",
                 "A question with this title already exists. Please use a different title.",
             )
-            return False  # Return False to prevent modal from closing
+            return False
 
-        # Handle image path
         stored_image_path = image_path
         if hasattr(image_path, "as_posix"):
             relative_image_path = self.image_handler.copy_image_to_project(image_path)
             if not relative_image_path:
-                return False  # Error already shown, prevent modal from closing
+                return False
             stored_image_path = relative_image_path.as_posix()
 
-        # Update question and UI
         try:
             updated_question = self.repository.update_question(
                 self.current_question, title, definition, stored_image_path
@@ -1753,12 +1694,10 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.refresh_question_cache()
         self.current_question = updated_question
         self.handle_search()
-        # After handle_search, selected_question_button is updated during render
-        # Only call on_question_selected if button was found and set during render
         if self.selected_question_button:
             self.on_question_selected(updated_question, self.selected_question_button)
 
-        return True  # Success - allow modal to close
+        return True
 
     def on_delete_clicked(self):
         if not self.current_question:
