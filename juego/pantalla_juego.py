@@ -24,6 +24,7 @@ class GameScreen:
     RESIZE_DELAY = 80
     SVG_RASTER_SCALE = 2.0
     AUDIO_ICON_SIZE = 28
+    DELETE_ICON_BASE_SIZE = 26
 
     BASE_IMAGE_SIZE = 180
     IMAGE_MIN_SIZE = 100
@@ -97,6 +98,7 @@ class GameScreen:
         self.answer_box_labels = []
         self.keyboard_frame = None
         self.keyboard_buttons = []
+        self.delete_button = None
         self.action_buttons_frame = None
         self.skip_button = None
         self.check_button = None
@@ -105,6 +107,7 @@ class GameScreen:
         self.audio_icon_off = None
         self.clock_icon = None
         self.star_icon = None
+        self.delete_icon = None
         self.timer_icon_label = None
         self.star_icon_label = None
         self.wildcards_frame = None
@@ -375,6 +378,31 @@ class GameScreen:
         except (FileNotFoundError, OSError, ValueError):
             self.info_icon = None
 
+    def load_delete_icon(self):
+        delete_svg_path = os.path.join(self.images_dir, "delete.svg")
+        try:
+            img = self.load_svg_image(delete_svg_path, scale=self.SVG_RASTER_SCALE)
+            if img:
+                icon_size = self.calculate_delete_icon_size(self.BASE_KEY_SIZE)
+                self.delete_icon = ctk.CTkImage(
+                    light_image=img,
+                    dark_image=img,
+                    size=(icon_size, icon_size),
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.delete_icon = None
+
+    def calculate_delete_icon_size(self, key_size):
+        scale_factor = self.DELETE_ICON_BASE_SIZE / self.BASE_KEY_SIZE
+        target_size = key_size * scale_factor
+        return int(max(16, min(40, target_size)))
+
+    def update_delete_icon_size(self, key_size):
+        if not self.delete_icon:
+            return
+        icon_size = self.calculate_delete_icon_size(key_size)
+        self.delete_icon.configure(size=(icon_size, icon_size))
+
     def build_question_container(self):
 
         self.question_container = ctk.CTkFrame(
@@ -520,6 +548,8 @@ class GameScreen:
         self.keyboard_frame.grid(row=2, column=0, pady=(0, 16))
 
         self.keyboard_buttons.clear()
+        self.delete_button = None
+        self.load_delete_icon()
 
         for row_idx, row_keys in enumerate(self.KEYBOARD_LAYOUT):
             row_frame = ctk.CTkFrame(self.keyboard_frame, fg_color="transparent")
@@ -532,15 +562,20 @@ class GameScreen:
                     fg_color = self.COLORS["danger_red"]
                     hover_color = self.COLORS["danger_hover"]
                     text_color = "white"
+                    btn_image = self.delete_icon
+                    btn_text = "" if btn_image else key
                 else:
                     width = self.BASE_KEY_SIZE
                     fg_color = self.COLORS["key_bg"]
                     hover_color = self.COLORS["key_hover"]
                     text_color = self.COLORS["text_dark"]
+                    btn_image = None
+                    btn_text = key
 
                 btn = ctk.CTkButton(
                     row_frame,
-                    text=key,
+                    text=btn_text,
+                    image=btn_image,
                     font=self.keyboard_font,
                     width=width,
                     height=self.BASE_KEY_SIZE,
@@ -552,6 +587,8 @@ class GameScreen:
                 )
                 btn.grid(row=0, column=col_idx, padx=3)
                 self.keyboard_buttons.append(btn)
+                if key == "⌫":
+                    self.delete_button = btn
 
     def build_action_buttons(self):
         self.action_buttons_frame = ctk.CTkFrame(self.main, fg_color="transparent")
@@ -856,9 +893,10 @@ class GameScreen:
             )
         )
         for btn in self.keyboard_buttons:
-            current_text = btn.cget("text")
-            if current_text == "⌫":
+            is_delete_key = btn is self.delete_button
+            if is_delete_key:
                 btn.configure(width=int(key_size * 1.8), height=key_size)
+                self.update_delete_icon_size(key_size)
             else:
                 btn.configure(width=key_size, height=key_size)
 
