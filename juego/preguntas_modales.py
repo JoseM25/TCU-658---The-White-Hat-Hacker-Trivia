@@ -583,8 +583,12 @@ class QuestionFormModal(BaseQuestionModal):
         self.question = question or self.question
         after_setup = None
         if self.question:
-            after_setup = lambda: self.populate_form(self.question)
+            after_setup = self.populate_current_question
         self.open_modal(self.mode.title, self.handle_save, after_setup=after_setup)
+
+    def populate_current_question(self):
+        if self.question:
+            self.populate_form(self.question)
 
     def populate_form(self, current_question):
         current_title = (current_question.get("title") or "").strip()
@@ -786,7 +790,9 @@ class DeleteConfirmationModal(BaseModal):
             text_color=self.config.TEXT_WHITE,
             anchor="center",
         )
-        self.header_title_label.grid(row=0, column=0, sticky="nsew", padx=24, pady=(28, 12))
+        self.header_title_label.grid(
+            row=0, column=0, sticky="nsew", padx=24, pady=(28, 12)
+        )
 
         # Message
         self.message_label = ctk.CTkLabel(
