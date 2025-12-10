@@ -589,7 +589,8 @@ class GameScreen:
             self.main,
             fg_color="transparent",
         )
-        self.keyboard_frame.grid(row=2, column=0, pady=(0, 16))
+        self.keyboard_frame.grid(row=2, column=0, pady=(0, 16), padx=256, sticky="ew")
+        self.keyboard_frame.grid_columnconfigure(0, weight=1)
 
         self.keyboard_buttons.clear()
         self.delete_button = None
@@ -597,7 +598,12 @@ class GameScreen:
 
         for row_idx, row_keys in enumerate(self.KEYBOARD_LAYOUT):
             row_frame = ctk.CTkFrame(self.keyboard_frame, fg_color="transparent")
-            row_frame.grid(row=row_idx, column=0, pady=4)
+            row_frame.grid(row=row_idx, column=0, pady=4, sticky="ew")
+            row_frame.grid_columnconfigure(0, weight=1)
+            row_frame.grid_columnconfigure(2, weight=1)
+
+            inner_frame = ctk.CTkFrame(row_frame, fg_color="transparent")
+            inner_frame.grid(row=0, column=1)
 
             for col_idx, key in enumerate(row_keys):
 
@@ -617,7 +623,7 @@ class GameScreen:
                     btn_text = key
 
                 btn = ctk.CTkButton(
-                    row_frame,
+                    inner_frame,
                     text=btn_text,
                     image=btn_image,
                     font=self.keyboard_font,
@@ -626,10 +632,12 @@ class GameScreen:
                     fg_color=fg_color,
                     hover_color=hover_color,
                     text_color=text_color,
+                    border_width=2,
+                    border_color=self.COLORS["header_bg"],
                     corner_radius=8,
                     command=lambda k=key: self.on_key_press(k),
                 )
-                btn.grid(row=0, column=col_idx, padx=3)
+                btn.grid(row=0, column=col_idx, padx=12)
                 self.keyboard_buttons.append(btn)
                 if key == "⌫":
                     self.delete_button = btn
@@ -955,6 +963,9 @@ class GameScreen:
         container_padx = int(max(20, 40 * scale))
         container_pady = int(max(12, 20 * scale))
         self.question_container.grid_configure(padx=container_padx, pady=container_pady)
+
+        keyboard_padx = int(max(128, 256 * scale))
+        self.keyboard_frame.grid_configure(padx=keyboard_padx)
 
         self.resize_job = None
 
