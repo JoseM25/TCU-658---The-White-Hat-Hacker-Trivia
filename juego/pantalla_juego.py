@@ -7,6 +7,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.logica import ScoringSystem
 from juego.tts_service import TTSService
 
 
@@ -298,6 +299,13 @@ class GameScreen:
         self.game_completed = False
         self.completion_modal = None
 
+        # Scoring system (initialized after questions are loaded)
+        self.scoring_system = None
+
+        # Per-question tracking for scoring
+        self.question_timer = 0  # Seconds spent on current question
+        self.question_mistakes = 0  # Wrong attempts on current question
+
         self.resize_job = None
         self.main = None
         self.header_frame = None
@@ -402,10 +410,13 @@ class GameScreen:
                 self.questions = data.get("questions", [])
                 # Initialize available questions pool (copy of all questions)
                 self.available_questions = list(self.questions)
+                # Initialize the scoring system with the total number of questions
+                self.scoring_system = ScoringSystem(len(self.questions))
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Error loading questions: {e}")
             self.questions = []
             self.available_questions = []
+            self.scoring_system = ScoringSystem(1)  # Fallback
 
     def build_ui(self):
 
@@ -948,7 +959,10 @@ class GameScreen:
         self.available_questions.remove(self.current_question)
 
         self.current_answer = ""
-        self.timer_seconds = 0
+
+        # Reset per-question tracking for scoring
+        self.question_timer = 0
+        self.question_mistakes = 0
 
         definition = self.current_question.get("definition", "No definition")
         self.definition_label.configure(text=definition)
@@ -1049,8 +1063,16 @@ class GameScreen:
             self.tts.stop()
 
     def on_skip(self):
-        print("Skip pressed")
-        self.questions_answered += 1
+        if not self.current_question:
+            return
+
+        # Process skip through scoring system (0 points)
+        if self.scoring_system:
+            self.scoring_system.process_skip()
+            self.questions_answered = self.scoring_system.questions_answered
+        else:
+            self.questions_answered += 1
+
         self.load_random_question()
 
     def _handle_game_completion(self):
@@ -1083,15 +1105,27 @@ class GameScreen:
         user_answer = self.current_answer.upper()
 
         if user_answer == clean_title:
-            print("Correct!")
+            # Correct answer - calculate score
             self.show_feedback(correct=True)
-            self.score += 100
-            self.questions_answered += 1
+
+            if self.scoring_system:
+                self.scoring_system.process_correct_answer(
+                    time_seconds=self.question_timer,
+                    mistakes=self.question_mistakes,
+                )
+                self.score = self.scoring_system.total_score
+                self.questions_answered = self.scoring_system.questions_answered
+            else:
+                # Fallback if scoring system not initialized
+                self.score += 100
+                self.questions_answered += 1
+
             self.score_label.configure(text=str(self.score))
             # Delay loading next question to show feedback
             self.parent.after(800, self.load_random_question)
         else:
-            print(f"Incorrect! Expected: {clean_title}, Got: {user_answer}")
+            # Wrong answer - increment mistake counter
+            self.question_mistakes += 1
             self.show_feedback(correct=False)
 
     def show_feedback(self, correct=True):
@@ -1173,6 +1207,10 @@ class GameScreen:
         if not self.timer_running:
             return
 
+        # Track per-question time for scoring
+        self.question_timer += 1
+
+        # Also update total session timer for display
         self.timer_seconds += 1
         minutes = self.timer_seconds // 60
         seconds = self.timer_seconds % 60
