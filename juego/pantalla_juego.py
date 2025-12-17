@@ -216,6 +216,175 @@ class GameCompletionModal:
             pass
 
 
+class QuestionSummaryModal:
+
+    COLORS = {
+        "bg_light": "#F5F7FA",
+        "header_bg": "#202632",
+        "text_white": "#FFFFFF",
+        "text_dark": "#3A3F4B",
+        "text_medium": "#7A7A7A",
+        "primary_blue": "#005DFF",
+        "primary_hover": "#003BB8",
+        "success_green": "#00CFC5",
+    }
+
+    def __init__(
+        self,
+        parent,
+        correct_word,
+        time_taken,
+        points_awarded,
+        total_score,
+        on_next_callback,
+    ):
+        self.parent = parent
+        self.correct_word = correct_word
+        self.time_taken = time_taken
+        self.points_awarded = points_awarded
+        self.total_score = total_score
+        self.on_next_callback = on_next_callback
+        self.modal = None
+
+    def show(self):
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            width = int(root.winfo_width() * 0.38)
+            height = int(root.winfo_height() * 0.38)
+        else:
+            width, height = 450, 280
+
+        scale = min(width / 450, height / 340) * 0.75
+
+        title_size = max(int(26 * scale), 16)
+        label_size = max(int(15 * scale), 11)
+        value_size = max(int(15 * scale), 11)
+        button_size = max(int(16 * scale), 12)
+        header_h = max(int(66 * scale), 44)
+        btn_w = max(int(150 * scale), 100)
+        btn_h = max(int(44 * scale), 32)
+        btn_r = int(12 * scale)
+        pad = int(20 * scale)
+        row_pad = int(6 * scale)
+
+        title_font = ctk.CTkFont(
+            family="Poppins ExtraBold", size=title_size, weight="bold"
+        )
+        label_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=label_size, weight="bold"
+        )
+        value_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=value_size, weight="bold"
+        )
+        button_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=button_size, weight="bold"
+        )
+
+        self.modal = ctk.CTkToplevel(root if root else self.parent)
+        self.modal.title("Summary")
+        if root:
+            self.modal.transient(root)
+        self._safe_try(self.modal.grab_set)
+        self.modal.resizable(False, False)
+        self.modal.configure(fg_color=self.COLORS["bg_light"])
+        self.modal.grid_rowconfigure(0, weight=0)
+        self.modal.grid_rowconfigure(1, weight=1)
+        self.modal.grid_columnconfigure(0, weight=1)
+
+        header = ctk.CTkFrame(
+            self.modal,
+            fg_color=self.COLORS["header_bg"],
+            corner_radius=0,
+            border_width=0,
+            height=header_h,
+        )
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_propagate(False)
+        header.grid_columnconfigure(0, weight=1)
+        header.grid_rowconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text="Summary",
+            font=title_font,
+            text_color=self.COLORS["text_white"],
+            anchor="center",
+        ).grid(row=0, column=0, sticky="nsew", padx=pad)
+
+        content = ctk.CTkFrame(self.modal, fg_color="transparent")
+        content.grid(row=1, column=0, sticky="")
+        content.grid_columnconfigure(0, weight=1)
+
+        rows = [
+            ("Correct Word:", self.correct_word, self.COLORS["primary_blue"]),
+            ("Time Taken:", f"{self.time_taken}s", self.COLORS["primary_blue"]),
+            ("Points Awarded:", str(self.points_awarded), self.COLORS["primary_blue"]),
+            ("Total Score:", str(self.total_score), self.COLORS["primary_blue"]),
+        ]
+
+        for i, (label_text, value_text, value_color) in enumerate(rows):
+            ctk.CTkLabel(
+                content,
+                text=label_text,
+                font=label_font,
+                text_color=self.COLORS["text_dark"],
+                anchor="center",
+            ).grid(row=i * 2, column=0, pady=(row_pad, 0))
+
+            ctk.CTkLabel(
+                content,
+                text=value_text,
+                font=value_font,
+                text_color=value_color,
+                anchor="center",
+            ).grid(row=i * 2 + 1, column=0, pady=(0, row_pad))
+
+        ctk.CTkButton(
+            content,
+            text="Next Question",
+            font=button_font,
+            fg_color=self.COLORS["primary_blue"],
+            hover_color=self.COLORS["primary_hover"],
+            text_color=self.COLORS["text_white"],
+            command=self._handle_next,
+            width=btn_w,
+            height=btn_h,
+            corner_radius=btn_r,
+        ).grid(row=8, column=0, pady=(pad, 0))
+
+        screen_w = self.modal.winfo_screenwidth()
+        screen_h = self.modal.winfo_screenheight()
+        pos_x = (screen_w - width) // 2
+        pos_y = (screen_h - height) // 2
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+        self.modal.protocol("WM_DELETE_WINDOW", self._handle_next)
+        self.modal.bind("<Escape>", lambda e: self._handle_next())
+        self.modal.bind("<Return>", lambda e: self._handle_next())
+
+    def _handle_next(self):
+        self.close()
+        if self.on_next_callback:
+            self.on_next_callback()
+
+    def close(self):
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(self.modal.grab_release)
+            self._safe_try(self.modal.destroy)
+        self.modal = None
+
+    def _safe_try(self, func):
+        try:
+            func()
+        except tk.TclError:
+            pass
+
+
 class SkipConfirmationModal:
 
     COLORS = {
@@ -499,6 +668,7 @@ class GameScreen:
         self.feedback_label = None
         self.feedback_animation_job = None
         self.skip_modal = None
+        self.summary_modal = None
 
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
@@ -1285,62 +1455,36 @@ class GameScreen:
         user_answer = self.current_answer.upper()
 
         if user_answer == clean_title:
-            # Correct answer - calculate score
             self.show_feedback(correct=True)
 
+            points_earned = 0
             if self.scoring_system:
                 result = self.scoring_system.process_correct_answer(
                     time_seconds=self.question_timer,
                     mistakes=self.question_mistakes,
                 )
+                points_earned = result.points_earned
                 self.score = self.scoring_system.total_score
                 self.questions_answered = self.scoring_system.questions_answered
-
-                # Log scoring details
-                effective_time = self.scoring_system.get_effective_time(
-                    self.question_timer
-                )
-                time_mult = self.scoring_system.calculate_time_multiplier(
-                    effective_time
-                )
-                raw_points = self.scoring_system.calculate_raw_points(effective_time)
-                penalty = (
-                    self.question_mistakes * self.scoring_system.penalty_per_mistake
-                )
-
-                print("\n" + "=" * 50)
-                print(f"✓ RESPUESTA CORRECTA: {title}")
-                print("=" * 50)
-                print(f"  Tiempo total: {self.question_timer}s")
-                print(f"  Tiempo efectivo (sin gracia): {effective_time}s")
-                print(f"  Multiplicador de tiempo: {time_mult:.2f}x")
-                print(f"  Puntos base: {self.scoring_system.base_points}")
-                print(f"  Puntos brutos: {raw_points}")
-                print(f"  Errores: {self.question_mistakes}")
-                print(f"  Penalización: -{penalty}")
-                print(f"  PUNTOS GANADOS: {result.points_earned}")
-                print(f"  Puntaje total: {self.score}")
-                print("=" * 50 + "\n")
             else:
-                # Fallback if scoring system not initialized
+                points_earned = 100
                 self.score += 100
                 self.questions_answered += 1
 
             self.score_label.configure(text=str(self.score))
-            # Delay loading next question to show feedback
-            self.parent.after(800, self.load_random_question)
+
+            self.summary_modal = QuestionSummaryModal(
+                parent=self.parent,
+                correct_word=title,
+                time_taken=self.question_timer,
+                points_awarded=points_earned,
+                total_score=self.score,
+                on_next_callback=self.load_random_question,
+            )
+            self.parent.after(600, self.summary_modal.show)
         else:
-            # Wrong answer - increment mistake counter
             self.question_mistakes += 1
             self.show_feedback(correct=False)
-
-            # Log wrong answer
-            penalty = (
-                self.scoring_system.penalty_per_mistake if self.scoring_system else 0
-            )
-            print(
-                f"✗ Intento incorrecto #{self.question_mistakes} - Penalización acumulada: -{self.question_mistakes * penalty}"
-            )
 
     def show_feedback(self, correct=True):
         # Cancel any ongoing animation
@@ -1573,4 +1717,10 @@ class GameScreen:
         if self.completion_modal:
             self.completion_modal.close()
             self.completion_modal = None
+        if self.summary_modal:
+            self.summary_modal.close()
+            self.summary_modal = None
+        if self.skip_modal:
+            self.skip_modal.close()
+            self.skip_modal = None
         self.parent.unbind("<Configure>")
