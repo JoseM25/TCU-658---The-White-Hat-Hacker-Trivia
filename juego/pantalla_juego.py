@@ -216,6 +216,163 @@ class GameCompletionModal:
             pass
 
 
+class SkipConfirmationModal:
+
+    COLORS = {
+        "bg_light": "#F5F7FA",
+        "header_bg": "#202632",
+        "text_white": "#FFFFFF",
+        "text_dark": "#3A3F4B",
+        "cancel_bg": "#D0D6E0",
+        "cancel_hover": "#B8C0D0",
+        "skip_bg": "#FF4F60",
+        "skip_hover": "#CC3F4D",
+    }
+
+    def __init__(self, parent, on_skip_callback):
+        self.parent = parent
+        self.on_skip_callback = on_skip_callback
+        self.modal = None
+
+    def show(self):
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+
+        # Calculate size first
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            width = int(root.winfo_width() * 0.35)
+            height = int(root.winfo_height() * 0.35)
+        else:
+            width, height = 400, 200
+
+        # Scale factor based on modal size (base: 400x200), reduced by 0.6
+        scale = min(width / 400, height / 200) * 0.6
+
+        # Scale all sizes
+        title_size = max(int(24 * scale), 16)
+        body_size = max(int(16 * scale), 12)
+        button_size = max(int(16 * scale), 12)
+        header_h = max(int(72 * scale), 48)
+        btn_w = max(int(120 * scale), 80)
+        btn_h = max(int(44 * scale), 32)
+        btn_r = int(12 * scale)
+        pad = int(24 * scale)
+
+        title_font = ctk.CTkFont(
+            family="Poppins ExtraBold", size=title_size, weight="bold"
+        )
+        body_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=body_size, weight="bold"
+        )
+        button_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=button_size, weight="bold"
+        )
+
+        self.modal = ctk.CTkToplevel(root if root else self.parent)
+        self.modal.title("Skip Question")
+        if root:
+            self.modal.transient(root)
+        self._safe_try(self.modal.grab_set)
+        self.modal.resizable(False, False)
+        self.modal.configure(fg_color=self.COLORS["bg_light"])
+        self.modal.grid_rowconfigure(0, weight=1)
+        self.modal.grid_columnconfigure(0, weight=1)
+
+        container = ctk.CTkFrame(
+            self.modal, fg_color=self.COLORS["bg_light"], corner_radius=0
+        )
+        container.grid(row=0, column=0, sticky="nsew")
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_rowconfigure(1, weight=1)
+
+        header = ctk.CTkFrame(
+            container,
+            fg_color=self.COLORS["header_bg"],
+            corner_radius=0,
+            height=header_h,
+        )
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_propagate(False)
+        header.grid_columnconfigure(0, weight=1)
+        header.grid_rowconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text="Skip Question",
+            font=title_font,
+            text_color=self.COLORS["text_white"],
+            anchor="center",
+        ).grid(row=0, column=0, sticky="nsew", padx=pad)
+
+        ctk.CTkLabel(
+            container,
+            text="Are you sure you want to skip the question? No points will be awarded.",
+            font=body_font,
+            text_color=self.COLORS["text_dark"],
+            justify="center",
+            anchor="center",
+            wraplength=int(width * 0.8),
+        ).grid(row=1, column=0, sticky="nsew", pady=(0, pad), padx=pad)
+
+        buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
+        buttons_frame.grid(row=2, column=0, pady=(0, pad))
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="Cancel",
+            font=button_font,
+            fg_color=self.COLORS["cancel_bg"],
+            hover_color=self.COLORS["cancel_hover"],
+            text_color=self.COLORS["text_white"],
+            command=self.close,
+            width=btn_w,
+            height=btn_h,
+            corner_radius=btn_r,
+        ).grid(row=0, column=0, padx=(0, pad))
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="Skip",
+            font=button_font,
+            fg_color=self.COLORS["skip_bg"],
+            hover_color=self.COLORS["skip_hover"],
+            text_color=self.COLORS["text_white"],
+            command=self._handle_skip,
+            width=btn_w,
+            height=btn_h,
+            corner_radius=btn_r,
+        ).grid(row=0, column=1, padx=(pad, 0))
+
+        screen_width = self.modal.winfo_screenwidth()
+        screen_height = self.modal.winfo_screenheight()
+        pos_x = (screen_width - width) // 2
+        pos_y = (screen_height - height) // 2
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+        self.modal.protocol("WM_DELETE_WINDOW", self.close)
+        self.modal.bind("<Escape>", lambda e: self.close())
+
+    def _handle_skip(self):
+        self.close()
+        if self.on_skip_callback:
+            self.on_skip_callback()
+
+    def close(self):
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(self.modal.grab_release)
+            self._safe_try(self.modal.destroy)
+        self.modal = None
+
+    def _safe_try(self, func):
+        try:
+            func()
+        except tk.TclError:
+            pass
+
+
 class GameScreen:
 
     BASE_DIMENSIONS = (1280, 720)
@@ -341,6 +498,7 @@ class GameScreen:
         self.info_icon_label = None
         self.feedback_label = None
         self.feedback_animation_job = None
+        self.skip_modal = None
 
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
@@ -1066,6 +1224,13 @@ class GameScreen:
             self.tts.stop()
 
     def on_skip(self):
+        if not self.current_question:
+            return
+
+        self.skip_modal = SkipConfirmationModal(self.parent, self._do_skip)
+        self.skip_modal.show()
+
+    def _do_skip(self):
         if not self.current_question:
             return
 
