@@ -315,11 +315,22 @@ class QuestionSummaryModal:
             self.modal.after(0, lambda: None)
         )  # Cancel CTk's icon update
         self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))  # Blank icon
+
+        # Set geometry BEFORE other configuration to prevent flicker
+        screen_w = self.modal.winfo_screenwidth()
+        screen_h = self.modal.winfo_screenheight()
+        pos_x = (screen_w - width) // 2
+        pos_y = (screen_h - height) // 2
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+        # Disable the appear-on-top behavior that CTkToplevel does
+        self.modal.attributes("-topmost", False)
+
         self.modal.title("Summary")
 
         if root:
             self.modal.transient(root)
-            self._safe_try(lambda: root.attributes("-disabled", True))
+            self.modal.grab_set()  # Use grab instead of disabling root
         self.modal.resizable(False, False)
         self.modal.configure(fg_color=self.COLORS["bg_light"])
         self.modal.grid_rowconfigure(0, weight=1)
@@ -420,12 +431,6 @@ class QuestionSummaryModal:
         )
         next_button.grid(row=8, column=0, pady=(pad, 0))
 
-        screen_w = self.modal.winfo_screenwidth()
-        screen_h = self.modal.winfo_screenheight()
-        pos_x = (screen_w - width) // 2
-        pos_y = (screen_h - height) // 2
-        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
-
         self.modal.protocol("WM_DELETE_WINDOW", self._handle_next)
         self.modal.bind("<Escape>", lambda e: self._handle_next())
         self.modal.bind("<Return>", lambda e: self._handle_next())
@@ -512,9 +517,8 @@ class QuestionSummaryModal:
         self._animation_jobs.clear()
         self._animated_widgets.clear()
 
-        if self._root:
-            self._safe_try(lambda: self._root.attributes("-disabled", False))
         if self.modal and self.modal.winfo_exists():
+            self._safe_try(lambda: self.modal.grab_release())
             self._safe_try(self.modal.destroy)
         self.modal = None
         self._root = None
