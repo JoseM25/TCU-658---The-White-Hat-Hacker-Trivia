@@ -257,6 +257,8 @@ class QuestionSummaryModal:
         total_score,
         on_next_callback,
         on_close_callback=None,
+        on_previous_callback=None,
+        has_previous=False,
     ):
         self.parent = parent
         self.correct_word = correct_word
@@ -265,6 +267,8 @@ class QuestionSummaryModal:
         self.total_score = total_score
         self.on_next_callback = on_next_callback
         self.on_close_callback = on_close_callback
+        self.on_previous_callback = on_previous_callback
+        self.has_previous = has_previous
         self.modal = None
         self._root = None
         self._animation_jobs = []  # Track scheduled animations for cleanup
@@ -425,6 +429,22 @@ class QuestionSummaryModal:
         button_container = ctk.CTkFrame(content, fg_color="transparent")
         button_container.grid(row=8, column=0, pady=(pad, 0))
 
+        # Previous button (only enabled if has_previous)
+        previous_button = ctk.CTkButton(
+            button_container,
+            text="Previous",
+            font=button_font,
+            fg_color="#D0D6E0" if self.has_previous else "#E8E8E8",
+            hover_color="#B8C0D0" if self.has_previous else "#E8E8E8",
+            text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
+            command=self._handle_previous if self.has_previous else None,
+            state="normal" if self.has_previous else "disabled",
+            width=btn_w,
+            height=btn_h,
+            corner_radius=btn_r,
+        )
+        previous_button.grid(row=0, column=0, padx=(0, pad // 2))
+
         close_button = ctk.CTkButton(
             button_container,
             text="Close",
@@ -437,7 +457,7 @@ class QuestionSummaryModal:
             height=btn_h,
             corner_radius=btn_r,
         )
-        close_button.grid(row=0, column=0, padx=(0, pad // 2))
+        close_button.grid(row=0, column=1, padx=(pad // 2, pad // 2))
 
         next_button = ctk.CTkButton(
             button_container,
@@ -451,7 +471,7 @@ class QuestionSummaryModal:
             height=btn_h,
             corner_radius=btn_r,
         )
-        next_button.grid(row=0, column=1, padx=(pad // 2, 0))
+        next_button.grid(row=0, column=2, padx=(pad // 2, 0))
 
         self.modal.protocol("WM_DELETE_WINDOW", self._handle_close)
         self.modal.bind("<Escape>", lambda e: self._handle_close())
@@ -461,7 +481,6 @@ class QuestionSummaryModal:
         self._start_fade_in_animation(bg_color)
 
     def _start_fade_in_animation(self, bg_color):
-        """Animate each row fading in from top to bottom."""
         for row_index, (label_widget, value_widget) in enumerate(
             self._animated_widgets
         ):
@@ -476,7 +495,6 @@ class QuestionSummaryModal:
             self._animation_jobs.append(job)
 
     def _fade_in_row(self, label_widget, value_widget, bg_color, step):
-        """Fade in a single row over multiple steps."""
         if not self.modal or not self.modal.winfo_exists():
             return
 
@@ -505,7 +523,6 @@ class QuestionSummaryModal:
         self._animation_jobs.append(job)
 
     def _interpolate_color(self, start_hex, end_hex, progress):
-        """Interpolate between two hex colors."""
         # Parse hex colors
         start_r = int(start_hex[1:3], 16)
         start_g = int(start_hex[3:5], 16)
@@ -531,6 +548,11 @@ class QuestionSummaryModal:
         self.close()
         if self.on_close_callback:
             self.on_close_callback()
+
+    def _handle_previous(self):
+        self.close()
+        if self.on_previous_callback:
+            self.on_previous_callback()
 
     def close(self):
         # Cancel any pending animations
@@ -872,6 +894,12 @@ class GameScreen:
         self.processing_correct_answer = False  # Prevent multiple submissions
         self.awaiting_modal_decision = False  # True when modal closed but not proceeded
         self.stored_modal_data = None  # Store modal data for re-showing
+
+        # Question history for navigating to previous questions
+        self.question_history = []  # List of completed question states
+        self.viewing_history_index = (
+            -1
+        )  # -1 means viewing current question, >= 0 means viewing history
 
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
@@ -1618,7 +1646,7 @@ class GameScreen:
         if not self.current_question:
             return
 
-        if not hasattr(self, "skip_modal") or self.skip_modal is None:
+        if self.skip_modal is None:
             self.skip_modal = SkipConfirmationModal(self.parent, self._do_skip)
         self.skip_modal.show()
 
@@ -1672,18 +1700,15 @@ class GameScreen:
         if not self.current_question:
             return
 
-        # If awaiting modal decision, just re-show the modal without recalculating
+        # If viewing history, just re-show the modal for that history item
+        if self.viewing_history_index >= 0:
+            history_item = self.question_history[self.viewing_history_index]
+            self._show_summary_modal_for_state(history_item)
+            return
+
+        # If awaiting modal decision on current question, just re-show the modal
         if self.awaiting_modal_decision and self.stored_modal_data:
-            self.summary_modal = QuestionSummaryModal(
-                parent=self.parent,
-                correct_word=self.stored_modal_data["correct_word"],
-                time_taken=self.stored_modal_data["time_taken"],
-                points_awarded=self.stored_modal_data["points_awarded"],
-                total_score=self.stored_modal_data["total_score"],
-                on_next_callback=self._on_modal_next,
-                on_close_callback=self._on_modal_close,
-            )
-            self.summary_modal.show()
+            self._show_summary_modal_for_state(self.stored_modal_data)
             return
 
         # Prevent multiple submissions while processing a correct answer
@@ -1716,87 +1741,204 @@ class GameScreen:
 
             self.score_label.configure(text=str(self.score))
 
-            # Store modal data for potential re-showing
+            # Store complete question state for history
             self.stored_modal_data = {
                 "correct_word": title,
                 "time_taken": self.question_timer,
                 "points_awarded": points_earned,
                 "total_score": self.score,
+                # Visual state for restoring when viewing history
+                "question": self.current_question,
+                "answer": self.current_answer,
+                "current_image": self.current_image,
             }
 
-            self.summary_modal = QuestionSummaryModal(
-                parent=self.parent,
-                correct_word=title,
-                time_taken=self.question_timer,
-                points_awarded=points_earned,
-                total_score=self.score,
-                on_next_callback=self._on_modal_next,
-                on_close_callback=self._on_modal_close,
+            self.parent.after(
+                600, lambda: self._show_summary_modal_for_state(self.stored_modal_data)
             )
-            self.parent.after(600, self.summary_modal.show)
         else:
             self.question_mistakes += 1
             self.show_feedback(correct=False)
 
+    def _show_summary_modal_for_state(self, state_data):
+        # Determine if there's a previous question to go to
+        if self.viewing_history_index >= 0:
+            # Viewing history - can go previous if not at index 0
+            has_previous = self.viewing_history_index > 0
+        else:
+            # Viewing current - can go previous if there's any history
+            has_previous = len(self.question_history) > 0
+
+        self.summary_modal = QuestionSummaryModal(
+            parent=self.parent,
+            correct_word=state_data["correct_word"],
+            time_taken=state_data["time_taken"],
+            points_awarded=state_data["points_awarded"],
+            total_score=state_data["total_score"],
+            on_next_callback=self._on_modal_next,
+            on_close_callback=self._on_modal_close,
+            on_previous_callback=self._on_modal_previous,
+            has_previous=has_previous,
+        )
+        self.summary_modal.show()
+
     def _on_modal_next(self):
-        """Called when user clicks 'Next Question' in the summary modal."""
-        self.awaiting_modal_decision = False
-        self.stored_modal_data = None
-        self._set_buttons_enabled(True)
-        self.load_random_question()
+        if self.viewing_history_index >= 0:
+            # Currently viewing history
+            if self.viewing_history_index < len(self.question_history) - 1:
+                # Go to next history item
+                self.viewing_history_index += 1
+                self._load_history_state(self.viewing_history_index)
+            else:
+                # At end of history, return to current question
+                self._return_to_current_question()
+        else:
+            # Viewing current question - save to history and load next
+            if self.stored_modal_data:
+                self.question_history.append(self.stored_modal_data)
+            self.awaiting_modal_decision = False
+            self.stored_modal_data = None
+            self._set_buttons_enabled(True)
+            self.load_random_question()
 
     def _on_modal_close(self):
-        """Called when user clicks 'Close' in the summary modal."""
         self.awaiting_modal_decision = True
         self._set_buttons_enabled(False)
 
+    def _on_modal_previous(self):
+        if self.viewing_history_index >= 0:
+            # Already viewing history, go to previous item
+            if self.viewing_history_index > 0:
+                self.viewing_history_index -= 1
+                self._load_history_state(self.viewing_history_index)
+        else:
+            # Currently on current question, go to last item in history
+            # (don't add current to history yet - that happens on Next)
+            if self.question_history:
+                self.viewing_history_index = len(self.question_history) - 1
+                self._load_history_state(self.viewing_history_index)
+
+    def _load_history_state(self, index):
+        if index < 0 or index >= len(self.question_history):
+            return
+
+        state = self.question_history[index]
+        self.viewing_history_index = index
+
+        # Restore the question data
+        self.current_question = state["question"]
+        self.current_answer = state["answer"]
+
+        # Update the visual display
+        definition = self.current_question.get("definition", "No definition")
+        self.definition_label.configure(text=definition)
+
+        title = self.current_question.get("title", "")
+        clean_title = title.replace(" ", "")
+        self.create_answer_boxes(len(clean_title))
+        self.update_answer_boxes()
+
+        # Restore the timer display
+        minutes = state["time_taken"] // 60
+        seconds = state["time_taken"] % 60
+        self.timer_label.configure(text=f"{minutes:02d}:{seconds:02d}")
+
+        # Restore the score display
+        self.score_label.configure(text=str(state["total_score"]))
+
+        # Restore the image
+        self.load_question_image()
+
+        # Show correct feedback
+        self.show_feedback(correct=True)
+
+        # Ensure buttons are disabled
+        self._set_buttons_enabled(False)
+        self.awaiting_modal_decision = True
+
+    def _return_to_current_question(self):
+        # Return to the *paused* current question state (the one that opened the modal),
+        # not the next random game question.
+        self.viewing_history_index = -1
+
+        if not self.stored_modal_data:
+            # Nothing to restore; fall back to enabling gameplay.
+            self.awaiting_modal_decision = False
+            self._set_buttons_enabled(True)
+            return
+
+        state = self.stored_modal_data
+
+        # Restore the current question snapshot that was saved when answering correctly.
+        self.current_question = state["question"]
+        self.current_answer = state["answer"]
+
+        definition = self.current_question.get("definition", "No definition")
+        self.definition_label.configure(text=definition)
+
+        title = self.current_question.get("title", "")
+        clean_title = title.replace(" ", "")
+        self.create_answer_boxes(len(clean_title))
+        self.update_answer_boxes()
+
+        minutes = state["time_taken"] // 60
+        seconds = state["time_taken"] % 60
+        self.timer_label.configure(text=f"{minutes:02d}:{seconds:02d}")
+
+        self.score_label.configure(text=str(state["total_score"]))
+
+        self.load_question_image()
+        self.show_feedback(correct=True)
+
+        self._set_buttons_enabled(False)
+        self.awaiting_modal_decision = True
+
     def _set_buttons_enabled(self, enabled):
-        """Enable or disable all game buttons except check button."""
         state = "normal" if enabled else "disabled"
 
         # Disable keyboard buttons
         for btn in self.key_button_map.values():
             try:
                 btn.configure(state=state)
-            except Exception:
+            except (tk.TclError, AttributeError):
                 pass
 
         # Disable delete button
         if self.delete_button:
             try:
                 self.delete_button.configure(state=state)
-            except Exception:
+            except (tk.TclError, AttributeError):
                 pass
 
         # Disable skip button
         if self.skip_button:
             try:
                 self.skip_button.configure(state=state)
-            except Exception:
+            except (tk.TclError, AttributeError):
                 pass
 
         # Disable audio toggle
         if self.audio_toggle_btn:
             try:
                 self.audio_toggle_btn.configure(state=state)
-            except Exception:
+            except (tk.TclError, AttributeError):
                 pass
 
         # Disable wildcard buttons
         if self.wildcard_x2_btn:
             try:
                 self.wildcard_x2_btn.configure(state=state)
-            except Exception:
+            except (tk.TclError, AttributeError):
                 pass
         if self.wildcard_hint_btn:
             try:
                 self.wildcard_hint_btn.configure(state=state)
-            except Exception:
+            except (tk.TclError, AttributeError):
                 pass
         if self.wildcard_freeze_btn:
             try:
                 self.wildcard_freeze_btn.configure(state=state)
-            except Exception:
+            except (tk.TclError, AttributeError):
                 pass
 
     def show_feedback(self, correct=True):
@@ -2045,14 +2187,12 @@ class GameScreen:
     # ==================== Physical Keyboard Support ====================
 
     def _bind_physical_keyboard(self):
-        """Bind physical keyboard events for typing letters."""
         root = self.parent.winfo_toplevel()
         # Bind key press and release for visual feedback
         root.bind("<KeyPress>", self._on_physical_key_press)
         root.bind("<KeyRelease>", self._on_physical_key_release)
 
     def _unbind_physical_keyboard(self):
-        """Unbind physical keyboard events when leaving the game screen."""
         try:
             root = self.parent.winfo_toplevel()
             root.unbind("<KeyPress>")
@@ -2061,7 +2201,6 @@ class GameScreen:
             pass  # Ignore errors during cleanup
 
     def _on_physical_key_press(self, event):
-        """Handle physical keyboard key press events."""
         # Don't process if a modal is open
         if self._is_modal_open():
             return
@@ -2099,7 +2238,6 @@ class GameScreen:
             return
 
     def _on_physical_key_release(self, event):
-        """Handle physical keyboard key release for visual feedback reset."""
         key_char = event.char.upper() if event.char else ""
         key_sym = event.keysym
 
@@ -2114,7 +2252,6 @@ class GameScreen:
             return
 
     def _show_key_feedback(self, key):
-        """Show visual feedback on the virtual keyboard button when physical key is pressed."""
         if key in self.key_button_map:
             btn = self.key_button_map[key]
             # Store original color and apply pressed color
@@ -2124,7 +2261,6 @@ class GameScreen:
                 btn.configure(fg_color=self.COLORS["key_pressed"])
 
     def _reset_key_feedback(self, key):
-        """Reset visual feedback on the virtual keyboard button when physical key is released."""
         if key in self.key_button_map:
             btn = self.key_button_map[key]
             # Restore original color
@@ -2134,7 +2270,6 @@ class GameScreen:
                 btn.configure(fg_color=self.COLORS["key_bg"])
 
     def _simulate_button_press(self, button):
-        """Briefly show a pressed state on action buttons (Check/Skip)."""
         if button is None:
             return
 
@@ -2155,7 +2290,6 @@ class GameScreen:
         self.parent.after(100, reset)
 
     def _is_modal_open(self):
-        """Check if any modal dialog is currently open."""
         if self.completion_modal and self.completion_modal.modal:
             try:
                 if self.completion_modal.modal.winfo_exists():
