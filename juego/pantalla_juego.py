@@ -41,6 +41,7 @@ class GameCompletionModal:
         self.total_questions = total_questions
         self.on_close_callback = on_close_callback
         self.modal = None
+        self._root = None
 
         # Initialize fonts
         self.title_font = ctk.CTkFont(
@@ -60,20 +61,28 @@ class GameCompletionModal:
             return
 
         root = self.parent.winfo_toplevel() if self.parent else None
+        self._root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
         self.modal.title("Game Complete!")
 
         if root:
             self.modal.transient(root)
-        self._safe_try(self.modal.grab_set)
+            self._safe_try(lambda: root.attributes("-disabled", True))
         self.modal.resizable(False, False)
         self.modal.configure(fg_color=self.COLORS["bg_light"])
         self.modal.grid_rowconfigure(0, weight=1)
         self.modal.grid_columnconfigure(0, weight=1)
 
+        corner_r = 16
+        border_w = 3
+
         # Main container
         container = ctk.CTkFrame(
-            self.modal, fg_color=self.COLORS["bg_light"], corner_radius=0
+            self.modal,
+            fg_color=self.COLORS["bg_light"],
+            corner_radius=corner_r,
+            border_width=border_w,
+            border_color="#1D6CFF",
         )
         container.grid(row=0, column=0, sticky="nsew")
         container.grid_columnconfigure(0, weight=1)
@@ -204,10 +213,12 @@ class GameCompletionModal:
             self.on_close_callback()
 
     def close(self):
+        if self._root:
+            self._safe_try(lambda: self._root.attributes("-disabled", False))
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(self.modal.grab_release)
             self._safe_try(self.modal.destroy)
         self.modal = None
+        self._root = None
 
     def _safe_try(self, func):
         try:
@@ -245,6 +256,7 @@ class QuestionSummaryModal:
         self.total_score = total_score
         self.on_next_callback = on_next_callback
         self.modal = None
+        self._root = None
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -268,9 +280,11 @@ class QuestionSummaryModal:
         header_h = max(int(66 * scale), 44)
         btn_w = max(int(150 * scale), 100)
         btn_h = max(int(44 * scale), 32)
-        btn_r = int(12 * scale)
-        pad = int(20 * scale)
-        row_pad = int(6 * scale)
+        btn_r = max(int(12 * scale), 8)
+        pad = max(int(20 * scale), 12)
+        row_pad = max(int(6 * scale), 4)
+        corner_r = max(int(16 * scale), 12)
+        border_w = max(int(3 * scale), 2)
 
         title_font = ctk.CTkFont(
             family="Poppins ExtraBold", size=title_size, weight="bold"
@@ -285,25 +299,39 @@ class QuestionSummaryModal:
             family="Poppins SemiBold", size=button_size, weight="bold"
         )
 
+        self._root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
         self.modal.title("Summary")
+
         if root:
             self.modal.transient(root)
-        self._safe_try(self.modal.grab_set)
+            self._safe_try(lambda: root.attributes("-disabled", True))
         self.modal.resizable(False, False)
         self.modal.configure(fg_color=self.COLORS["bg_light"])
-        self.modal.grid_rowconfigure(0, weight=0)
-        self.modal.grid_rowconfigure(1, weight=1)
+        self.modal.grid_rowconfigure(0, weight=1)
         self.modal.grid_columnconfigure(0, weight=1)
 
-        header = ctk.CTkFrame(
+        # Main container
+        container = ctk.CTkFrame(
             self.modal,
+            fg_color=self.COLORS["bg_light"],
+            corner_radius=corner_r,
+            border_width=border_w,
+            border_color="#1D6CFF",
+        )
+        container.grid(row=0, column=0, sticky="nsew")
+        container.grid_rowconfigure(0, weight=0)
+        container.grid_rowconfigure(1, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        # Header
+        header = ctk.CTkFrame(
+            container,
             fg_color=self.COLORS["header_bg"],
             corner_radius=0,
-            border_width=0,
             height=header_h,
         )
-        header.grid(row=0, column=0, sticky="ew")
+        header.grid(row=0, column=0, sticky="new")
         header.grid_propagate(False)
         header.grid_columnconfigure(0, weight=1)
         header.grid_rowconfigure(0, weight=1)
@@ -316,8 +344,18 @@ class QuestionSummaryModal:
             anchor="center",
         ).grid(row=0, column=0, sticky="nsew", padx=pad)
 
-        content = ctk.CTkFrame(self.modal, fg_color="transparent")
-        content.grid(row=1, column=0, sticky="")
+        # Content
+        content_wrapper = ctk.CTkFrame(
+            container,
+            fg_color=self.COLORS["bg_light"],
+            corner_radius=0,
+        )
+        content_wrapper.grid(row=1, column=0, sticky="nsew")
+        content_wrapper.grid_rowconfigure(0, weight=1)
+        content_wrapper.grid_columnconfigure(0, weight=1)
+
+        content = ctk.CTkFrame(content_wrapper, fg_color="transparent")
+        content.grid(row=0, column=0, sticky="")
         content.grid_columnconfigure(0, weight=1)
 
         rows = [
@@ -373,10 +411,12 @@ class QuestionSummaryModal:
             self.on_next_callback()
 
     def close(self):
+        if self._root:
+            self._safe_try(lambda: self._root.attributes("-disabled", False))
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(self.modal.grab_release)
             self._safe_try(self.modal.destroy)
         self.modal = None
+        self._root = None
 
     def _safe_try(self, func):
         try:
@@ -402,6 +442,7 @@ class SkipConfirmationModal:
         self.parent = parent
         self.on_skip_callback = on_skip_callback
         self.modal = None
+        self._root = None
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -427,8 +468,10 @@ class SkipConfirmationModal:
         header_h = max(int(72 * scale), 48)
         btn_w = max(int(120 * scale), 80)
         btn_h = max(int(44 * scale), 32)
-        btn_r = int(12 * scale)
-        pad = int(24 * scale)
+        btn_r = max(int(12 * scale), 8)
+        pad = max(int(24 * scale), 16)
+        corner_r = max(int(16 * scale), 12)
+        border_w = max(int(3 * scale), 2)
 
         title_font = ctk.CTkFont(
             family="Poppins ExtraBold", size=title_size, weight="bold"
@@ -440,30 +483,38 @@ class SkipConfirmationModal:
             family="Poppins SemiBold", size=button_size, weight="bold"
         )
 
+        self._root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
         self.modal.title("Skip Question")
+
         if root:
             self.modal.transient(root)
-        self._safe_try(self.modal.grab_set)
+            self._safe_try(lambda: root.attributes("-disabled", True))
         self.modal.resizable(False, False)
         self.modal.configure(fg_color=self.COLORS["bg_light"])
         self.modal.grid_rowconfigure(0, weight=1)
         self.modal.grid_columnconfigure(0, weight=1)
 
+        # Main container
         container = ctk.CTkFrame(
-            self.modal, fg_color=self.COLORS["bg_light"], corner_radius=0
+            self.modal,
+            fg_color=self.COLORS["bg_light"],
+            corner_radius=corner_r,
+            border_width=border_w,
+            border_color="#1D6CFF",
         )
         container.grid(row=0, column=0, sticky="nsew")
         container.grid_columnconfigure(0, weight=1)
         container.grid_rowconfigure(1, weight=1)
 
+        # Header
         header = ctk.CTkFrame(
             container,
             fg_color=self.COLORS["header_bg"],
             corner_radius=0,
             height=header_h,
         )
-        header.grid(row=0, column=0, sticky="ew")
+        header.grid(row=0, column=0, sticky="new")
         header.grid_propagate(False)
         header.grid_columnconfigure(0, weight=1)
         header.grid_rowconfigure(0, weight=1)
@@ -476,18 +527,29 @@ class SkipConfirmationModal:
             anchor="center",
         ).grid(row=0, column=0, sticky="nsew", padx=pad)
 
-        ctk.CTkLabel(
+        # Content
+        content_wrapper = ctk.CTkFrame(
             container,
+            fg_color=self.COLORS["bg_light"],
+            corner_radius=0,
+        )
+        content_wrapper.grid(row=1, column=0, sticky="nsew")
+        content_wrapper.grid_rowconfigure(0, weight=1)
+        content_wrapper.grid_rowconfigure(1, weight=0)
+        content_wrapper.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            content_wrapper,
             text="Are you sure you want to skip the question? No points will be awarded.",
             font=body_font,
             text_color=self.COLORS["text_dark"],
             justify="center",
             anchor="center",
             wraplength=int(width * 0.8),
-        ).grid(row=1, column=0, sticky="nsew", pady=(0, pad), padx=pad)
+        ).grid(row=0, column=0, sticky="nsew", pady=pad, padx=pad)
 
-        buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
-        buttons_frame.grid(row=2, column=0, pady=(0, pad))
+        buttons_frame = ctk.CTkFrame(content_wrapper, fg_color="transparent")
+        buttons_frame.grid(row=1, column=0, pady=(0, pad))
 
         ctk.CTkButton(
             buttons_frame,
@@ -530,10 +592,12 @@ class SkipConfirmationModal:
             self.on_skip_callback()
 
     def close(self):
+        if self._root:
+            self._safe_try(lambda: self._root.attributes("-disabled", False))
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(self.modal.grab_release)
             self._safe_try(self.modal.destroy)
         self.modal = None
+        self._root = None
 
     def _safe_try(self, func):
         try:
@@ -1397,7 +1461,8 @@ class GameScreen:
         if not self.current_question:
             return
 
-        self.skip_modal = SkipConfirmationModal(self.parent, self._do_skip)
+        if not hasattr(self, "skip_modal") or self.skip_modal is None:
+            self.skip_modal = SkipConfirmationModal(self.parent, self._do_skip)
         self.skip_modal.show()
 
     def _do_skip(self):
