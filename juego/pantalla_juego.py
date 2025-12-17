@@ -256,6 +256,7 @@ class QuestionSummaryModal:
         points_awarded,
         total_score,
         on_next_callback,
+        on_close_callback=None,
     ):
         self.parent = parent
         self.correct_word = correct_word
@@ -263,6 +264,7 @@ class QuestionSummaryModal:
         self.points_awarded = points_awarded
         self.total_score = total_score
         self.on_next_callback = on_next_callback
+        self.on_close_callback = on_close_callback
         self.modal = None
         self._root = None
         self._animation_jobs = []  # Track scheduled animations for cleanup
@@ -419,8 +421,26 @@ class QuestionSummaryModal:
 
             self._animated_widgets.append((label_widget, value_widget))
 
+        # Button container for side-by-side buttons
+        button_container = ctk.CTkFrame(content, fg_color="transparent")
+        button_container.grid(row=8, column=0, pady=(pad, 0))
+
+        close_button = ctk.CTkButton(
+            button_container,
+            text="Close",
+            font=button_font,
+            fg_color="#D0D6E0",
+            hover_color="#B8C0D0",
+            text_color=self.COLORS["text_white"],
+            command=self._handle_close,
+            width=btn_w,
+            height=btn_h,
+            corner_radius=btn_r,
+        )
+        close_button.grid(row=0, column=0, padx=(0, pad // 2))
+
         next_button = ctk.CTkButton(
-            content,
+            button_container,
             text="Next Question",
             font=button_font,
             fg_color=self.COLORS["primary_blue"],
@@ -431,10 +451,10 @@ class QuestionSummaryModal:
             height=btn_h,
             corner_radius=btn_r,
         )
-        next_button.grid(row=8, column=0, pady=(pad, 0))
+        next_button.grid(row=0, column=1, padx=(pad // 2, 0))
 
-        self.modal.protocol("WM_DELETE_WINDOW", self._handle_next)
-        self.modal.bind("<Escape>", lambda e: self._handle_next())
+        self.modal.protocol("WM_DELETE_WINDOW", self._handle_close)
+        self.modal.bind("<Escape>", lambda e: self._handle_close())
         self.modal.bind("<Return>", lambda e: self._handle_next())
 
         # Start the fade-in animation
@@ -506,6 +526,11 @@ class QuestionSummaryModal:
         self.close()
         if self.on_next_callback:
             self.on_next_callback()
+
+    def _handle_close(self):
+        self.close()
+        if self.on_close_callback:
+            self.on_close_callback()
 
     def close(self):
         # Cancel any pending animations
@@ -845,6 +870,8 @@ class GameScreen:
         self.skip_modal = None
         self.summary_modal = None
         self.processing_correct_answer = False  # Prevent multiple submissions
+        self.awaiting_modal_decision = False  # True when modal closed but not proceeded
+        self.stored_modal_data = None  # Store modal data for re-showing
 
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
@@ -1544,6 +1571,10 @@ class GameScreen:
         if not self.current_question:
             return
 
+        # Block input when awaiting modal decision
+        if self.awaiting_modal_decision:
+            return
+
         title = self.current_question.get("title", "")
         clean_title = title.replace(" ", "")
         max_length = len(clean_title)
@@ -1641,6 +1672,20 @@ class GameScreen:
         if not self.current_question:
             return
 
+        # If awaiting modal decision, just re-show the modal without recalculating
+        if self.awaiting_modal_decision and self.stored_modal_data:
+            self.summary_modal = QuestionSummaryModal(
+                parent=self.parent,
+                correct_word=self.stored_modal_data["correct_word"],
+                time_taken=self.stored_modal_data["time_taken"],
+                points_awarded=self.stored_modal_data["points_awarded"],
+                total_score=self.stored_modal_data["total_score"],
+                on_next_callback=self._on_modal_next,
+                on_close_callback=self._on_modal_close,
+            )
+            self.summary_modal.show()
+            return
+
         # Prevent multiple submissions while processing a correct answer
         if self.processing_correct_answer:
             return
@@ -1651,6 +1696,8 @@ class GameScreen:
 
         if user_answer == clean_title:
             self.processing_correct_answer = True  # Block further submissions
+            self.stop_timer()  # Stop the timer immediately
+            self.tts.stop()  # Interrupt TTS playback
             self.show_feedback(correct=True)
 
             points_earned = 0
@@ -1669,18 +1716,88 @@ class GameScreen:
 
             self.score_label.configure(text=str(self.score))
 
+            # Store modal data for potential re-showing
+            self.stored_modal_data = {
+                "correct_word": title,
+                "time_taken": self.question_timer,
+                "points_awarded": points_earned,
+                "total_score": self.score,
+            }
+
             self.summary_modal = QuestionSummaryModal(
                 parent=self.parent,
                 correct_word=title,
                 time_taken=self.question_timer,
                 points_awarded=points_earned,
                 total_score=self.score,
-                on_next_callback=self.load_random_question,
+                on_next_callback=self._on_modal_next,
+                on_close_callback=self._on_modal_close,
             )
             self.parent.after(600, self.summary_modal.show)
         else:
             self.question_mistakes += 1
             self.show_feedback(correct=False)
+
+    def _on_modal_next(self):
+        """Called when user clicks 'Next Question' in the summary modal."""
+        self.awaiting_modal_decision = False
+        self.stored_modal_data = None
+        self._set_buttons_enabled(True)
+        self.load_random_question()
+
+    def _on_modal_close(self):
+        """Called when user clicks 'Close' in the summary modal."""
+        self.awaiting_modal_decision = True
+        self._set_buttons_enabled(False)
+
+    def _set_buttons_enabled(self, enabled):
+        """Enable or disable all game buttons except check button."""
+        state = "normal" if enabled else "disabled"
+
+        # Disable keyboard buttons
+        for btn in self.key_button_map.values():
+            try:
+                btn.configure(state=state)
+            except Exception:
+                pass
+
+        # Disable delete button
+        if self.delete_button:
+            try:
+                self.delete_button.configure(state=state)
+            except Exception:
+                pass
+
+        # Disable skip button
+        if self.skip_button:
+            try:
+                self.skip_button.configure(state=state)
+            except Exception:
+                pass
+
+        # Disable audio toggle
+        if self.audio_toggle_btn:
+            try:
+                self.audio_toggle_btn.configure(state=state)
+            except Exception:
+                pass
+
+        # Disable wildcard buttons
+        if self.wildcard_x2_btn:
+            try:
+                self.wildcard_x2_btn.configure(state=state)
+            except Exception:
+                pass
+        if self.wildcard_hint_btn:
+            try:
+                self.wildcard_hint_btn.configure(state=state)
+            except Exception:
+                pass
+        if self.wildcard_freeze_btn:
+            try:
+                self.wildcard_freeze_btn.configure(state=state)
+            except Exception:
+                pass
 
     def show_feedback(self, correct=True):
         # Cancel any ongoing animation
@@ -1953,6 +2070,16 @@ class GameScreen:
         key_char = event.char.upper() if event.char else ""
         key_sym = event.keysym
 
+        # Handle Enter -> trigger Check button (always allowed, even when awaiting)
+        if key_sym == "Return":
+            self._simulate_button_press(self.check_button)
+            self.on_check()
+            return
+
+        # Block other inputs when awaiting modal decision
+        if self.awaiting_modal_decision:
+            return
+
         # Handle letter keys (A-Z)
         if key_char.isalpha() and len(key_char) == 1:
             self._show_key_feedback(key_char)
@@ -1963,12 +2090,6 @@ class GameScreen:
         if key_sym == "BackSpace":
             self._show_key_feedback("⌫")
             self.on_key_press("⌫")
-            return
-
-        # Handle Enter -> trigger Check button
-        if key_sym == "Return":
-            self._simulate_button_press(self.check_button)
-            self.on_check()
             return
 
         # Handle Escape -> trigger Skip (open confirmation modal)
