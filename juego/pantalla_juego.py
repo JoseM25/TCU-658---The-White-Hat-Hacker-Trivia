@@ -1,11 +1,218 @@
-import os
 import json
+import os
 import random
+import tkinter as tk
+
 import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
 from juego.tts_service import TTSService
+
+
+class GameCompletionModal:
+
+    BASE_DIMENSIONS = (1280, 720)
+    BASE_SIZES = {
+        "width": 480,
+        "height": 320,
+        "header_height": 72,
+        "button_width": 140,
+        "button_height": 48,
+        "button_corner_radius": 12,
+    }
+
+    COLORS = {
+        "bg_light": "#F5F7FA",
+        "header_bg": "#202632",
+        "text_white": "#FFFFFF",
+        "text_dark": "#202632",
+        "text_medium": "#3A3F4B",
+        "primary_blue": "#005DFF",
+        "primary_hover": "#003BB8",
+        "success_green": "#00CFC5",
+        "star_gold": "#FFC553",
+    }
+
+    def __init__(self, parent, final_score, total_questions, on_close_callback=None):
+        self.parent = parent
+        self.final_score = final_score
+        self.total_questions = total_questions
+        self.on_close_callback = on_close_callback
+        self.modal = None
+
+        # Initialize fonts
+        self.title_font = ctk.CTkFont(
+            family="Poppins ExtraBold", size=28, weight="bold"
+        )
+        self.score_font = ctk.CTkFont(
+            family="Poppins ExtraBold", size=48, weight="bold"
+        )
+        self.message_font = ctk.CTkFont(family="Poppins SemiBold", size=16)
+        self.button_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=18, weight="bold"
+        )
+
+    def show(self):
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+        self.modal = ctk.CTkToplevel(root if root else self.parent)
+        self.modal.title("Game Complete!")
+
+        if root:
+            self.modal.transient(root)
+        self._safe_try(self.modal.grab_set)
+        self.modal.resizable(False, False)
+        self.modal.configure(fg_color=self.COLORS["bg_light"])
+        self.modal.grid_rowconfigure(0, weight=1)
+        self.modal.grid_columnconfigure(0, weight=1)
+
+        # Main container
+        container = ctk.CTkFrame(
+            self.modal, fg_color=self.COLORS["bg_light"], corner_radius=0
+        )
+        container.grid(row=0, column=0, sticky="nsew")
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_rowconfigure(1, weight=1)
+
+        # Header
+        header_frame = ctk.CTkFrame(
+            container,
+            fg_color=self.COLORS["header_bg"],
+            corner_radius=0,
+            height=self.BASE_SIZES["header_height"],
+        )
+        header_frame.grid(row=0, column=0, sticky="ew")
+        header_frame.grid_propagate(False)
+        header_frame.grid_columnconfigure(0, weight=1)
+        header_frame.grid_rowconfigure(0, weight=1)
+
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="🎉 Congratulations! 🎉",
+            font=self.title_font,
+            text_color=self.COLORS["text_white"],
+            anchor="center",
+        )
+        title_label.grid(row=0, column=0, sticky="nsew", padx=24)
+
+        # Content area
+        content_frame = ctk.CTkFrame(container, fg_color="transparent")
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=40, pady=24)
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_rowconfigure(0, weight=1)
+        content_frame.grid_rowconfigure(1, weight=0)
+        content_frame.grid_rowconfigure(2, weight=0)
+
+        # Message
+        message_label = ctk.CTkLabel(
+            content_frame,
+            text="You've completed all questions!",
+            font=self.message_font,
+            text_color=self.COLORS["text_medium"],
+            anchor="center",
+        )
+        message_label.grid(row=0, column=0, pady=(16, 8))
+
+        # Score display
+        score_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        score_frame.grid(row=1, column=0, pady=16)
+
+        star_label = ctk.CTkLabel(
+            score_frame,
+            text="⭐",
+            font=ctk.CTkFont(family="Segoe UI Emoji", size=36),
+            text_color=self.COLORS["star_gold"],
+        )
+        star_label.grid(row=0, column=0, padx=(0, 12))
+
+        score_value_label = ctk.CTkLabel(
+            score_frame,
+            text=str(self.final_score),
+            font=self.score_font,
+            text_color=self.COLORS["success_green"],
+        )
+        score_value_label.grid(row=0, column=1)
+
+        points_label = ctk.CTkLabel(
+            score_frame,
+            text="points",
+            font=self.message_font,
+            text_color=self.COLORS["text_medium"],
+        )
+        points_label.grid(row=0, column=2, padx=(8, 0), sticky="s", pady=(0, 8))
+
+        # Stats label
+        stats_label = ctk.CTkLabel(
+            content_frame,
+            text=f"Questions answered: {self.total_questions}",
+            font=self.message_font,
+            text_color=self.COLORS["text_medium"],
+        )
+        stats_label.grid(row=2, column=0, pady=(0, 16))
+
+        # Button
+        button_frame = ctk.CTkFrame(container, fg_color="transparent")
+        button_frame.grid(row=2, column=0, pady=(0, 28))
+
+        return_button = ctk.CTkButton(
+            button_frame,
+            text="Return to Menu",
+            font=self.button_font,
+            width=self.BASE_SIZES["button_width"],
+            height=self.BASE_SIZES["button_height"],
+            fg_color=self.COLORS["primary_blue"],
+            hover_color=self.COLORS["primary_hover"],
+            corner_radius=self.BASE_SIZES["button_corner_radius"],
+            command=self._handle_close,
+        )
+        return_button.grid(row=0, column=0)
+
+        # Set modal size and position
+        width = self.BASE_SIZES["width"]
+        height = self.BASE_SIZES["height"]
+        pos_x, pos_y = self._calculate_position(width, height, root)
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+        # Handle window close
+        self.modal.protocol("WM_DELETE_WINDOW", self._handle_close)
+        self.modal.bind("<Escape>", lambda e: self._handle_close())
+        self.modal.bind("<Return>", lambda e: self._handle_close())
+
+        self._safe_try(return_button.focus_set)
+
+    def _calculate_position(self, width, height, root):
+        screen_width = self.modal.winfo_screenwidth()
+        screen_height = self.modal.winfo_screenheight()
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            pos_x = root.winfo_rootx() + max((root.winfo_width() - width) // 2, 0)
+            pos_y = root.winfo_rooty() + max((root.winfo_height() - height) // 2, 0)
+        else:
+            pos_x = max((screen_width - width) // 2, 0)
+            pos_y = max((screen_height - height) // 2, 0)
+
+        return pos_x, pos_y
+
+    def _handle_close(self):
+        self.close()
+        if self.on_close_callback:
+            self.on_close_callback()
+
+    def close(self):
+        if self.modal and self.modal.winfo_exists():
+            self._safe_try(self.modal.grab_release)
+            self._safe_try(self.modal.destroy)
+        self.modal = None
+
+    def _safe_try(self, func):
+        try:
+            func()
+        except tk.TclError:
+            pass
 
 
 class GameScreen:
@@ -19,6 +226,7 @@ class GameScreen:
         "answer_box": 20,
         "button": 20,
         "header_label": 14,
+        "feedback": 14,
     }
     SCALE_LIMITS = (0.50, 1.60)
     RESIZE_DELAY = 80
@@ -63,6 +271,8 @@ class GameScreen:
         "key_pressed": "#B8C0D0",
         "answer_box_empty": "#E2E7F3",
         "answer_box_filled": "#D0D6E0",
+        "feedback_correct": "#00CFC5",
+        "feedback_incorrect": "#FF4F60",
     }
 
     KEYBOARD_LAYOUT = [
@@ -84,6 +294,9 @@ class GameScreen:
         self.audio_enabled = True
         self.timer_running = False
         self.timer_job = None
+        self.questions_answered = 0
+        self.game_completed = False
+        self.completion_modal = None
 
         self.resize_job = None
         self.main = None
@@ -118,6 +331,8 @@ class GameScreen:
         self.wildcard_freeze_btn = None
         self.info_icon = None
         self.info_icon_label = None
+        self.feedback_label = None
+        self.feedback_animation_job = None
 
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
@@ -174,15 +389,23 @@ class GameScreen:
             family="Poppins SemiBold",
             size=self.BASE_FONT_SIZES["header_label"],
         )
+        self.feedback_font = ctk.CTkFont(
+            family="Poppins SemiBold",
+            size=self.BASE_FONT_SIZES["feedback"],
+            weight="bold",
+        )
 
     def load_questions(self):
         try:
             with open(self.questions_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self.questions = data.get("questions", [])
+                # Initialize available questions pool (copy of all questions)
+                self.available_questions = list(self.questions)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Error loading questions: {e}")
             self.questions = []
+            self.available_questions = []
 
     def build_ui(self):
 
@@ -464,6 +687,7 @@ class GameScreen:
         self.question_container.grid_rowconfigure(0, weight=0)
         self.question_container.grid_rowconfigure(1, weight=1)
         self.question_container.grid_rowconfigure(2, weight=0)
+        self.question_container.grid_rowconfigure(3, weight=0)
 
         image_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
         image_frame.grid(row=0, column=0, pady=(20, 10))
@@ -509,7 +733,16 @@ class GameScreen:
         self.answer_boxes_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent"
         )
-        self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 24))
+        self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 8))
+
+        # Feedback label (Correct / Incorrect)
+        self.feedback_label = ctk.CTkLabel(
+            self.question_container,
+            text="",
+            font=self.feedback_font,
+            text_color=self.COLORS["feedback_correct"],
+        )
+        self.feedback_label.grid(row=3, column=0, pady=(0, 16))
 
         self.build_wildcards_panel()
 
@@ -520,7 +753,7 @@ class GameScreen:
             fg_color="transparent",
         )
         self.wildcards_frame.grid(
-            row=0, column=1, rowspan=3, sticky="ns", padx=(0, 24), pady=24
+            row=0, column=1, rowspan=4, sticky="ns", padx=(0, 24), pady=24
         )
 
         self.wildcards_frame.grid_rowconfigure(0, weight=1)
@@ -697,18 +930,21 @@ class GameScreen:
             self.answer_box_labels.append(box)
 
     def load_random_question(self):
-
         self.tts.stop()
+        self.hide_feedback()
 
+        # Check if there are no questions loaded at all
         if not self.questions:
             self.definition_label.configure(text="No questions available!")
             return
 
+        # Check if all questions have been answered/skipped
         if not self.available_questions:
-            self.available_questions = list(self.questions)
+            self._handle_game_completion()
+            return
 
+        # Select and remove a random question from available pool
         self.current_question = random.choice(self.available_questions)
-
         self.available_questions.remove(self.current_question)
 
         self.current_answer = ""
@@ -814,7 +1050,29 @@ class GameScreen:
 
     def on_skip(self):
         print("Skip pressed")
+        self.questions_answered += 1
         self.load_random_question()
+
+    def _handle_game_completion(self):
+        if self.game_completed:
+            return
+
+        self.game_completed = True
+        self.stop_timer()
+        self.tts.stop()
+
+        # Clear the current question display
+        self.current_question = None
+        self.definition_label.configure(text="Game Complete!")
+
+        # Show the completion modal
+        self.completion_modal = GameCompletionModal(
+            parent=self.parent,
+            final_score=self.score,
+            total_questions=len(self.questions),
+            on_close_callback=self.return_to_menu,
+        )
+        self.completion_modal.show()
 
     def on_check(self):
         if not self.current_question:
@@ -826,11 +1084,80 @@ class GameScreen:
 
         if user_answer == clean_title:
             print("Correct!")
+            self.show_feedback(correct=True)
             self.score += 100
+            self.questions_answered += 1
             self.score_label.configure(text=str(self.score))
-            self.load_random_question()
+            # Delay loading next question to show feedback
+            self.parent.after(800, self.load_random_question)
         else:
             print(f"Incorrect! Expected: {clean_title}, Got: {user_answer}")
+            self.show_feedback(correct=False)
+
+    def show_feedback(self, correct=True):
+        # Cancel any ongoing animation
+        if self.feedback_animation_job:
+            self.parent.after_cancel(self.feedback_animation_job)
+            self.feedback_animation_job = None
+
+        if correct:
+            text = "✓ Correct!"
+            color = self.COLORS["feedback_correct"]
+        else:
+            text = "✗ Incorrect - Try Again"
+            color = self.COLORS["feedback_incorrect"]
+
+        self.feedback_label.configure(text=text, text_color=color)
+
+        # Simple fade-in animation using opacity simulation
+        self._animate_feedback_fade_in(0)
+
+    def _animate_feedback_fade_in(self, step):
+        total_steps = 5
+        if step > total_steps:
+            return
+
+        # Simulate fade by interpolating color from background to target
+        # Since CustomTkinter doesn't support true opacity, we use color interpolation
+        if step == 0:
+            # Start with lighter/faded color
+            self.feedback_label.configure(text_color="#F5F7FA")  # Match background
+        else:
+            # Get target color from current feedback type
+            current_text = self.feedback_label.cget("text")
+            if "Correct" in current_text:
+                target_color = self.COLORS["feedback_correct"]
+            else:
+                target_color = self.COLORS["feedback_incorrect"]
+
+            # Interpolate color
+            faded_color = self._interpolate_color(
+                "#F5F7FA", target_color, step / total_steps
+            )
+            self.feedback_label.configure(text_color=faded_color)
+
+        if step < total_steps:
+            self.feedback_animation_job = self.parent.after(
+                40, lambda: self._animate_feedback_fade_in(step + 1)
+            )
+
+    def _interpolate_color(self, color1, color2, factor):
+        # Parse hex colors
+        r1, g1, b1 = int(color1[1:3], 16), int(color1[3:5], 16), int(color1[5:7], 16)
+        r2, g2, b2 = int(color2[1:3], 16), int(color2[3:5], 16), int(color2[5:7], 16)
+
+        # Interpolate
+        r = int(r1 + (r2 - r1) * factor)
+        g = int(g1 + (g2 - g1) * factor)
+        b = int(b1 + (b2 - b1) * factor)
+
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def hide_feedback(self):
+        if self.feedback_animation_job:
+            self.parent.after_cancel(self.feedback_animation_job)
+            self.feedback_animation_job = None
+        self.feedback_label.configure(text="")
 
     def start_timer(self):
         self.timer_running = True
@@ -889,6 +1216,9 @@ class GameScreen:
         self.header_button_font.configure(size=int(max(12, min(32, 20 * scale))))
         self.header_label_font.configure(
             size=int(max(10, self.BASE_FONT_SIZES["header_label"] * scale))
+        )
+        self.feedback_font.configure(
+            size=int(max(11, self.BASE_FONT_SIZES["feedback"] * scale))
         )
 
         def clamp_scaled(base, min_value, max_value):
@@ -979,12 +1309,17 @@ class GameScreen:
             return None
 
     def return_to_menu(self):
-        self.stop_timer()
-        self.tts.stop()
+        self.cleanup()
         if self.on_return_callback:
             self.on_return_callback()
 
     def cleanup(self):
         self.stop_timer()
         self.tts.stop()
+        if self.feedback_animation_job:
+            self.parent.after_cancel(self.feedback_animation_job)
+            self.feedback_animation_job = None
+        if self.completion_modal:
+            self.completion_modal.close()
+            self.completion_modal = None
         self.parent.unbind("<Configure>")

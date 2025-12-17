@@ -1,0 +1,96 @@
+SCORING (works for any number of questions)
+
+Key idea
+- The teacher can set N (the number of questions) saved on the preguntas.JSON file.
+The game automatically rescales points so total scores feel similar whether N is smaller or bigger.
+
+0) Inputs
+- N = number of questions in the current game
+
+1) Dynamic base points (same for every question in that game)
+Reference: 15 questions normally use BASE = 350.
+
+Compute:
+- BASE = clamp( round(350 * 15 / N), 200, 700 )
+
+Meaning:
+- If N goes down, each question is worth more.
+- If N goes up, each question is worth less.
+- clamp() prevents silly extremes (too tiny or too huge).
+
+2) Timer rules (fair for education)
+- Ignore first 5 seconds (reading grace).
+- Recommended: pause timer while audio is playing.
+
+t = max(0, activeSolveSeconds - 5)   (activeSolveSeconds excludes audio time)
+
+3) Speed bonus (time multiplier)
+- If t <= 40s: timeMult = 1.50
+- If 40s < t <= 80s: slides 1.50 → 1.00
+- If 80s < t <= 160s: slides 1.00 → 0.50
+- If t > 160s: timeMult = 0.50
+
+Raw points per question:
+- raw = BASE * timeMult
+Max raw per question:
+- maxRaw = BASE * 1.5
+
+4) Mistake penalty
+- A “mistake” = pressing Check Answer and being wrong.
+- penaltyPerMistake = round(BASE * 0.10)
+
+scoreBeforeStreak = max(0, raw - mistakes * penaltyPerMistake)
+
+5) Clean streak bonus
+Clean streak only increases when:
+- correct with 0 mistakes
+- not skipped
+
+streakMult = 1 + 0.05 * min(cleanStreak, 10)   (caps at 1.50x)
+
+Final question points:
+- points = round(scoreBeforeStreak * streakMult)
+
+Streak resets if you:
+- make any mistake OR skip
+
+6) Skip
+- Reveals answer
+- 0 points
+- Streak resets
+
+7) Wildcards (charges)
+- Shared charges: 0–3 (cap 3)
+- Start with 1 charge
+
+Costs:
+- Reveal Letter: 1
+- Freeze Timer (pause 10s): 1
+- Double Points (this question only): 2
+  - Double Points cannot combine with other wildcards on the same question.
+
+Earning charges (scaled automatically)
+Use % of maxRaw so it works for any N:
+- A Rank: correct with 0 mistakes AND raw >= 0.80 * maxRaw = +1 charge
+- S Rank: correct with 0 mistakes, no wildcards, AND raw >= 0.90 * maxRaw = +1 charge
+
+Anti-frustration:
+- If you finish 3 questions in a row without earning a charge = +1 charge
+
+8) End-of-game Knowledge Level (works for any N)
+Use RAW points (before streak) for fairness:
+- sessionMaxRaw = N * maxRaw
+- masteryPct = (totalRaw / sessionMaxRaw) * 100
+
+Levels:
+- Beginner: <40%
+- Student: 40–54%
+- Professional: 55–69%
+- Expert: 70–84%
+- Master: ≥85%
+
+Examples (BASE values)
+- N=15 = BASE=350 (original)
+- N=10 = BASE≈525
+- N=20 = BASE≈263
+- N=30 = BASE≈175, but clamped to 200 (to keep points readable)
