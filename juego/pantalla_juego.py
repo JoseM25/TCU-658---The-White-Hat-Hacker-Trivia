@@ -63,6 +63,10 @@ class GameCompletionModal:
         root = self.parent.winfo_toplevel() if self.parent else None
         self._root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
+        self.modal.after_cancel(
+            self.modal.after(0, lambda: None)
+        )  # Cancel CTk's icon update
+        self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))  # Blank icon
         self.modal.title("Game Complete!")
 
         if root:
@@ -240,6 +244,10 @@ class QuestionSummaryModal:
         "success_green": "#00CFC5",
     }
 
+    ANIMATION_DELAY_MS = 200  # Delay between each row appearing
+    FADE_STEPS = 12  # Number of steps for fade animation
+    FADE_STEP_MS = 30  # Milliseconds per fade step
+
     def __init__(
         self,
         parent,
@@ -257,6 +265,8 @@ class QuestionSummaryModal:
         self.on_next_callback = on_next_callback
         self.modal = None
         self._root = None
+        self._animation_jobs = []  # Track scheduled animations for cleanup
+        self._animated_widgets = []  # Widgets to animate
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -301,6 +311,10 @@ class QuestionSummaryModal:
 
         self._root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
+        self.modal.after_cancel(
+            self.modal.after(0, lambda: None)
+        )  # Cancel CTk's icon update
+        self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))  # Blank icon
         self.modal.title("Summary")
 
         if root:
@@ -365,24 +379,34 @@ class QuestionSummaryModal:
             ("Total Score:", str(self.total_score), self.COLORS["primary_blue"]),
         ]
 
+        # Create rows with initial hidden state for animation
+        self._animated_widgets = []
+        bg_color = self.COLORS["bg_light"]
+
         for i, (label_text, value_text, value_color) in enumerate(rows):
-            ctk.CTkLabel(
+            label_widget = ctk.CTkLabel(
                 content,
                 text=label_text,
                 font=label_font,
-                text_color=self.COLORS["text_dark"],
+                text_color=bg_color,  # Start with same color as background (invisible)
                 anchor="center",
-            ).grid(row=i * 2, column=0, pady=(row_pad, 0))
+            )
+            label_widget.grid(row=i * 2, column=0, pady=(row_pad, 0))
+            label_widget._target_color = self.COLORS["text_dark"]
 
-            ctk.CTkLabel(
+            value_widget = ctk.CTkLabel(
                 content,
                 text=value_text,
                 font=value_font,
-                text_color=value_color,
+                text_color=bg_color,  # Start invisible
                 anchor="center",
-            ).grid(row=i * 2 + 1, column=0, pady=(0, row_pad))
+            )
+            value_widget.grid(row=i * 2 + 1, column=0, pady=(0, row_pad))
+            value_widget._target_color = value_color
 
-        ctk.CTkButton(
+            self._animated_widgets.append((label_widget, value_widget))
+
+        next_button = ctk.CTkButton(
             content,
             text="Next Question",
             font=button_font,
@@ -393,7 +417,8 @@ class QuestionSummaryModal:
             width=btn_w,
             height=btn_h,
             corner_radius=btn_r,
-        ).grid(row=8, column=0, pady=(pad, 0))
+        )
+        next_button.grid(row=8, column=0, pady=(pad, 0))
 
         screen_w = self.modal.winfo_screenwidth()
         screen_h = self.modal.winfo_screenheight()
@@ -405,12 +430,88 @@ class QuestionSummaryModal:
         self.modal.bind("<Escape>", lambda e: self._handle_next())
         self.modal.bind("<Return>", lambda e: self._handle_next())
 
+        # Start the fade-in animation
+        self._start_fade_in_animation(bg_color)
+
+    def _start_fade_in_animation(self, bg_color):
+        """Animate each row fading in from top to bottom."""
+        for row_index, (label_widget, value_widget) in enumerate(
+            self._animated_widgets
+        ):
+            delay = row_index * self.ANIMATION_DELAY_MS
+            # Schedule fade-in for this row
+            job = self.modal.after(
+                delay,
+                lambda lw=label_widget, vw=value_widget, bg=bg_color: self._fade_in_row(
+                    lw, vw, bg, 0
+                ),
+            )
+            self._animation_jobs.append(job)
+
+    def _fade_in_row(self, label_widget, value_widget, bg_color, step):
+        """Fade in a single row over multiple steps."""
+        if not self.modal or not self.modal.winfo_exists():
+            return
+
+        if step >= self.FADE_STEPS:
+            # Animation complete - set final colors
+            self._safe_try(
+                lambda: label_widget.configure(text_color=label_widget._target_color)
+            )
+            self._safe_try(
+                lambda: value_widget.configure(text_color=value_widget._target_color)
+            )
+            return
+
+        # Calculate interpolated colors
+        progress = (step + 1) / self.FADE_STEPS
+        label_color = self._interpolate_color(
+            bg_color, label_widget._target_color, progress
+        )
+        value_color = self._interpolate_color(
+            bg_color, value_widget._target_color, progress
+        )
+
+        self._safe_try(lambda: label_widget.configure(text_color=label_color))
+        self._safe_try(lambda: value_widget.configure(text_color=value_color))
+
+        # Schedule next step
+        job = self.modal.after(
+            self.FADE_STEP_MS,
+            lambda: self._fade_in_row(label_widget, value_widget, bg_color, step + 1),
+        )
+        self._animation_jobs.append(job)
+
+    def _interpolate_color(self, start_hex, end_hex, progress):
+        """Interpolate between two hex colors."""
+        # Parse hex colors
+        start_r = int(start_hex[1:3], 16)
+        start_g = int(start_hex[3:5], 16)
+        start_b = int(start_hex[5:7], 16)
+
+        end_r = int(end_hex[1:3], 16)
+        end_g = int(end_hex[3:5], 16)
+        end_b = int(end_hex[5:7], 16)
+
+        # Interpolate
+        r = int(start_r + (end_r - start_r) * progress)
+        g = int(start_g + (end_g - start_g) * progress)
+        b = int(start_b + (end_b - start_b) * progress)
+
+        return f"#{r:02x}{g:02x}{b:02x}"
+
     def _handle_next(self):
         self.close()
         if self.on_next_callback:
             self.on_next_callback()
 
     def close(self):
+        # Cancel any pending animations
+        for job in self._animation_jobs:
+            self._safe_try(lambda j=job: self.modal.after_cancel(j))
+        self._animation_jobs.clear()
+        self._animated_widgets.clear()
+
         if self._root:
             self._safe_try(lambda: self._root.attributes("-disabled", False))
         if self.modal and self.modal.winfo_exists():
@@ -485,11 +586,26 @@ class SkipConfirmationModal:
 
         self._root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
+        self.modal.after_cancel(
+            self.modal.after(0, lambda: None)
+        )  # Cancel CTk's icon update
+        self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))  # Blank icon
+
+        # Set geometry and hide BEFORE any other configuration
+        screen_width = self.modal.winfo_screenwidth()
+        screen_height = self.modal.winfo_screenheight()
+        pos_x = (screen_width - width) // 2
+        pos_y = (screen_height - height) // 2
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+        # Disable the appear-on-top behavior that CTkToplevel does
+        self.modal.attributes("-topmost", False)
+
         self.modal.title("Skip Question")
 
         if root:
             self.modal.transient(root)
-            self._safe_try(lambda: root.attributes("-disabled", True))
+            self.modal.grab_set()  # Use grab instead of disabling root
         self.modal.resizable(False, False)
         self.modal.configure(fg_color=self.COLORS["bg_light"])
         self.modal.grid_rowconfigure(0, weight=1)
@@ -577,12 +693,6 @@ class SkipConfirmationModal:
             corner_radius=btn_r,
         ).grid(row=0, column=1, padx=(pad, 0))
 
-        screen_width = self.modal.winfo_screenwidth()
-        screen_height = self.modal.winfo_screenheight()
-        pos_x = (screen_width - width) // 2
-        pos_y = (screen_height - height) // 2
-        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
-
         self.modal.protocol("WM_DELETE_WINDOW", self.close)
         self.modal.bind("<Escape>", lambda e: self.close())
 
@@ -592,9 +702,8 @@ class SkipConfirmationModal:
             self.on_skip_callback()
 
     def close(self):
-        if self._root:
-            self._safe_try(lambda: self._root.attributes("-disabled", False))
         if self.modal and self.modal.winfo_exists():
+            self._safe_try(lambda: self.modal.grab_release())
             self._safe_try(self.modal.destroy)
         self.modal = None
         self._root = None
