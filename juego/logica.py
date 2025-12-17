@@ -39,6 +39,10 @@ class ScoringSystem:
     # Penalización
     MISTAKE_PENALTY_FACTOR = 0.10  # 10% de BASE por error
 
+    # Streak constants
+    STREAK_BONUS_PER_LEVEL = 0.05  # 5% bonus per streak level
+    STREAK_MAX_LEVEL = 10  # Cap at 10 (1.50x max)
+
     def __init__(self, total_questions):
         self.total_questions = max(1, total_questions)
         self.base_points = self._calculate_base_points()
@@ -49,6 +53,9 @@ class ScoringSystem:
         self.total_score = 0
         self.questions_answered = 0
         self.total_raw_points = 0
+
+        # Streak tracking
+        self.clean_streak = 0
 
     def _calculate_base_points(self):
         scaled = round(
@@ -96,17 +103,64 @@ class ScoringSystem:
 
         return score
 
+    def calculate_streak_multiplier(self):
+        capped_streak = min(self.clean_streak, self.STREAK_MAX_LEVEL)
+        return 1.0 + (self.STREAK_BONUS_PER_LEVEL * capped_streak)
+
+    def _log_scoring_details(
+        self,
+        action,
+        raw_points,
+        score_before_streak,
+        streak_mult,
+        final_points,
+        mistakes,
+        time_seconds,
+    ):
+        print(f"\n{'='*50}")
+        print(f"[SCORING] Action: {action}")
+        print(f"[SCORING] Time: {time_seconds}s | Mistakes: {mistakes}")
+        print(f"[SCORING] Raw Points: {raw_points}")
+        print(f"[SCORING] Score Before Streak: {score_before_streak}")
+        print(
+            f"[SCORING] Clean Streak: {self.clean_streak} | Streak Multiplier: {streak_mult:.2f}x"
+        )
+        print(f"[SCORING] Final Points: {final_points}")
+        print(f"[SCORING] Total Score: {self.total_score}")
+        print(f"{'='*50}\n")
+
     def process_correct_answer(self, time_seconds, mistakes):
         effective_time = self.get_effective_time(time_seconds)
         raw_points = self.calculate_raw_points(effective_time)
-        points = self.calculate_score(time_seconds, mistakes)
+        score_before_streak = self.calculate_score(time_seconds, mistakes)
 
-        self.total_score += points
+        # Streak logic: increase only if correct with 0 mistakes
+        if mistakes == 0:
+            self.clean_streak += 1
+        else:
+            self.clean_streak = 0
+
+        # Apply streak multiplier
+        streak_mult = self.calculate_streak_multiplier()
+        final_points = round(score_before_streak * streak_mult)
+
+        self.total_score += final_points
         self.questions_answered += 1
         self.total_raw_points += raw_points
 
+        # Log scoring details
+        self._log_scoring_details(
+            action="CORRECT",
+            raw_points=raw_points,
+            score_before_streak=score_before_streak,
+            streak_mult=streak_mult,
+            final_points=final_points,
+            mistakes=mistakes,
+            time_seconds=time_seconds,
+        )
+
         return QuestionResult(
-            points_earned=points,
+            points_earned=final_points,
             was_correct=True,
             was_skipped=False,
             mistakes=mistakes,
@@ -114,7 +168,19 @@ class ScoringSystem:
         )
 
     def process_skip(self):
+        # Streak resets on skip
+        previous_streak = self.clean_streak
+        self.clean_streak = 0
+
         self.questions_answered += 1
+
+        # Log skip action
+        print(f"\n{'='*50}")
+        print("[SCORING] Action: SKIP")
+        print(f"[SCORING] Previous Streak: {previous_streak} -> Reset to 0")
+        print("[SCORING] Points Earned: 0")
+        print(f"[SCORING] Total Score: {self.total_score}")
+        print(f"{'='*50}\n")
 
         return QuestionResult(
             points_earned=0,
@@ -125,7 +191,7 @@ class ScoringSystem:
         )
 
     def process_wrong_answer(self):
-        pass
+        print("[SCORING] Wrong answer! Streak will reset on next question.")
 
     def get_session_stats(self):
         return {
@@ -134,4 +200,6 @@ class ScoringSystem:
             "total_questions": self.total_questions,
             "base_points": self.base_points,
             "max_possible_per_question": round(self.max_raw_per_question),
+            "clean_streak": self.clean_streak,
+            "streak_multiplier": self.calculate_streak_multiplier(),
         }
