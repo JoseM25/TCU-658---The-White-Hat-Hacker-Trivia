@@ -13,47 +13,57 @@ from juego.tts_service import TTSService
 
 class GameCompletionModal:
 
-    BASE_DIMENSIONS = (1280, 720)
-    BASE_SIZES = {
-        "width": 480,
-        "height": 320,
-        "header_height": 72,
-        "button_width": 140,
-        "button_height": 48,
-        "button_corner_radius": 12,
-    }
-
     COLORS = {
         "bg_light": "#F5F7FA",
         "header_bg": "#202632",
         "text_white": "#FFFFFF",
-        "text_dark": "#202632",
-        "text_medium": "#3A3F4B",
+        "text_dark": "#3A3F4B",
+        "text_medium": "#7A7A7A",
         "primary_blue": "#005DFF",
         "primary_hover": "#003BB8",
         "success_green": "#00CFC5",
-        "star_gold": "#FFC553",
+        "warning_yellow": "#FFC553",
+        "danger_red": "#FF4F60",
+        "border_blue": "#1D6CFF",
+        "card_bg": "#FFFFFF",
+        "border_light": "#E2E7F3",
+        "master_purple": "#7C3AED",
     }
 
-    def __init__(self, parent, final_score, total_questions, on_close_callback=None):
+    LEVEL_BADGE_COLORS = {
+        "Beginner": COLORS["danger_red"],
+        "Student": COLORS["primary_blue"],
+        "Professional": COLORS["success_green"],
+        "Expert": "#CC9A42",
+        "Master": COLORS["master_purple"],
+    }
+
+    ANIMATION_DELAY_MS = 160  # Delay between each row appearing
+    FADE_STEPS = 12  # Number of steps for fade animation
+    FADE_STEP_MS = 30  # Milliseconds per fade step
+
+    def __init__(
+        self,
+        parent,
+        final_score,
+        total_questions,
+        session_stats=None,
+        on_previous_callback=None,
+        has_previous=False,
+        on_close_callback=None,
+    ):
         self.parent = parent
         self.final_score = final_score
         self.total_questions = total_questions
+        self.session_stats = session_stats or {}
+        self.on_previous_callback = on_previous_callback
+        self.has_previous = has_previous
         self.on_close_callback = on_close_callback
         self.modal = None
         self._root = None
-
-        # Initialize fonts
-        self.title_font = ctk.CTkFont(
-            family="Poppins ExtraBold", size=28, weight="bold"
-        )
-        self.score_font = ctk.CTkFont(
-            family="Poppins ExtraBold", size=48, weight="bold"
-        )
-        self.message_font = ctk.CTkFont(family="Poppins SemiBold", size=16)
-        self.button_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=18, weight="bold"
-        )
+        self._animation_jobs = []  # Track scheduled animations for cleanup
+        self._animated_widgets = []  # Widgets to animate
+        self._widget_target_colors = {}  # Store target colors for animation
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -61,155 +71,426 @@ class GameCompletionModal:
             return
 
         root = self.parent.winfo_toplevel() if self.parent else None
+
+        base_w, base_h = 560, 520
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            width = int(root.winfo_width() * 0.46)
+            height = int(root.winfo_height() * 0.68)
+        else:
+            width, height = base_w, base_h
+
+        width = max(width, 520)
+        height = max(height, 440)
+
+        scale = min(width / base_w, height / base_h) * 0.75
+
+        title_size = max(int(26 * scale), 16)
+        message_size = max(int(15 * scale), 11)
+        score_size = max(int(50 * scale), 28)
+        label_size = max(int(14 * scale), 10)
+        value_size = max(int(14 * scale), 10)
+        badge_size = max(int(13 * scale), 10)
+        footnote_size = max(int(12 * scale), 9)
+        button_size = max(int(16 * scale), 12)
+
+        header_h = max(int(72 * scale), 48)
+        btn_w = max(int(180 * scale), 120)
+        btn_h = max(int(46 * scale), 34)
+        btn_r = max(int(12 * scale), 8)
+        pad = max(int(24 * scale), 14)
+        row_pad = max(int(10 * scale), 6)
+        corner_r = max(int(16 * scale), 12)
+        border_w = max(int(3 * scale), 2)
+        card_corner_r = max(int(14 * scale), 10)
+
+        title_font = ctk.CTkFont(
+            family="Poppins ExtraBold", size=title_size, weight="bold"
+        )
+        message_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=message_size, weight="bold"
+        )
+        score_font = ctk.CTkFont(
+            family="Poppins ExtraBold", size=score_size, weight="bold"
+        )
+        label_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=label_size, weight="bold"
+        )
+        value_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=value_size, weight="bold"
+        )
+        badge_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=badge_size, weight="bold"
+        )
+        footnote_font = ctk.CTkFont(family="Open Sans Regular", size=footnote_size)
+        button_font = ctk.CTkFont(
+            family="Poppins SemiBold", size=button_size, weight="bold"
+        )
+
         self._root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
         self.modal.after_cancel(
             self.modal.after(0, lambda: None)
         )  # Cancel CTk's icon update
         self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))  # Blank icon
-        self.modal.title("Game Complete!")
+
+        # Set geometry BEFORE other configuration to prevent flicker
+        screen_w = self.modal.winfo_screenwidth()
+        screen_h = self.modal.winfo_screenheight()
+        pos_x = (screen_w - width) // 2
+        pos_y = (screen_h - height) // 2
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+        # Disable the appear-on-top behavior that CTkToplevel does
+        self.modal.attributes("-topmost", False)
+
+        self.modal.title("Game Complete")
 
         if root:
             self.modal.transient(root)
-            self._safe_try(lambda: root.attributes("-disabled", True))
+            self.modal.grab_set()  # Use grab instead of disabling root
         self.modal.resizable(False, False)
         self.modal.configure(fg_color=self.COLORS["bg_light"])
         self.modal.grid_rowconfigure(0, weight=1)
         self.modal.grid_columnconfigure(0, weight=1)
 
-        corner_r = 16
-        border_w = 3
-
-        # Main container
         container = ctk.CTkFrame(
             self.modal,
             fg_color=self.COLORS["bg_light"],
             corner_radius=corner_r,
             border_width=border_w,
-            border_color="#1D6CFF",
+            border_color=self.COLORS["border_blue"],
         )
         container.grid(row=0, column=0, sticky="nsew")
-        container.grid_columnconfigure(0, weight=1)
+        container.grid_rowconfigure(0, weight=0)
         container.grid_rowconfigure(1, weight=1)
+        container.grid_columnconfigure(0, weight=1)
 
-        # Header
-        header_frame = ctk.CTkFrame(
+        header = ctk.CTkFrame(
             container,
             fg_color=self.COLORS["header_bg"],
             corner_radius=0,
-            height=self.BASE_SIZES["header_height"],
+            height=header_h,
         )
-        header_frame.grid(row=0, column=0, sticky="ew")
-        header_frame.grid_propagate(False)
-        header_frame.grid_columnconfigure(0, weight=1)
-        header_frame.grid_rowconfigure(0, weight=1)
+        header.grid(row=0, column=0, sticky="new")
+        header.grid_propagate(False)
+        header.grid_columnconfigure(0, weight=1)
+        header.grid_rowconfigure(0, weight=1)
 
-        title_label = ctk.CTkLabel(
-            header_frame,
-            text="🎉 Congratulations! 🎉",
-            font=self.title_font,
+        ctk.CTkLabel(
+            header,
+            text="Game Complete",
+            font=title_font,
             text_color=self.COLORS["text_white"],
             anchor="center",
+        ).grid(row=0, column=0, sticky="nsew", padx=pad)
+
+        content_wrapper = ctk.CTkFrame(
+            container,
+            fg_color=self.COLORS["bg_light"],
+            corner_radius=0,
         )
-        title_label.grid(row=0, column=0, sticky="nsew", padx=24)
+        content_wrapper.grid(row=1, column=0, sticky="nsew")
+        content_wrapper.grid_rowconfigure(0, weight=1)
+        content_wrapper.grid_columnconfigure(0, weight=1)
 
-        # Content area
-        content_frame = ctk.CTkFrame(container, fg_color="transparent")
-        content_frame.grid(row=1, column=0, sticky="nsew", padx=40, pady=24)
-        content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_rowconfigure(0, weight=1)
-        content_frame.grid_rowconfigure(1, weight=0)
-        content_frame.grid_rowconfigure(2, weight=0)
+        content = ctk.CTkFrame(content_wrapper, fg_color="transparent")
+        content.grid(row=0, column=0, sticky="nsew", padx=pad, pady=pad)
+        content.grid_columnconfigure(0, weight=1)
 
-        # Message
-        message_label = ctk.CTkLabel(
-            content_frame,
+        stats = self.session_stats or {}
+        total_questions = stats.get("total_questions", self.total_questions)
+        questions_answered = stats.get("questions_answered", total_questions)
+        base_points = stats.get("base_points")
+        max_possible_per_question = stats.get("max_possible_per_question")
+        penalty_per_mistake = stats.get("penalty_per_mistake")
+        total_raw_points = stats.get("total_raw_points")
+        session_max_raw = stats.get("session_max_raw")
+        mastery_pct = stats.get("mastery_pct")
+        knowledge_level = stats.get("knowledge_level")
+        grace_seconds = stats.get("grace_period_seconds")
+        clean_streak = stats.get("clean_streak")
+        streak_multiplier = stats.get("streak_multiplier")
+
+        if mastery_pct is None and total_raw_points is not None and session_max_raw:
+            mastery_pct = (total_raw_points / session_max_raw) * 100.0
+        if mastery_pct is not None:
+            mastery_pct = max(0.0, min(100.0, float(mastery_pct)))
+
+        if knowledge_level is None and mastery_pct is not None:
+            knowledge_level = self._knowledge_level_from_pct(mastery_pct)
+
+        badge_color = self.LEVEL_BADGE_COLORS.get(
+            knowledge_level, self.COLORS["primary_blue"]
+        )
+
+        ctk.CTkLabel(
+            content,
             text="You've completed all questions!",
-            font=self.message_font,
+            font=message_font,
             text_color=self.COLORS["text_medium"],
             anchor="center",
-        )
-        message_label.grid(row=0, column=0, pady=(16, 8))
+        ).grid(row=0, column=0, pady=(0, row_pad))
 
-        # Score display
-        score_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-        score_frame.grid(row=1, column=0, pady=16)
+        score_frame = ctk.CTkFrame(content, fg_color="transparent")
+        score_frame.grid(row=1, column=0, pady=(0, row_pad))
 
-        star_label = ctk.CTkLabel(
+        ctk.CTkLabel(
             score_frame,
-            text="⭐",
-            font=ctk.CTkFont(family="Segoe UI Emoji", size=36),
-            text_color=self.COLORS["star_gold"],
-        )
-        star_label.grid(row=0, column=0, padx=(0, 12))
+            text="★",
+            font=ctk.CTkFont(family="Segoe UI Symbol", size=max(int(32 * scale), 20)),
+            text_color=self.COLORS["warning_yellow"],
+        ).grid(row=0, column=0, padx=(0, 12))
 
-        score_value_label = ctk.CTkLabel(
+        ctk.CTkLabel(
             score_frame,
             text=str(self.final_score),
-            font=self.score_font,
+            font=score_font,
             text_color=self.COLORS["success_green"],
-        )
-        score_value_label.grid(row=0, column=1)
+        ).grid(row=0, column=1)
 
-        points_label = ctk.CTkLabel(
+        ctk.CTkLabel(
             score_frame,
             text="points",
-            font=self.message_font,
+            font=message_font,
             text_color=self.COLORS["text_medium"],
-        )
-        points_label.grid(row=0, column=2, padx=(8, 0), sticky="s", pady=(0, 8))
+        ).grid(row=0, column=2, padx=(8, 0), sticky="s", pady=(0, 6))
 
-        # Stats label
-        stats_label = ctk.CTkLabel(
-            content_frame,
-            text=f"Questions answered: {self.total_questions}",
-            font=self.message_font,
+        if mastery_pct is not None and knowledge_level is not None:
+            badge_outer = ctk.CTkFrame(
+                content,
+                fg_color=badge_color,
+                corner_radius=999,
+            )
+            badge_outer.grid(row=2, column=0, pady=(0, pad // 2))
+            ctk.CTkLabel(
+                badge_outer,
+                text=f"{knowledge_level} • {mastery_pct:.1f}% mastery",
+                font=badge_font,
+                text_color=self.COLORS["text_white"],
+                fg_color="transparent",
+                anchor="center",
+            ).grid(row=0, column=0, padx=12, pady=6)
+
+        stats_card = ctk.CTkFrame(
+            content,
+            fg_color=self.COLORS["card_bg"],
+            corner_radius=card_corner_r,
+            border_width=1,
+            border_color=self.COLORS["border_light"],
+        )
+        stats_card.grid(row=3, column=0, sticky="ew", pady=(0, pad // 2))
+        stats_card.grid_columnconfigure(0, weight=1)
+
+        rows_container = ctk.CTkFrame(stats_card, fg_color="transparent")
+        rows_container.grid(row=0, column=0, sticky="nsew", padx=pad, pady=pad // 2)
+        rows_container.grid_columnconfigure(0, weight=1)
+
+        rows = [
+            (
+                "Questions",
+                f"{questions_answered}/{total_questions}",
+                self.COLORS["primary_blue"],
+            ),
+        ]
+        if base_points is not None:
+            rows.append(
+                ("BASE / question", str(base_points), self.COLORS["primary_blue"])
+            )
+        if max_possible_per_question is not None:
+            rows.append(
+                (
+                    "Max raw / question",
+                    str(max_possible_per_question),
+                    self.COLORS["primary_blue"],
+                )
+            )
+        if penalty_per_mistake is not None:
+            rows.append(
+                (
+                    "Penalty / mistake",
+                    str(penalty_per_mistake),
+                    self.COLORS["danger_red"],
+                )
+            )
+        if mastery_pct is not None and knowledge_level is not None:
+            rows.append(
+                (
+                    "Raw mastery",
+                    f"{mastery_pct:.1f}% ({knowledge_level})",
+                    badge_color,
+                )
+            )
+        if total_raw_points is not None and session_max_raw:
+            rows.append(
+                (
+                    "Raw points",
+                    f"{total_raw_points} / {round(session_max_raw)}",
+                    self.COLORS["primary_blue"],
+                )
+            )
+        if clean_streak is not None and streak_multiplier is not None:
+            rows.append(
+                (
+                    "Clean streak (end)",
+                    f"{clean_streak} (x{float(streak_multiplier):.2f})",
+                    self.COLORS["success_green"],
+                )
+            )
+        if grace_seconds is not None:
+            rows.append(
+                ("Reading grace", f"{grace_seconds}s", self.COLORS["text_medium"])
+            )
+
+        self._animated_widgets.clear()
+        bg_color = self.COLORS["bg_light"]
+        self._widget_target_colors.clear()
+
+        for i, (label_text, value_text, value_color) in enumerate(rows):
+            row_frame = ctk.CTkFrame(rows_container, fg_color="transparent")
+            row_frame.grid(row=i, column=0, sticky="ew", pady=row_pad // 2)
+            row_frame.grid_columnconfigure(0, weight=1)
+            row_frame.grid_columnconfigure(1, weight=0)
+
+            label_widget = ctk.CTkLabel(
+                row_frame,
+                text=f"{label_text}:",
+                font=label_font,
+                text_color=bg_color,  # Start invisible
+                anchor="w",
+            )
+            label_widget.grid(row=0, column=0, sticky="w")
+            self._widget_target_colors[id(label_widget)] = self.COLORS["text_dark"]
+
+            value_widget = ctk.CTkLabel(
+                row_frame,
+                text=value_text,
+                font=value_font,
+                text_color=bg_color,  # Start invisible
+                anchor="e",
+            )
+            value_widget.grid(row=0, column=1, sticky="e", padx=(pad // 2, 0))
+            self._widget_target_colors[id(value_widget)] = value_color
+
+            self._animated_widgets.append((label_widget, value_widget))
+
+        ctk.CTkLabel(
+            content,
+            text="Mastery uses raw points (before streak) so it stays fair for any number of questions.",
+            font=footnote_font,
             text_color=self.COLORS["text_medium"],
-        )
-        stats_label.grid(row=2, column=0, pady=(0, 16))
+            justify="center",
+            anchor="center",
+            wraplength=int(width * 0.82),
+        ).grid(row=4, column=0, pady=(0, pad // 2))
 
-        # Button
-        button_frame = ctk.CTkFrame(container, fg_color="transparent")
-        button_frame.grid(row=2, column=0, pady=(0, 28))
+        button_container = ctk.CTkFrame(content, fg_color="transparent")
+        button_container.grid(row=5, column=0, pady=(pad // 2, 0))
+
+        previous_button = ctk.CTkButton(
+            button_container,
+            text="Previous Question",
+            font=button_font,
+            fg_color="#D0D6E0" if self.has_previous else "#E8E8E8",
+            hover_color="#B8C0D0" if self.has_previous else "#E8E8E8",
+            text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
+            command=self._handle_previous if self.has_previous else None,
+            state="normal" if self.has_previous else "disabled",
+            width=btn_w,
+            height=btn_h,
+            corner_radius=btn_r,
+        )
+        previous_button.grid(row=0, column=0, padx=(0, pad // 2))
 
         return_button = ctk.CTkButton(
-            button_frame,
+            button_container,
             text="Return to Menu",
-            font=self.button_font,
-            width=self.BASE_SIZES["button_width"],
-            height=self.BASE_SIZES["button_height"],
+            font=button_font,
+            width=btn_w,
+            height=btn_h,
             fg_color=self.COLORS["primary_blue"],
             hover_color=self.COLORS["primary_hover"],
-            corner_radius=self.BASE_SIZES["button_corner_radius"],
+            text_color=self.COLORS["text_white"],
+            corner_radius=btn_r,
             command=self._handle_close,
         )
-        return_button.grid(row=0, column=0)
+        return_button.grid(row=0, column=1, padx=(pad // 2, 0))
 
-        # Set modal size and position
-        width = self.BASE_SIZES["width"]
-        height = self.BASE_SIZES["height"]
-        pos_x, pos_y = self._calculate_position(width, height, root)
-        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
-
-        # Handle window close
         self.modal.protocol("WM_DELETE_WINDOW", self._handle_close)
         self.modal.bind("<Escape>", lambda e: self._handle_close())
         self.modal.bind("<Return>", lambda e: self._handle_close())
 
         self._safe_try(return_button.focus_set)
+        self._start_fade_in_animation(bg_color)
 
-    def _calculate_position(self, width, height, root):
-        screen_width = self.modal.winfo_screenwidth()
-        screen_height = self.modal.winfo_screenheight()
+    def _start_fade_in_animation(self, bg_color):
+        for row_index, (label_widget, value_widget) in enumerate(
+            self._animated_widgets
+        ):
+            delay = row_index * self.ANIMATION_DELAY_MS
+            job = self.modal.after(
+                delay,
+                lambda lw=label_widget, vw=value_widget, bg=bg_color: self._fade_in_row(
+                    lw, vw, bg, 0
+                ),
+            )
+            self._animation_jobs.append(job)
 
-        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            pos_x = root.winfo_rootx() + max((root.winfo_width() - width) // 2, 0)
-            pos_y = root.winfo_rooty() + max((root.winfo_height() - height) // 2, 0)
-        else:
-            pos_x = max((screen_width - width) // 2, 0)
-            pos_y = max((screen_height - height) // 2, 0)
+    def _fade_in_row(self, label_widget, value_widget, bg_color, step):
+        if not self.modal or not self.modal.winfo_exists():
+            return
 
-        return pos_x, pos_y
+        label_target = self._widget_target_colors.get(id(label_widget))
+        value_target = self._widget_target_colors.get(id(value_widget))
+
+        if step >= self.FADE_STEPS:
+            self._safe_try(lambda: label_widget.configure(text_color=label_target))
+            self._safe_try(lambda: value_widget.configure(text_color=value_target))
+            return
+
+        progress = (step + 1) / self.FADE_STEPS
+        label_color = self._interpolate_color(bg_color, label_target, progress)
+        value_color = self._interpolate_color(bg_color, value_target, progress)
+
+        self._safe_try(lambda: label_widget.configure(text_color=label_color))
+        self._safe_try(lambda: value_widget.configure(text_color=value_color))
+
+        job = self.modal.after(
+            self.FADE_STEP_MS,
+            lambda: self._fade_in_row(label_widget, value_widget, bg_color, step + 1),
+        )
+        self._animation_jobs.append(job)
+
+    def _interpolate_color(self, start_hex, end_hex, progress):
+        start_r = int(start_hex[1:3], 16)
+        start_g = int(start_hex[3:5], 16)
+        start_b = int(start_hex[5:7], 16)
+
+        end_r = int(end_hex[1:3], 16)
+        end_g = int(end_hex[3:5], 16)
+        end_b = int(end_hex[5:7], 16)
+
+        r = int(start_r + (end_r - start_r) * progress)
+        g = int(start_g + (end_g - start_g) * progress)
+        b = int(start_b + (end_b - start_b) * progress)
+
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _knowledge_level_from_pct(self, mastery_pct):
+        pct = max(0.0, min(100.0, float(mastery_pct)))
+        if pct < 40:
+            return "Beginner"
+        if pct < 55:
+            return "Student"
+        if pct < 70:
+            return "Professional"
+        if pct < 85:
+            return "Expert"
+        return "Master"
+
+    def _handle_previous(self):
+        self.close()
+        if self.on_previous_callback:
+            self.on_previous_callback()
 
     def _handle_close(self):
         self.close()
@@ -217,10 +498,24 @@ class GameCompletionModal:
             self.on_close_callback()
 
     def close(self):
-        if self._root:
-            self._safe_try(lambda: self._root.attributes("-disabled", False))
-        if self.modal and self.modal.winfo_exists():
-            self._safe_try(self.modal.destroy)
+        modal = self.modal
+        for job in self._animation_jobs:
+            if modal:
+                self._safe_try(lambda j=job, m=modal: m.after_cancel(j))
+        self._animation_jobs.clear()
+        self._animated_widgets.clear()
+        self._widget_target_colors.clear()
+
+        modal_exists = False
+        if modal:
+            try:
+                modal_exists = bool(modal.winfo_exists())
+            except tk.TclError:
+                modal_exists = False
+
+        if modal_exists:
+            self._safe_try(modal.grab_release)
+            self._safe_try(modal.destroy)
         self.modal = None
         self._root = None
 
@@ -1688,10 +1983,16 @@ class GameScreen:
         self.definition_label.configure(text="Game Complete!")
 
         # Show the completion modal
+        session_stats = (
+            self.scoring_system.get_session_stats() if self.scoring_system else None
+        )
         self.completion_modal = GameCompletionModal(
             parent=self.parent,
             final_score=self.score,
             total_questions=len(self.questions),
+            session_stats=session_stats,
+            on_previous_callback=self._on_completion_previous,
+            has_previous=bool(self.question_history),
             on_close_callback=self.return_to_menu,
         )
         self.completion_modal.show()
@@ -1703,7 +2004,7 @@ class GameScreen:
         # If viewing history, just re-show the modal for that history item
         if self.viewing_history_index >= 0:
             history_item = self.question_history[self.viewing_history_index]
-            self._show_summary_modal_for_state(history_item)
+            self._show_summary_modal_for_state(history_item, review_mode=self.game_completed)
             return
 
         # If awaiting modal decision on current question, just re-show the modal
@@ -1760,7 +2061,7 @@ class GameScreen:
             self.question_mistakes += 1
             self.show_feedback(correct=False)
 
-    def _show_summary_modal_for_state(self, state_data):
+    def _show_summary_modal_for_state(self, state_data, review_mode=False):
         # Determine if there's a previous question to go to
         if self.viewing_history_index >= 0:
             # Viewing history - can go previous if not at index 0
@@ -1769,18 +2070,74 @@ class GameScreen:
             # Viewing current - can go previous if there's any history
             has_previous = len(self.question_history) > 0
 
+        if review_mode:
+            on_next_callback = self._on_review_modal_next
+            on_close_callback = self._on_review_modal_close
+            on_previous_callback = self._on_review_modal_previous
+        else:
+            on_next_callback = self._on_modal_next
+            on_close_callback = self._on_modal_close
+            on_previous_callback = self._on_modal_previous
+
         self.summary_modal = QuestionSummaryModal(
             parent=self.parent,
             correct_word=state_data["correct_word"],
             time_taken=state_data["time_taken"],
             points_awarded=state_data["points_awarded"],
             total_score=state_data["total_score"],
-            on_next_callback=self._on_modal_next,
-            on_close_callback=self._on_modal_close,
-            on_previous_callback=self._on_modal_previous,
+            on_next_callback=on_next_callback,
+            on_close_callback=on_close_callback,
+            on_previous_callback=on_previous_callback,
             has_previous=has_previous,
         )
         self.summary_modal.show()
+
+    def _show_completion_modal_again(self):
+        if self.completion_modal is None:
+            session_stats = (
+                self.scoring_system.get_session_stats() if self.scoring_system else None
+            )
+            self.completion_modal = GameCompletionModal(
+                parent=self.parent,
+                final_score=self.score,
+                total_questions=len(self.questions),
+                session_stats=session_stats,
+                on_previous_callback=self._on_completion_previous,
+                has_previous=bool(self.question_history),
+                on_close_callback=self.return_to_menu,
+            )
+
+        self.completion_modal.show()
+
+    def _on_completion_previous(self):
+        if not self.question_history:
+            self._show_completion_modal_again()
+            return
+
+        self.viewing_history_index = len(self.question_history) - 1
+        self._load_history_state(self.viewing_history_index)
+        history_item = self.question_history[self.viewing_history_index]
+        self._show_summary_modal_for_state(history_item, review_mode=True)
+
+    def _on_review_modal_next(self):
+        if self.viewing_history_index >= 0 and self.viewing_history_index < len(
+            self.question_history
+        ) - 1:
+            self.viewing_history_index += 1
+            self._load_history_state(self.viewing_history_index)
+            return
+
+        self.viewing_history_index = -1
+        self._show_completion_modal_again()
+
+    def _on_review_modal_close(self):
+        self.viewing_history_index = -1
+        self._show_completion_modal_again()
+
+    def _on_review_modal_previous(self):
+        if self.viewing_history_index > 0:
+            self.viewing_history_index -= 1
+            self._load_history_state(self.viewing_history_index)
 
     def _on_modal_next(self):
         if self.viewing_history_index >= 0:

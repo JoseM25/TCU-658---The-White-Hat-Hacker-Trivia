@@ -57,6 +57,29 @@ class ScoringSystem:
         # Streak tracking
         self.clean_streak = 0
 
+    def get_session_max_raw(self):
+        return self.total_questions * self.max_raw_per_question
+
+    def get_mastery_percentage(self):
+        session_max_raw = self.get_session_max_raw()
+        if session_max_raw <= 0:
+            return 0.0
+        mastery_pct = (self.total_raw_points / session_max_raw) * 100.0
+        return max(0.0, min(100.0, mastery_pct))
+
+    def get_knowledge_level(self, mastery_pct=None):
+        pct = self.get_mastery_percentage() if mastery_pct is None else mastery_pct
+
+        if pct < 40:
+            return "Beginner"
+        if pct < 55:
+            return "Student"
+        if pct < 70:
+            return "Professional"
+        if pct < 85:
+            return "Expert"
+        return "Master"
+
     def _calculate_base_points(self):
         scaled = round(
             self.REFERENCE_BASE * self.REFERENCE_QUESTIONS / self.total_questions
@@ -194,11 +217,19 @@ class ScoringSystem:
         print("[SCORING] Wrong answer! Streak will reset on next question.")
 
     def get_session_stats(self):
+        mastery_pct = self.get_mastery_percentage()
+        session_max_raw = self.get_session_max_raw()
         return {
             "total_score": self.total_score,
+            "total_raw_points": self.total_raw_points,
+            "session_max_raw": session_max_raw,
+            "mastery_pct": mastery_pct,
+            "knowledge_level": self.get_knowledge_level(mastery_pct),
             "questions_answered": self.questions_answered,
             "total_questions": self.total_questions,
             "base_points": self.base_points,
+            "penalty_per_mistake": self.penalty_per_mistake,
+            "grace_period_seconds": self.GRACE_PERIOD_SECONDS,
             "max_possible_per_question": round(self.max_raw_per_question),
             "clean_streak": self.clean_streak,
             "streak_multiplier": self.calculate_streak_multiplier(),
