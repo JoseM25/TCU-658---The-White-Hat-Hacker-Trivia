@@ -267,6 +267,7 @@ class QuestionSummaryModal:
         self._root = None
         self._animation_jobs = []  # Track scheduled animations for cleanup
         self._animated_widgets = []  # Widgets to animate
+        self._widget_target_colors = {}  # Store target colors for animation
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -391,8 +392,9 @@ class QuestionSummaryModal:
         ]
 
         # Create rows with initial hidden state for animation
-        self._animated_widgets = []
+        self._animated_widgets.clear()
         bg_color = self.COLORS["bg_light"]
+        self._widget_target_colors.clear()
 
         for i, (label_text, value_text, value_color) in enumerate(rows):
             label_widget = ctk.CTkLabel(
@@ -403,7 +405,7 @@ class QuestionSummaryModal:
                 anchor="center",
             )
             label_widget.grid(row=i * 2, column=0, pady=(row_pad, 0))
-            label_widget._target_color = self.COLORS["text_dark"]
+            self._widget_target_colors[id(label_widget)] = self.COLORS["text_dark"]
 
             value_widget = ctk.CTkLabel(
                 content,
@@ -413,7 +415,7 @@ class QuestionSummaryModal:
                 anchor="center",
             )
             value_widget.grid(row=i * 2 + 1, column=0, pady=(0, row_pad))
-            value_widget._target_color = value_color
+            self._widget_target_colors[id(value_widget)] = value_color
 
             self._animated_widgets.append((label_widget, value_widget))
 
@@ -458,24 +460,19 @@ class QuestionSummaryModal:
         if not self.modal or not self.modal.winfo_exists():
             return
 
+        label_target = self._widget_target_colors.get(id(label_widget))
+        value_target = self._widget_target_colors.get(id(value_widget))
+
         if step >= self.FADE_STEPS:
             # Animation complete - set final colors
-            self._safe_try(
-                lambda: label_widget.configure(text_color=label_widget._target_color)
-            )
-            self._safe_try(
-                lambda: value_widget.configure(text_color=value_widget._target_color)
-            )
+            self._safe_try(lambda: label_widget.configure(text_color=label_target))
+            self._safe_try(lambda: value_widget.configure(text_color=value_target))
             return
 
         # Calculate interpolated colors
         progress = (step + 1) / self.FADE_STEPS
-        label_color = self._interpolate_color(
-            bg_color, label_widget._target_color, progress
-        )
-        value_color = self._interpolate_color(
-            bg_color, value_widget._target_color, progress
-        )
+        label_color = self._interpolate_color(bg_color, label_target, progress)
+        value_color = self._interpolate_color(bg_color, value_target, progress)
 
         self._safe_try(lambda: label_widget.configure(text_color=label_color))
         self._safe_try(lambda: value_widget.configure(text_color=value_color))
@@ -516,9 +513,10 @@ class QuestionSummaryModal:
             self._safe_try(lambda j=job: self.modal.after_cancel(j))
         self._animation_jobs.clear()
         self._animated_widgets.clear()
+        self._widget_target_colors.clear()
 
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(lambda: self.modal.grab_release())
+            self._safe_try(self.modal.grab_release)
             self._safe_try(self.modal.destroy)
         self.modal = None
         self._root = None
@@ -707,7 +705,7 @@ class SkipConfirmationModal:
 
     def close(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(lambda: self.modal.grab_release())
+            self._safe_try(self.modal.grab_release)
             self._safe_try(self.modal.destroy)
         self.modal = None
         self._root = None
@@ -846,6 +844,7 @@ class GameScreen:
         self.feedback_animation_job = None
         self.skip_modal = None
         self.summary_modal = None
+        self.processing_correct_answer = False  # Prevent multiple submissions
 
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
@@ -853,12 +852,20 @@ class GameScreen:
 
         self.tts = tts_service or TTSService(self.audio_dir)
 
+        # Map for physical key -> virtual keyboard button (for visual feedback)
+        self.key_button_map = {}
+        # Track currently pressed key for visual feedback
+        self.physical_key_pressed = None
+        self.key_feedback_job = None
+
         self.create_fonts()
 
         self.load_questions()
         self.build_ui()
 
         self.parent.bind("<Configure>", self.on_resize)
+        # Bind physical keyboard events
+        self._bind_physical_keyboard()
         self.apply_responsive()
 
         self.load_random_question()
@@ -1342,6 +1349,7 @@ class GameScreen:
         self.keyboard_frame.grid_columnconfigure(0, weight=1)
 
         self.keyboard_buttons.clear()
+        self.key_button_map.clear()  # Clear the key->button mapping
         self.delete_button = None
         self.load_delete_icon()
 
@@ -1388,6 +1396,10 @@ class GameScreen:
                 )
                 btn.grid(row=0, column=col_idx, padx=12)
                 self.keyboard_buttons.append(btn)
+
+                # Store key->button mapping for physical keyboard feedback
+                self.key_button_map[key] = btn
+
                 if key == "⌫":
                     self.delete_button = btn
 
@@ -1448,6 +1460,7 @@ class GameScreen:
     def load_random_question(self):
         self.tts.stop()
         self.hide_feedback()
+        self.processing_correct_answer = False  # Reset for new question
 
         # Check if there are no questions loaded at all
         if not self.questions:
@@ -1628,11 +1641,16 @@ class GameScreen:
         if not self.current_question:
             return
 
+        # Prevent multiple submissions while processing a correct answer
+        if self.processing_correct_answer:
+            return
+
         title = self.current_question.get("title", "")
         clean_title = title.replace(" ", "").upper()
         user_answer = self.current_answer.upper()
 
         if user_answer == clean_title:
+            self.processing_correct_answer = True  # Block further submissions
             self.show_feedback(correct=True)
 
             points_earned = 0
@@ -1892,6 +1910,9 @@ class GameScreen:
         if self.feedback_animation_job:
             self.parent.after_cancel(self.feedback_animation_job)
             self.feedback_animation_job = None
+        if self.key_feedback_job:
+            self.parent.after_cancel(self.key_feedback_job)
+            self.key_feedback_job = None
         if self.completion_modal:
             self.completion_modal.close()
             self.completion_modal = None
@@ -1902,3 +1923,137 @@ class GameScreen:
             self.skip_modal.close()
             self.skip_modal = None
         self.parent.unbind("<Configure>")
+        self._unbind_physical_keyboard()
+
+    # ==================== Physical Keyboard Support ====================
+
+    def _bind_physical_keyboard(self):
+        """Bind physical keyboard events for typing letters."""
+        root = self.parent.winfo_toplevel()
+        # Bind key press and release for visual feedback
+        root.bind("<KeyPress>", self._on_physical_key_press)
+        root.bind("<KeyRelease>", self._on_physical_key_release)
+
+    def _unbind_physical_keyboard(self):
+        """Unbind physical keyboard events when leaving the game screen."""
+        try:
+            root = self.parent.winfo_toplevel()
+            root.unbind("<KeyPress>")
+            root.unbind("<KeyRelease>")
+        except tk.TclError:
+            pass  # Ignore errors during cleanup
+
+    def _on_physical_key_press(self, event):
+        """Handle physical keyboard key press events."""
+        # Don't process if a modal is open
+        if self._is_modal_open():
+            return
+
+        # Get the key character (uppercase for consistency)
+        key_char = event.char.upper() if event.char else ""
+        key_sym = event.keysym
+
+        # Handle letter keys (A-Z)
+        if key_char.isalpha() and len(key_char) == 1:
+            self._show_key_feedback(key_char)
+            self.on_key_press(key_char)
+            return
+
+        # Handle BackSpace -> maps to ⌫
+        if key_sym == "BackSpace":
+            self._show_key_feedback("⌫")
+            self.on_key_press("⌫")
+            return
+
+        # Handle Enter -> trigger Check button
+        if key_sym == "Return":
+            self._simulate_button_press(self.check_button)
+            self.on_check()
+            return
+
+        # Handle Escape -> trigger Skip (open confirmation modal)
+        if key_sym == "Escape":
+            self._simulate_button_press(self.skip_button)
+            self.on_skip()
+            return
+
+    def _on_physical_key_release(self, event):
+        """Handle physical keyboard key release for visual feedback reset."""
+        key_char = event.char.upper() if event.char else ""
+        key_sym = event.keysym
+
+        # Reset visual feedback for letter keys
+        if key_char.isalpha() and len(key_char) == 1:
+            self._reset_key_feedback(key_char)
+            return
+
+        # Reset visual feedback for BackSpace
+        if key_sym == "BackSpace":
+            self._reset_key_feedback("⌫")
+            return
+
+    def _show_key_feedback(self, key):
+        """Show visual feedback on the virtual keyboard button when physical key is pressed."""
+        if key in self.key_button_map:
+            btn = self.key_button_map[key]
+            # Store original color and apply pressed color
+            if key == "⌫":
+                btn.configure(fg_color=self.COLORS["danger_hover"])
+            else:
+                btn.configure(fg_color=self.COLORS["key_pressed"])
+
+    def _reset_key_feedback(self, key):
+        """Reset visual feedback on the virtual keyboard button when physical key is released."""
+        if key in self.key_button_map:
+            btn = self.key_button_map[key]
+            # Restore original color
+            if key == "⌫":
+                btn.configure(fg_color=self.COLORS["danger_red"])
+            else:
+                btn.configure(fg_color=self.COLORS["key_bg"])
+
+    def _simulate_button_press(self, button):
+        """Briefly show a pressed state on action buttons (Check/Skip)."""
+        if button is None:
+            return
+
+        original_color = button.cget("fg_color")
+        hover_color = button.cget("hover_color")
+
+        # Show pressed state
+        button.configure(fg_color=hover_color)
+
+        # Reset after a brief delay
+        def reset():
+            try:
+                if button.winfo_exists():
+                    button.configure(fg_color=original_color)
+            except tk.TclError:
+                pass
+
+        self.parent.after(100, reset)
+
+    def _is_modal_open(self):
+        """Check if any modal dialog is currently open."""
+        if self.completion_modal and self.completion_modal.modal:
+            try:
+                if self.completion_modal.modal.winfo_exists():
+                    return True
+            except tk.TclError:
+                pass
+
+        if self.summary_modal and self.summary_modal.modal:
+            try:
+                if self.summary_modal.modal.winfo_exists():
+                    return True
+            except tk.TclError:
+                pass
+
+        if self.skip_modal and self.skip_modal.modal:
+            try:
+                if self.skip_modal.modal.winfo_exists():
+                    return True
+            except tk.TclError:
+                pass
+
+        return False
