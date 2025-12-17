@@ -964,6 +964,9 @@ class GameScreen:
         self.question_timer = 0
         self.question_mistakes = 0
 
+        # Reset timer display for new question
+        self.timer_label.configure(text="00:00")
+
         definition = self.current_question.get("definition", "No definition")
         self.definition_label.configure(text=definition)
 
@@ -1066,10 +1069,22 @@ class GameScreen:
         if not self.current_question:
             return
 
+        title = self.current_question.get("title", "")
+
         # Process skip through scoring system (0 points)
         if self.scoring_system:
             self.scoring_system.process_skip()
             self.questions_answered = self.scoring_system.questions_answered
+
+            # Log skip details
+            print("\n" + "=" * 50)
+            print(f"⏭ PREGUNTA SALTADA: {title}")
+            print("=" * 50)
+            print(f"  Tiempo en pregunta: {self.question_timer}s")
+            print(f"  Errores antes de saltar: {self.question_mistakes}")
+            print("  PUNTOS GANADOS: 0")
+            print(f"  Puntaje total: {self.score}")
+            print("=" * 50 + "\n")
         else:
             self.questions_answered += 1
 
@@ -1109,12 +1124,38 @@ class GameScreen:
             self.show_feedback(correct=True)
 
             if self.scoring_system:
-                self.scoring_system.process_correct_answer(
+                result = self.scoring_system.process_correct_answer(
                     time_seconds=self.question_timer,
                     mistakes=self.question_mistakes,
                 )
                 self.score = self.scoring_system.total_score
                 self.questions_answered = self.scoring_system.questions_answered
+
+                # Log scoring details
+                effective_time = self.scoring_system.get_effective_time(
+                    self.question_timer
+                )
+                time_mult = self.scoring_system.calculate_time_multiplier(
+                    effective_time
+                )
+                raw_points = self.scoring_system.calculate_raw_points(effective_time)
+                penalty = (
+                    self.question_mistakes * self.scoring_system.penalty_per_mistake
+                )
+
+                print("\n" + "=" * 50)
+                print(f"✓ RESPUESTA CORRECTA: {title}")
+                print("=" * 50)
+                print(f"  Tiempo total: {self.question_timer}s")
+                print(f"  Tiempo efectivo (sin gracia): {effective_time}s")
+                print(f"  Multiplicador de tiempo: {time_mult:.2f}x")
+                print(f"  Puntos base: {self.scoring_system.base_points}")
+                print(f"  Puntos brutos: {raw_points}")
+                print(f"  Errores: {self.question_mistakes}")
+                print(f"  Penalización: -{penalty}")
+                print(f"  PUNTOS GANADOS: {result.points_earned}")
+                print(f"  Puntaje total: {self.score}")
+                print("=" * 50 + "\n")
             else:
                 # Fallback if scoring system not initialized
                 self.score += 100
@@ -1127,6 +1168,14 @@ class GameScreen:
             # Wrong answer - increment mistake counter
             self.question_mistakes += 1
             self.show_feedback(correct=False)
+
+            # Log wrong answer
+            penalty = (
+                self.scoring_system.penalty_per_mistake if self.scoring_system else 0
+            )
+            print(
+                f"✗ Intento incorrecto #{self.question_mistakes} - Penalización acumulada: -{self.question_mistakes * penalty}"
+            )
 
     def show_feedback(self, correct=True):
         # Cancel any ongoing animation
@@ -1210,10 +1259,9 @@ class GameScreen:
         # Track per-question time for scoring
         self.question_timer += 1
 
-        # Also update total session timer for display
-        self.timer_seconds += 1
-        minutes = self.timer_seconds // 60
-        seconds = self.timer_seconds % 60
+        # Display per-question timer
+        minutes = self.question_timer // 60
+        seconds = self.question_timer % 60
         self.timer_label.configure(text=f"{minutes:02d}:{seconds:02d}")
 
         self.timer_job = self.parent.after(1000, self.update_timer)
