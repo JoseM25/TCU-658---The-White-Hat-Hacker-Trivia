@@ -30,6 +30,9 @@ class GameCompletionModal:
         "master_purple": "#7C3AED",
     }
 
+    IMAGES_DIR = os.path.join("recursos", "imagenes")
+    SVG_RASTER_SCALE = 2.0
+
     LEVEL_BADGE_COLORS = {
         "Beginner": COLORS["danger_red"],
         "Student": COLORS["primary_blue"],
@@ -64,6 +67,7 @@ class GameCompletionModal:
         self.animation_jobs = []  # Track scheduled animations for cleanup
         self.animated_widgets = []  # Widgets to animate
         self.widget_target_colors = {}  # Store target colors for animation
+        self.star_icon = None  # Will hold the CTkImage for the star
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -74,23 +78,23 @@ class GameCompletionModal:
 
         base_w, base_h = 560, 520
         if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            width = int(root.winfo_width() * 0.46)
-            height = int(root.winfo_height() * 0.68)
+            width = int(root.winfo_width() * 0.42)
+            height = int(root.winfo_height() * 0.52)
         else:
             width, height = base_w, base_h
 
-        width = max(width, 520)
-        height = max(height, 440)
+        width = max(width, 480)
+        height = max(height, 400)
 
-        scale = min(width / base_w, height / base_h) * 0.75
+        scale = min(width / base_w, height / base_h) * 0.90
 
-        title_size = max(int(26 * scale), 16)
-        message_size = max(int(15 * scale), 11)
-        score_size = max(int(50 * scale), 28)
-        label_size = max(int(14 * scale), 10)
-        value_size = max(int(14 * scale), 10)
-        footnote_size = max(int(12 * scale), 9)
-        button_size = max(int(16 * scale), 12)
+        title_size = max(int(28 * scale), 18)
+        message_size = max(int(16 * scale), 12)
+        score_size = max(int(54 * scale), 32)
+        label_size = max(int(15 * scale), 11)
+        value_size = max(int(15 * scale), 11)
+        footnote_size = max(int(13 * scale), 10)
+        button_size = max(int(17 * scale), 13)
 
         header_h = max(int(72 * scale), 48)
         btn_w = max(int(180 * scale), 120)
@@ -244,12 +248,18 @@ class GameCompletionModal:
         score_frame = ctk.CTkFrame(content, fg_color="transparent")
         score_frame.grid(row=1, column=0, pady=(0, row_pad))
 
-        ctk.CTkLabel(
+        # Load star icon from SVG
+        star_icon_size = max(int(32 * scale), 20)
+        self.load_star_icon(star_icon_size)
+
+        star_label = ctk.CTkLabel(
             score_frame,
-            text="★",
-            font=ctk.CTkFont(family="Segoe UI Symbol", size=max(int(32 * scale), 20)),
+            text="★" if self.star_icon is None else "",
+            font=ctk.CTkFont(family="Segoe UI Symbol", size=star_icon_size),
             text_color=self.COLORS["warning_yellow"],
-        ).grid(row=0, column=0, padx=(0, 12))
+            image=self.star_icon,
+        )
+        star_label.grid(row=0, column=0, padx=(0, 12))
 
         ctk.CTkLabel(
             score_frame,
@@ -370,6 +380,48 @@ class GameCompletionModal:
 
         self.safe_try(return_button.focus_set)
         self.start_fade_in_animation(bg_color)
+
+    def load_star_icon(self, icon_size):
+        star_svg_path = os.path.join(self.IMAGES_DIR, "star.svg")
+        try:
+            img = self.load_svg_image(star_svg_path, scale=self.SVG_RASTER_SCALE)
+            if img:
+                # Colorize the white star to yellow
+                img = self.colorize_image(img, self.COLORS["warning_yellow"])
+                self.star_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(icon_size, icon_size)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.star_icon = None
+
+    def colorize_image(self, img, hex_color):
+        """Colorize a white/grayscale RGBA image with the given hex color."""
+        # Parse hex color
+        r = int(hex_color[1:3], 16)
+        g = int(hex_color[3:5], 16)
+        b = int(hex_color[5:7], 16)
+
+        # Split into channels
+        img_r, img_g, img_b, img_a = img.split()
+
+        # Create new colored channels by blending original luminance with target color
+        # Since the star is white, we just replace RGB with our color and keep alpha
+        colored = Image.merge("RGBA", (
+            img_r.point(lambda x: int(x * r / 255)),
+            img_g.point(lambda x: int(x * g / 255)),
+            img_b.point(lambda x: int(x * b / 255)),
+            img_a
+        ))
+        return colored
+
+    def load_svg_image(self, svg_path, scale=1.0):
+        try:
+            svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
+            pil = ImageTk.getimage(svg_photo).convert("RGBA")
+            return pil
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Error loading SVG image '{svg_path}': {e}")
+            return None
 
     def start_fade_in_animation(self, bg_color):
         for row_index, (label_widget, value_widget) in enumerate(self.animated_widgets):
