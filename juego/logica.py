@@ -53,9 +53,13 @@ class ScoringSystem:
         self.total_score = 0
         self.questions_answered = 0
         self.total_raw_points = 0
+        self.questions_correct = 0
+        self.questions_skipped = 0
+        self.total_errors = 0
 
         # Streak tracking
         self.clean_streak = 0
+        self.highest_streak = 0
 
     def get_session_max_raw(self):
         return self.total_questions * self.max_raw_per_question
@@ -131,6 +135,7 @@ class ScoringSystem:
         return 1.0 + (self.STREAK_BONUS_PER_LEVEL * capped_streak)
 
     def process_correct_answer(self, time_seconds, mistakes):
+        mistakes = max(0, int(mistakes or 0))
         effective_time = self.get_effective_time(time_seconds)
         raw_points = self.calculate_raw_points(effective_time)
         score_before_streak = self.calculate_score(time_seconds, mistakes)
@@ -140,6 +145,7 @@ class ScoringSystem:
             self.clean_streak += 1
         else:
             self.clean_streak = 0
+        self.highest_streak = max(self.highest_streak, self.clean_streak)
 
         # Apply streak multiplier
         streak_mult = self.calculate_streak_multiplier()
@@ -147,7 +153,9 @@ class ScoringSystem:
 
         self.total_score += final_points
         self.questions_answered += 1
+        self.questions_correct += 1
         self.total_raw_points += raw_points
+        self.total_errors += mistakes
 
         return QuestionResult(
             points_earned=final_points,
@@ -157,17 +165,20 @@ class ScoringSystem:
             time_seconds=time_seconds,
         )
 
-    def process_skip(self):
+    def process_skip(self, mistakes=0):
+        mistakes = max(0, int(mistakes or 0))
         # Streak resets on skip
         self.clean_streak = 0
 
         self.questions_answered += 1
+        self.questions_skipped += 1
+        self.total_errors += mistakes
 
         return QuestionResult(
             points_earned=0,
             was_correct=False,
             was_skipped=True,
-            mistakes=0,
+            mistakes=mistakes,
             time_seconds=0,
         )
 
@@ -184,6 +195,10 @@ class ScoringSystem:
             "mastery_pct": mastery_pct,
             "knowledge_level": self.get_knowledge_level(mastery_pct),
             "questions_answered": self.questions_answered,
+            "questions_correct": self.questions_correct,
+            "questions_skipped": self.questions_skipped,
+            "total_errors": self.total_errors,
+            "highest_streak": self.highest_streak,
             "total_questions": self.total_questions,
             "base_points": self.base_points,
             "penalty_per_mistake": self.penalty_per_mistake,

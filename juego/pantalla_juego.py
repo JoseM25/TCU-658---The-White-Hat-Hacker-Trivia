@@ -60,14 +60,14 @@ class GameCompletionModal:
         self.has_previous = has_previous
         self.on_close_callback = on_close_callback
         self.modal = None
-        self._root = None
-        self._animation_jobs = []  # Track scheduled animations for cleanup
-        self._animated_widgets = []  # Widgets to animate
-        self._widget_target_colors = {}  # Store target colors for animation
+        self.root = None
+        self.animation_jobs = []  # Track scheduled animations for cleanup
+        self.animated_widgets = []  # Widgets to animate
+        self.widget_target_colors = {}  # Store target colors for animation
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return
 
         root = self.parent.winfo_toplevel() if self.parent else None
@@ -126,7 +126,7 @@ class GameCompletionModal:
             family="Poppins SemiBold", size=button_size, weight="bold"
         )
 
-        self._root = root
+        self.root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
         self.modal.after_cancel(
             self.modal.after(0, lambda: None)
@@ -198,30 +198,29 @@ class GameCompletionModal:
         content.grid_columnconfigure(0, weight=1)
 
         stats = self.session_stats or {}
-        total_questions = stats.get("total_questions", self.total_questions)
-        questions_answered = stats.get("questions_answered", total_questions)
-        base_points = stats.get("base_points")
-        max_possible_per_question = stats.get("max_possible_per_question")
-        penalty_per_mistake = stats.get("penalty_per_mistake")
-        total_raw_points = stats.get("total_raw_points")
-        session_max_raw = stats.get("session_max_raw")
-        mastery_pct = stats.get("mastery_pct")
-        knowledge_level = stats.get("knowledge_level")
-        grace_seconds = stats.get("grace_period_seconds")
-        clean_streak = stats.get("clean_streak")
-        streak_multiplier = stats.get("streak_multiplier")
 
-        if mastery_pct is None and total_raw_points is not None and session_max_raw:
-            mastery_pct = (total_raw_points / session_max_raw) * 100.0
-        if mastery_pct is not None:
-            mastery_pct = max(0.0, min(100.0, float(mastery_pct)))
+        def to_int(value, default=0):
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return default
 
-        if knowledge_level is None and mastery_pct is not None:
-            knowledge_level = self._knowledge_level_from_pct(mastery_pct)
-
-        badge_color = self.LEVEL_BADGE_COLORS.get(
-            knowledge_level, self.COLORS["primary_blue"]
+        total_questions = to_int(
+            stats.get("total_questions", self.total_questions),
+            default=to_int(self.total_questions, 0),
         )
+        questions_answered = to_int(stats.get("questions_answered", total_questions), 0)
+
+        questions_skipped = to_int(stats.get("questions_skipped"), 0)
+        questions_correct = stats.get("questions_correct")
+        if questions_correct is None:
+            questions_correct = max(0, questions_answered - questions_skipped)
+        questions_correct = to_int(questions_correct, 0)
+
+        total_errors = to_int(stats.get("total_errors"), 0)
+        highest_streak = stats.get("highest_streak", stats.get("clean_streak"))
+        highest_streak = to_int(highest_streak, 0)
+        grace_seconds = to_int(stats.get("grace_period_seconds", 5), 5)
 
         ctk.CTkLabel(
             content,
@@ -255,22 +254,6 @@ class GameCompletionModal:
             text_color=self.COLORS["text_medium"],
         ).grid(row=0, column=2, padx=(8, 0), sticky="s", pady=(0, 6))
 
-        if mastery_pct is not None and knowledge_level is not None:
-            badge_outer = ctk.CTkFrame(
-                content,
-                fg_color=badge_color,
-                corner_radius=999,
-            )
-            badge_outer.grid(row=2, column=0, pady=(0, pad // 2))
-            ctk.CTkLabel(
-                badge_outer,
-                text=f"{knowledge_level} • {mastery_pct:.1f}% mastery",
-                font=badge_font,
-                text_color=self.COLORS["text_white"],
-                fg_color="transparent",
-                anchor="center",
-            ).grid(row=0, column=0, padx=12, pady=6)
-
         stats_card = ctk.CTkFrame(
             content,
             fg_color=self.COLORS["card_bg"],
@@ -278,7 +261,7 @@ class GameCompletionModal:
             border_width=1,
             border_color=self.COLORS["border_light"],
         )
-        stats_card.grid(row=3, column=0, sticky="ew", pady=(0, pad // 2))
+        stats_card.grid(row=2, column=0, sticky="ew", pady=(0, pad // 2))
         stats_card.grid_columnconfigure(0, weight=1)
 
         rows_container = ctk.CTkFrame(stats_card, fg_color="transparent")
@@ -286,64 +269,16 @@ class GameCompletionModal:
         rows_container.grid_columnconfigure(0, weight=1)
 
         rows = [
-            (
-                "Questions",
-                f"{questions_answered}/{total_questions}",
-                self.COLORS["primary_blue"],
-            ),
+            ("Total questions", str(total_questions), self.COLORS["primary_blue"]),
+            ("Correct", str(questions_correct), self.COLORS["success_green"]),
+            ("Skipped", str(questions_skipped), self.COLORS["warning_yellow"]),
+            ("Errors", str(total_errors), self.COLORS["danger_red"]),
+            ("Highest streak", str(highest_streak), self.COLORS["master_purple"]),
         ]
-        if base_points is not None:
-            rows.append(
-                ("BASE / question", str(base_points), self.COLORS["primary_blue"])
-            )
-        if max_possible_per_question is not None:
-            rows.append(
-                (
-                    "Max raw / question",
-                    str(max_possible_per_question),
-                    self.COLORS["primary_blue"],
-                )
-            )
-        if penalty_per_mistake is not None:
-            rows.append(
-                (
-                    "Penalty / mistake",
-                    str(penalty_per_mistake),
-                    self.COLORS["danger_red"],
-                )
-            )
-        if mastery_pct is not None and knowledge_level is not None:
-            rows.append(
-                (
-                    "Raw mastery",
-                    f"{mastery_pct:.1f}% ({knowledge_level})",
-                    badge_color,
-                )
-            )
-        if total_raw_points is not None and session_max_raw:
-            rows.append(
-                (
-                    "Raw points",
-                    f"{total_raw_points} / {round(session_max_raw)}",
-                    self.COLORS["primary_blue"],
-                )
-            )
-        if clean_streak is not None and streak_multiplier is not None:
-            rows.append(
-                (
-                    "Clean streak (end)",
-                    f"{clean_streak} (x{float(streak_multiplier):.2f})",
-                    self.COLORS["success_green"],
-                )
-            )
-        if grace_seconds is not None:
-            rows.append(
-                ("Reading grace", f"{grace_seconds}s", self.COLORS["text_medium"])
-            )
 
-        self._animated_widgets.clear()
+        self.animated_widgets.clear()
         bg_color = self.COLORS["bg_light"]
-        self._widget_target_colors.clear()
+        self.widget_target_colors.clear()
 
         for i, (label_text, value_text, value_color) in enumerate(rows):
             row_frame = ctk.CTkFrame(rows_container, fg_color="transparent")
@@ -359,7 +294,7 @@ class GameCompletionModal:
                 anchor="w",
             )
             label_widget.grid(row=0, column=0, sticky="w")
-            self._widget_target_colors[id(label_widget)] = self.COLORS["text_dark"]
+            self.widget_target_colors[id(label_widget)] = self.COLORS["text_dark"]
 
             value_widget = ctk.CTkLabel(
                 row_frame,
@@ -369,22 +304,22 @@ class GameCompletionModal:
                 anchor="e",
             )
             value_widget.grid(row=0, column=1, sticky="e", padx=(pad // 2, 0))
-            self._widget_target_colors[id(value_widget)] = value_color
+            self.widget_target_colors[id(value_widget)] = value_color
 
-            self._animated_widgets.append((label_widget, value_widget))
+            self.animated_widgets.append((label_widget, value_widget))
 
         ctk.CTkLabel(
             content,
-            text="Mastery uses raw points (before streak) so it stays fair for any number of questions.",
+            text=f"You get the first {grace_seconds} seconds free to read the clue. Time-based scoring starts after that.",
             font=footnote_font,
             text_color=self.COLORS["text_medium"],
             justify="center",
             anchor="center",
             wraplength=int(width * 0.82),
-        ).grid(row=4, column=0, pady=(0, pad // 2))
+        ).grid(row=3, column=0, pady=(0, pad // 2))
 
         button_container = ctk.CTkFrame(content, fg_color="transparent")
-        button_container.grid(row=5, column=0, pady=(pad // 2, 0))
+        button_container.grid(row=4, column=0, pady=(pad // 2, 0))
 
         previous_button = ctk.CTkButton(
             button_container,
@@ -393,7 +328,7 @@ class GameCompletionModal:
             fg_color="#D0D6E0" if self.has_previous else "#E8E8E8",
             hover_color="#B8C0D0" if self.has_previous else "#E8E8E8",
             text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
-            command=self._handle_previous if self.has_previous else None,
+            command=self.handle_previous if self.has_previous else None,
             state="normal" if self.has_previous else "disabled",
             width=btn_w,
             height=btn_h,
@@ -411,56 +346,54 @@ class GameCompletionModal:
             hover_color=self.COLORS["primary_hover"],
             text_color=self.COLORS["text_white"],
             corner_radius=btn_r,
-            command=self._handle_close,
+            command=self.handle_close,
         )
         return_button.grid(row=0, column=1, padx=(pad // 2, 0))
 
-        self.modal.protocol("WM_DELETE_WINDOW", self._handle_close)
-        self.modal.bind("<Escape>", lambda e: self._handle_close())
-        self.modal.bind("<Return>", lambda e: self._handle_close())
+        self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
+        self.modal.bind("<Escape>", lambda e: self.handle_close())
+        self.modal.bind("<Return>", lambda e: self.handle_close())
 
-        self._safe_try(return_button.focus_set)
-        self._start_fade_in_animation(bg_color)
+        self.safe_try(return_button.focus_set)
+        self.start_fade_in_animation(bg_color)
 
-    def _start_fade_in_animation(self, bg_color):
-        for row_index, (label_widget, value_widget) in enumerate(
-            self._animated_widgets
-        ):
+    def start_fade_in_animation(self, bg_color):
+        for row_index, (label_widget, value_widget) in enumerate(self.animated_widgets):
             delay = row_index * self.ANIMATION_DELAY_MS
             job = self.modal.after(
                 delay,
-                lambda lw=label_widget, vw=value_widget, bg=bg_color: self._fade_in_row(
+                lambda lw=label_widget, vw=value_widget, bg=bg_color: self.fade_in_row(
                     lw, vw, bg, 0
                 ),
             )
-            self._animation_jobs.append(job)
+            self.animation_jobs.append(job)
 
-    def _fade_in_row(self, label_widget, value_widget, bg_color, step):
+    def fade_in_row(self, label_widget, value_widget, bg_color, step):
         if not self.modal or not self.modal.winfo_exists():
             return
 
-        label_target = self._widget_target_colors.get(id(label_widget))
-        value_target = self._widget_target_colors.get(id(value_widget))
+        label_target = self.widget_target_colors.get(id(label_widget))
+        value_target = self.widget_target_colors.get(id(value_widget))
 
         if step >= self.FADE_STEPS:
-            self._safe_try(lambda: label_widget.configure(text_color=label_target))
-            self._safe_try(lambda: value_widget.configure(text_color=value_target))
+            self.safe_try(lambda: label_widget.configure(text_color=label_target))
+            self.safe_try(lambda: value_widget.configure(text_color=value_target))
             return
 
         progress = (step + 1) / self.FADE_STEPS
-        label_color = self._interpolate_color(bg_color, label_target, progress)
-        value_color = self._interpolate_color(bg_color, value_target, progress)
+        label_color = self.interpolate_color(bg_color, label_target, progress)
+        value_color = self.interpolate_color(bg_color, value_target, progress)
 
-        self._safe_try(lambda: label_widget.configure(text_color=label_color))
-        self._safe_try(lambda: value_widget.configure(text_color=value_color))
+        self.safe_try(lambda: label_widget.configure(text_color=label_color))
+        self.safe_try(lambda: value_widget.configure(text_color=value_color))
 
         job = self.modal.after(
             self.FADE_STEP_MS,
-            lambda: self._fade_in_row(label_widget, value_widget, bg_color, step + 1),
+            lambda: self.fade_in_row(label_widget, value_widget, bg_color, step + 1),
         )
-        self._animation_jobs.append(job)
+        self.animation_jobs.append(job)
 
-    def _interpolate_color(self, start_hex, end_hex, progress):
+    def interpolate_color(self, start_hex, end_hex, progress):
         start_r = int(start_hex[1:3], 16)
         start_g = int(start_hex[3:5], 16)
         start_b = int(start_hex[5:7], 16)
@@ -475,7 +408,7 @@ class GameCompletionModal:
 
         return f"#{r:02x}{g:02x}{b:02x}"
 
-    def _knowledge_level_from_pct(self, mastery_pct):
+    def knowledge_level_from_pct(self, mastery_pct):
         pct = max(0.0, min(100.0, float(mastery_pct)))
         if pct < 40:
             return "Beginner"
@@ -487,24 +420,24 @@ class GameCompletionModal:
             return "Expert"
         return "Master"
 
-    def _handle_previous(self):
+    def handle_previous(self):
         self.close()
         if self.on_previous_callback:
             self.on_previous_callback()
 
-    def _handle_close(self):
+    def handle_close(self):
         self.close()
         if self.on_close_callback:
             self.on_close_callback()
 
     def close(self):
         modal = self.modal
-        for job in self._animation_jobs:
+        for job in self.animation_jobs:
             if modal:
-                self._safe_try(lambda j=job, m=modal: m.after_cancel(j))
-        self._animation_jobs.clear()
-        self._animated_widgets.clear()
-        self._widget_target_colors.clear()
+                self.safe_try(lambda j=job, m=modal: m.after_cancel(j))
+        self.animation_jobs.clear()
+        self.animated_widgets.clear()
+        self.widget_target_colors.clear()
 
         modal_exists = False
         if modal:
@@ -514,12 +447,12 @@ class GameCompletionModal:
                 modal_exists = False
 
         if modal_exists:
-            self._safe_try(modal.grab_release)
-            self._safe_try(modal.destroy)
+            self.safe_try(modal.grab_release)
+            self.safe_try(modal.destroy)
         self.modal = None
-        self._root = None
+        self.root = None
 
-    def _safe_try(self, func):
+    def safe_try(self, func):
         try:
             func()
         except tk.TclError:
@@ -565,14 +498,14 @@ class QuestionSummaryModal:
         self.on_previous_callback = on_previous_callback
         self.has_previous = has_previous
         self.modal = None
-        self._root = None
-        self._animation_jobs = []  # Track scheduled animations for cleanup
-        self._animated_widgets = []  # Widgets to animate
-        self._widget_target_colors = {}  # Store target colors for animation
+        self.root = None
+        self.animation_jobs = []  # Track scheduled animations for cleanup
+        self.animated_widgets = []  # Widgets to animate
+        self.widget_target_colors = {}  # Store target colors for animation
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return
 
         root = self.parent.winfo_toplevel() if self.parent else None
@@ -611,7 +544,7 @@ class QuestionSummaryModal:
             family="Poppins SemiBold", size=button_size, weight="bold"
         )
 
-        self._root = root
+        self.root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
         self.modal.after_cancel(
             self.modal.after(0, lambda: None)
@@ -693,9 +626,9 @@ class QuestionSummaryModal:
         ]
 
         # Create rows with initial hidden state for animation
-        self._animated_widgets.clear()
+        self.animated_widgets.clear()
         bg_color = self.COLORS["bg_light"]
-        self._widget_target_colors.clear()
+        self.widget_target_colors.clear()
 
         for i, (label_text, value_text, value_color) in enumerate(rows):
             label_widget = ctk.CTkLabel(
@@ -706,7 +639,7 @@ class QuestionSummaryModal:
                 anchor="center",
             )
             label_widget.grid(row=i * 2, column=0, pady=(row_pad, 0))
-            self._widget_target_colors[id(label_widget)] = self.COLORS["text_dark"]
+            self.widget_target_colors[id(label_widget)] = self.COLORS["text_dark"]
 
             value_widget = ctk.CTkLabel(
                 content,
@@ -716,9 +649,9 @@ class QuestionSummaryModal:
                 anchor="center",
             )
             value_widget.grid(row=i * 2 + 1, column=0, pady=(0, row_pad))
-            self._widget_target_colors[id(value_widget)] = value_color
+            self.widget_target_colors[id(value_widget)] = value_color
 
-            self._animated_widgets.append((label_widget, value_widget))
+            self.animated_widgets.append((label_widget, value_widget))
 
         # Button container for side-by-side buttons
         button_container = ctk.CTkFrame(content, fg_color="transparent")
@@ -732,7 +665,7 @@ class QuestionSummaryModal:
             fg_color="#D0D6E0" if self.has_previous else "#E8E8E8",
             hover_color="#B8C0D0" if self.has_previous else "#E8E8E8",
             text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
-            command=self._handle_previous if self.has_previous else None,
+            command=self.handle_previous if self.has_previous else None,
             state="normal" if self.has_previous else "disabled",
             width=btn_w,
             height=btn_h,
@@ -747,7 +680,7 @@ class QuestionSummaryModal:
             fg_color="#D0D6E0",
             hover_color="#B8C0D0",
             text_color=self.COLORS["text_white"],
-            command=self._handle_close,
+            command=self.handle_close,
             width=btn_w,
             height=btn_h,
             corner_radius=btn_r,
@@ -761,63 +694,61 @@ class QuestionSummaryModal:
             fg_color=self.COLORS["primary_blue"],
             hover_color=self.COLORS["primary_hover"],
             text_color=self.COLORS["text_white"],
-            command=self._handle_next,
+            command=self.handle_next,
             width=btn_w,
             height=btn_h,
             corner_radius=btn_r,
         )
         next_button.grid(row=0, column=2, padx=(pad // 2, 0))
 
-        self.modal.protocol("WM_DELETE_WINDOW", self._handle_close)
-        self.modal.bind("<Escape>", lambda e: self._handle_close())
-        self.modal.bind("<Return>", lambda e: self._handle_next())
+        self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
+        self.modal.bind("<Escape>", lambda e: self.handle_close())
+        self.modal.bind("<Return>", lambda e: self.handle_next())
 
         # Start the fade-in animation
-        self._start_fade_in_animation(bg_color)
+        self.start_fade_in_animation(bg_color)
 
-    def _start_fade_in_animation(self, bg_color):
-        for row_index, (label_widget, value_widget) in enumerate(
-            self._animated_widgets
-        ):
+    def start_fade_in_animation(self, bg_color):
+        for row_index, (label_widget, value_widget) in enumerate(self.animated_widgets):
             delay = row_index * self.ANIMATION_DELAY_MS
             # Schedule fade-in for this row
             job = self.modal.after(
                 delay,
-                lambda lw=label_widget, vw=value_widget, bg=bg_color: self._fade_in_row(
+                lambda lw=label_widget, vw=value_widget, bg=bg_color: self.fade_in_row(
                     lw, vw, bg, 0
                 ),
             )
-            self._animation_jobs.append(job)
+            self.animation_jobs.append(job)
 
-    def _fade_in_row(self, label_widget, value_widget, bg_color, step):
+    def fade_in_row(self, label_widget, value_widget, bg_color, step):
         if not self.modal or not self.modal.winfo_exists():
             return
 
-        label_target = self._widget_target_colors.get(id(label_widget))
-        value_target = self._widget_target_colors.get(id(value_widget))
+        label_target = self.widget_target_colors.get(id(label_widget))
+        value_target = self.widget_target_colors.get(id(value_widget))
 
         if step >= self.FADE_STEPS:
             # Animation complete - set final colors
-            self._safe_try(lambda: label_widget.configure(text_color=label_target))
-            self._safe_try(lambda: value_widget.configure(text_color=value_target))
+            self.safe_try(lambda: label_widget.configure(text_color=label_target))
+            self.safe_try(lambda: value_widget.configure(text_color=value_target))
             return
 
         # Calculate interpolated colors
         progress = (step + 1) / self.FADE_STEPS
-        label_color = self._interpolate_color(bg_color, label_target, progress)
-        value_color = self._interpolate_color(bg_color, value_target, progress)
+        label_color = self.interpolate_color(bg_color, label_target, progress)
+        value_color = self.interpolate_color(bg_color, value_target, progress)
 
-        self._safe_try(lambda: label_widget.configure(text_color=label_color))
-        self._safe_try(lambda: value_widget.configure(text_color=value_color))
+        self.safe_try(lambda: label_widget.configure(text_color=label_color))
+        self.safe_try(lambda: value_widget.configure(text_color=value_color))
 
         # Schedule next step
         job = self.modal.after(
             self.FADE_STEP_MS,
-            lambda: self._fade_in_row(label_widget, value_widget, bg_color, step + 1),
+            lambda: self.fade_in_row(label_widget, value_widget, bg_color, step + 1),
         )
-        self._animation_jobs.append(job)
+        self.animation_jobs.append(job)
 
-    def _interpolate_color(self, start_hex, end_hex, progress):
+    def interpolate_color(self, start_hex, end_hex, progress):
         # Parse hex colors
         start_r = int(start_hex[1:3], 16)
         start_g = int(start_hex[3:5], 16)
@@ -834,36 +765,36 @@ class QuestionSummaryModal:
 
         return f"#{r:02x}{g:02x}{b:02x}"
 
-    def _handle_next(self):
+    def handle_next(self):
         self.close()
         if self.on_next_callback:
             self.on_next_callback()
 
-    def _handle_close(self):
+    def handle_close(self):
         self.close()
         if self.on_close_callback:
             self.on_close_callback()
 
-    def _handle_previous(self):
+    def handle_previous(self):
         self.close()
         if self.on_previous_callback:
             self.on_previous_callback()
 
     def close(self):
         # Cancel any pending animations
-        for job in self._animation_jobs:
-            self._safe_try(lambda j=job: self.modal.after_cancel(j))
-        self._animation_jobs.clear()
-        self._animated_widgets.clear()
-        self._widget_target_colors.clear()
+        for job in self.animation_jobs:
+            self.safe_try(lambda j=job: self.modal.after_cancel(j))
+        self.animation_jobs.clear()
+        self.animated_widgets.clear()
+        self.widget_target_colors.clear()
 
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(self.modal.grab_release)
-            self._safe_try(self.modal.destroy)
+            self.safe_try(self.modal.grab_release)
+            self.safe_try(self.modal.destroy)
         self.modal = None
-        self._root = None
+        self.root = None
 
-    def _safe_try(self, func):
+    def safe_try(self, func):
         try:
             func()
         except tk.TclError:
@@ -887,11 +818,11 @@ class SkipConfirmationModal:
         self.parent = parent
         self.on_skip_callback = on_skip_callback
         self.modal = None
-        self._root = None
+        self.root = None
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return
 
         root = self.parent.winfo_toplevel() if self.parent else None
@@ -928,7 +859,7 @@ class SkipConfirmationModal:
             family="Poppins SemiBold", size=button_size, weight="bold"
         )
 
-        self._root = root
+        self.root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
         self.modal.after_cancel(
             self.modal.after(0, lambda: None)
@@ -1031,7 +962,7 @@ class SkipConfirmationModal:
             fg_color=self.COLORS["skip_bg"],
             hover_color=self.COLORS["skip_hover"],
             text_color=self.COLORS["text_white"],
-            command=self._handle_skip,
+            command=self.handle_skip,
             width=btn_w,
             height=btn_h,
             corner_radius=btn_r,
@@ -1040,19 +971,19 @@ class SkipConfirmationModal:
         self.modal.protocol("WM_DELETE_WINDOW", self.close)
         self.modal.bind("<Escape>", lambda e: self.close())
 
-    def _handle_skip(self):
+    def handle_skip(self):
         self.close()
         if self.on_skip_callback:
             self.on_skip_callback()
 
     def close(self):
         if self.modal and self.modal.winfo_exists():
-            self._safe_try(self.modal.grab_release)
-            self._safe_try(self.modal.destroy)
+            self.safe_try(self.modal.grab_release)
+            self.safe_try(self.modal.destroy)
         self.modal = None
-        self._root = None
+        self.root = None
 
-    def _safe_try(self, func):
+    def safe_try(self, func):
         try:
             func()
         except tk.TclError:
@@ -1215,7 +1146,7 @@ class GameScreen:
 
         self.parent.bind("<Configure>", self.on_resize)
         # Bind physical keyboard events
-        self._bind_physical_keyboard()
+        self.bind_physical_keyboard()
         self.apply_responsive()
 
         self.load_random_question()
@@ -1819,7 +1750,7 @@ class GameScreen:
 
         # Check if all questions have been answered/skipped
         if not self.available_questions:
-            self._handle_game_completion()
+            self.handle_game_completion()
             return
 
         # Select and remove a random question from available pool
@@ -1950,10 +1881,10 @@ class GameScreen:
             return
 
         if self.skip_modal is None:
-            self.skip_modal = SkipConfirmationModal(self.parent, self._do_skip)
+            self.skip_modal = SkipConfirmationModal(self.parent, self.do_skip)
         self.skip_modal.show()
 
-    def _do_skip(self):
+    def do_skip(self):
         if not self.current_question:
             return
 
@@ -1967,7 +1898,7 @@ class GameScreen:
 
         # Process skip through scoring system (0 points)
         if self.scoring_system:
-            self.scoring_system.process_skip()
+            self.scoring_system.process_skip(mistakes=self.question_mistakes)
             self.questions_answered = self.scoring_system.questions_answered
             self.score = self.scoring_system.total_score
         else:
@@ -1990,9 +1921,9 @@ class GameScreen:
         }
 
         self.show_feedback(skipped=True)
-        self._show_summary_modal_for_state(self.stored_modal_data)
+        self.show_summary_modal_for_state(self.stored_modal_data)
 
-    def _handle_game_completion(self):
+    def handle_game_completion(self):
         if self.game_completed:
             return
 
@@ -2013,7 +1944,7 @@ class GameScreen:
             final_score=self.score,
             total_questions=len(self.questions),
             session_stats=session_stats,
-            on_previous_callback=self._on_completion_previous,
+            on_previous_callback=self.on_completion_previous,
             has_previous=bool(self.question_history),
             on_close_callback=self.return_to_menu,
         )
@@ -2026,14 +1957,14 @@ class GameScreen:
         # If viewing history, just re-show the modal for that history item
         if self.viewing_history_index >= 0:
             history_item = self.question_history[self.viewing_history_index]
-            self._show_summary_modal_for_state(
+            self.show_summary_modal_for_state(
                 history_item, review_mode=self.game_completed
             )
             return
 
         # If awaiting modal decision on current question, just re-show the modal
         if self.awaiting_modal_decision and self.stored_modal_data:
-            self._show_summary_modal_for_state(self.stored_modal_data)
+            self.show_summary_modal_for_state(self.stored_modal_data)
             return
 
         # Prevent multiple submissions while processing a correct answer
@@ -2080,13 +2011,13 @@ class GameScreen:
             }
 
             self.parent.after(
-                600, lambda: self._show_summary_modal_for_state(self.stored_modal_data)
+                600, lambda: self.show_summary_modal_for_state(self.stored_modal_data)
             )
         else:
             self.question_mistakes += 1
             self.show_feedback(correct=False)
 
-    def _show_summary_modal_for_state(self, state_data, review_mode=False):
+    def show_summary_modal_for_state(self, state_data, review_mode=False):
         # Determine if there's a previous question to go to
         if self.viewing_history_index >= 0:
             # Viewing history - can go previous if not at index 0
@@ -2096,13 +2027,13 @@ class GameScreen:
             has_previous = len(self.question_history) > 0
 
         if review_mode:
-            on_next_callback = self._on_review_modal_next
-            on_close_callback = self._on_review_modal_close
-            on_previous_callback = self._on_review_modal_previous
+            on_next_callback = self.on_review_modal_next
+            on_close_callback = self.on_review_modal_close
+            on_previous_callback = self.on_review_modal_previous
         else:
-            on_next_callback = self._on_modal_next
-            on_close_callback = self._on_modal_close
-            on_previous_callback = self._on_modal_previous
+            on_next_callback = self.on_modal_next
+            on_close_callback = self.on_modal_close
+            on_previous_callback = self.on_modal_previous
 
         self.summary_modal = QuestionSummaryModal(
             parent=self.parent,
@@ -2117,7 +2048,7 @@ class GameScreen:
         )
         self.summary_modal.show()
 
-    def _show_completion_modal_again(self):
+    def show_completion_modal_again(self):
         if self.completion_modal is None:
             session_stats = (
                 self.scoring_system.get_session_stats() if self.scoring_system else None
@@ -2127,82 +2058,82 @@ class GameScreen:
                 final_score=self.score,
                 total_questions=len(self.questions),
                 session_stats=session_stats,
-                on_previous_callback=self._on_completion_previous,
+                on_previous_callback=self.on_completion_previous,
                 has_previous=bool(self.question_history),
                 on_close_callback=self.return_to_menu,
             )
 
         self.completion_modal.show()
 
-    def _on_completion_previous(self):
+    def on_completion_previous(self):
         if not self.question_history:
-            self._show_completion_modal_again()
+            self.show_completion_modal_again()
             return
 
         self.viewing_history_index = len(self.question_history) - 1
-        self._load_history_state(self.viewing_history_index)
+        self.load_history_state(self.viewing_history_index)
 
-    def _on_review_modal_next(self):
+    def on_review_modal_next(self):
         if (
             self.viewing_history_index >= 0
             and self.viewing_history_index < len(self.question_history) - 1
         ):
             self.viewing_history_index += 1
-            self._load_history_state(self.viewing_history_index)
+            self.load_history_state(self.viewing_history_index)
             return
 
         self.viewing_history_index = -1
-        self._show_completion_modal_again()
+        self.show_completion_modal_again()
 
-    def _on_review_modal_close(self):
+    def on_review_modal_close(self):
         # Close should behave like the normal "paused" close: keep the current
         # history question on screen and allow "Check" to open the modal again.
-        self._on_modal_close()
+        self.on_modal_close()
 
-    def _on_review_modal_previous(self):
+    def on_review_modal_previous(self):
         if self.viewing_history_index > 0:
             self.viewing_history_index -= 1
-            self._load_history_state(self.viewing_history_index)
+            self.load_history_state(self.viewing_history_index)
 
-    def _on_modal_next(self):
+    def on_modal_next(self):
         if self.viewing_history_index >= 0:
             # Currently viewing history
             if self.viewing_history_index < len(self.question_history) - 1:
                 # Go to next history item
                 self.viewing_history_index += 1
-                self._load_history_state(self.viewing_history_index)
+                self.load_history_state(self.viewing_history_index)
             else:
                 # At end of history, return to current question
-                self._return_to_current_question()
+                self.return_to_current_question()
         else:
             # Viewing current question - save to history and load next
             if self.stored_modal_data:
                 self.question_history.append(self.stored_modal_data)
             self.awaiting_modal_decision = False
             self.stored_modal_data = None
-            self._set_buttons_enabled(True)
+            self.set_buttons_enabled(True)
             self.load_random_question()
             if not self.game_completed and self.current_question:
                 self.start_timer()
 
-    def _on_modal_close(self):
+    def on_modal_close(self):
         self.awaiting_modal_decision = True
-        self._set_buttons_enabled(False)
+        self.set_buttons_enabled(False)
 
-    def _on_modal_previous(self):
+    def on_modal_previous(self):
         if self.viewing_history_index >= 0:
             # Already viewing history, go to previous item
             if self.viewing_history_index > 0:
                 self.viewing_history_index -= 1
-                self._load_history_state(self.viewing_history_index)
+                self.load_history_state(self.viewing_history_index)
         else:
             # Currently on current question, go to last item in history
             # (don't add current to history yet - that happens on Next)
             if self.question_history:
                 self.viewing_history_index = len(self.question_history) - 1
-                self._load_history_state(self.viewing_history_index)
+                self.load_history_state(self.viewing_history_index)
 
-    def _load_history_state(self, index):
+    def load_history_state(self, index):
         if index < 0 or index >= len(self.question_history):
             return
 
@@ -2240,10 +2171,10 @@ class GameScreen:
             self.show_feedback(correct=True)
 
         # Ensure buttons are disabled
-        self._set_buttons_enabled(False)
+        self.set_buttons_enabled(False)
         self.awaiting_modal_decision = True
 
-    def _return_to_current_question(self):
+    def return_to_current_question(self):
         # Return to the *paused* current question state (the one that opened the modal),
         # not the next random game question.
         self.viewing_history_index = -1
@@ -2251,7 +2182,7 @@ class GameScreen:
         if not self.stored_modal_data:
             # Nothing to restore; fall back to enabling gameplay.
             self.awaiting_modal_decision = False
-            self._set_buttons_enabled(True)
+            self.set_buttons_enabled(True)
             return
 
         state = self.stored_modal_data
@@ -2280,10 +2211,10 @@ class GameScreen:
         else:
             self.show_feedback(correct=True)
 
-        self._set_buttons_enabled(False)
+        self.set_buttons_enabled(False)
         self.awaiting_modal_decision = True
 
-    def _set_buttons_enabled(self, enabled):
+    def set_buttons_enabled(self, enabled):
         state = "normal" if enabled else "disabled"
 
         # Disable keyboard buttons
@@ -2350,9 +2281,9 @@ class GameScreen:
         self.feedback_label.configure(text=text, text_color=color)
 
         # Simple fade-in animation using opacity simulation
-        self._animate_feedback_fade_in(0)
+        self.animate_feedback_fade_in(0)
 
-    def _animate_feedback_fade_in(self, step):
+    def animate_feedback_fade_in(self, step):
         total_steps = 5
         if step > total_steps:
             return
@@ -2373,17 +2304,17 @@ class GameScreen:
                 target_color = self.COLORS["feedback_incorrect"]
 
             # Interpolate color
-            faded_color = self._interpolate_color(
+            faded_color = self.interpolate_color(
                 "#F5F7FA", target_color, step / total_steps
             )
             self.feedback_label.configure(text_color=faded_color)
 
         if step < total_steps:
             self.feedback_animation_job = self.parent.after(
-                40, lambda: self._animate_feedback_fade_in(step + 1)
+                40, lambda: self.animate_feedback_fade_in(step + 1)
             )
 
-    def _interpolate_color(self, color1, color2, factor):
+    def interpolate_color(self, color1, color2, factor):
         # Parse hex colors
         r1, g1, b1 = int(color1[1:3], 16), int(color1[3:5], 16), int(color1[5:7], 16)
         r2, g2, b2 = int(color2[1:3], 16), int(color2[3:5], 16), int(color2[5:7], 16)
@@ -2585,17 +2516,17 @@ class GameScreen:
             self.skip_modal.close()
             self.skip_modal = None
         self.parent.unbind("<Configure>")
-        self._unbind_physical_keyboard()
+        self.unbind_physical_keyboard()
 
     # ==================== Physical Keyboard Support ====================
 
-    def _bind_physical_keyboard(self):
+    def bind_physical_keyboard(self):
         root = self.parent.winfo_toplevel()
         # Bind key press and release for visual feedback
-        root.bind("<KeyPress>", self._on_physical_key_press)
-        root.bind("<KeyRelease>", self._on_physical_key_release)
+        root.bind("<KeyPress>", self.on_physical_key_press)
+        root.bind("<KeyRelease>", self.on_physical_key_release)
 
-    def _unbind_physical_keyboard(self):
+    def unbind_physical_keyboard(self):
         try:
             root = self.parent.winfo_toplevel()
             root.unbind("<KeyPress>")
@@ -2603,9 +2534,9 @@ class GameScreen:
         except tk.TclError:
             pass  # Ignore errors during cleanup
 
-    def _on_physical_key_press(self, event):
+    def on_physical_key_press(self, event):
         # Don't process if a modal is open
-        if self._is_modal_open():
+        if self.is_modal_open():
             return
 
         # Get the key character (uppercase for consistency)
@@ -2614,7 +2545,7 @@ class GameScreen:
 
         # Handle Enter -> trigger Check button (always allowed, even when awaiting)
         if key_sym == "Return":
-            self._simulate_button_press(self.check_button)
+            self.simulate_button_press(self.check_button)
             self.on_check()
             return
 
@@ -2624,37 +2555,37 @@ class GameScreen:
 
         # Handle letter keys (A-Z)
         if key_char.isalpha() and len(key_char) == 1:
-            self._show_key_feedback(key_char)
+            self.show_key_feedback(key_char)
             self.on_key_press(key_char)
             return
 
         # Handle BackSpace -> maps to ⌫
         if key_sym == "BackSpace":
-            self._show_key_feedback("⌫")
+            self.show_key_feedback("⌫")
             self.on_key_press("⌫")
             return
 
         # Handle Escape -> trigger Skip (open confirmation modal)
         if key_sym == "Escape":
-            self._simulate_button_press(self.skip_button)
+            self.simulate_button_press(self.skip_button)
             self.on_skip()
             return
 
-    def _on_physical_key_release(self, event):
+    def on_physical_key_release(self, event):
         key_char = event.char.upper() if event.char else ""
         key_sym = event.keysym
 
         # Reset visual feedback for letter keys
         if key_char.isalpha() and len(key_char) == 1:
-            self._reset_key_feedback(key_char)
+            self.reset_key_feedback(key_char)
             return
 
         # Reset visual feedback for BackSpace
         if key_sym == "BackSpace":
-            self._reset_key_feedback("⌫")
+            self.reset_key_feedback("⌫")
             return
 
-    def _show_key_feedback(self, key):
+    def show_key_feedback(self, key):
         if key in self.key_button_map:
             btn = self.key_button_map[key]
             # Store original color and apply pressed color
@@ -2663,7 +2594,7 @@ class GameScreen:
             else:
                 btn.configure(fg_color=self.COLORS["key_pressed"])
 
-    def _reset_key_feedback(self, key):
+    def reset_key_feedback(self, key):
         if key in self.key_button_map:
             btn = self.key_button_map[key]
             # Restore original color
@@ -2672,7 +2603,7 @@ class GameScreen:
             else:
                 btn.configure(fg_color=self.COLORS["key_bg"])
 
-    def _simulate_button_press(self, button):
+    def simulate_button_press(self, button):
         if button is None:
             return
 
@@ -2692,7 +2623,7 @@ class GameScreen:
 
         self.parent.after(100, reset)
 
-    def _is_modal_open(self):
+    def is_modal_open(self):
         if self.completion_modal and self.completion_modal.modal:
             try:
                 if self.completion_modal.modal.winfo_exists():
