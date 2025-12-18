@@ -129,11 +129,26 @@ class GameCompletionModal:
         )  # Cancel CTk's icon update
         self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))  # Blank icon
 
-        # Set geometry BEFORE other configuration to prevent flicker
-        screen_w = self.modal.winfo_screenwidth()
-        screen_h = self.modal.winfo_screenheight()
-        pos_x = (screen_w - width) // 2
-        pos_y = (screen_h - height) // 2
+        # Get scaling factor - geometry() applies this internally, so we divide
+        try:
+            scaling = root._get_window_scaling() if root else 1.0
+        except Exception:
+            scaling = 1.0
+
+        # Calculate centered position in screen coordinates
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            pos_x = root.winfo_rootx() + (root.winfo_width() - width) // 2
+            pos_y = root.winfo_rooty() + (root.winfo_height() - height) // 2
+        else:
+            screen_w = self.modal.winfo_screenwidth()
+            screen_h = self.modal.winfo_screenheight()
+            pos_x = (screen_w - width) // 2
+            pos_y = (screen_h - height) // 2
+
+        # Divide by scaling since CTk's geometry() multiplies internally
+        pos_x = int(pos_x / scaling)
+        pos_y = int(pos_y / scaling)
+
         self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
         # Disable the appear-on-top behavior that CTkToplevel does
@@ -190,7 +205,7 @@ class GameCompletionModal:
         content_wrapper.grid_columnconfigure(0, weight=1)
 
         content = ctk.CTkFrame(content_wrapper, fg_color="transparent")
-        content.grid(row=0, column=0, sticky="nsew", padx=pad, pady=pad)
+        content.grid(row=0, column=0, sticky="", padx=pad, pady=pad)
         content.grid_columnconfigure(0, weight=1)
 
         stats = self.session_stats or {}
@@ -549,11 +564,26 @@ class QuestionSummaryModal:
         )  # Cancel CTk's icon update
         self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))  # Blank icon
 
-        # Set geometry BEFORE other configuration to prevent flicker
-        screen_w = self.modal.winfo_screenwidth()
-        screen_h = self.modal.winfo_screenheight()
-        pos_x = (screen_w - width) // 2
-        pos_y = (screen_h - height) // 2
+        # Get scaling factor - geometry() applies this internally, so we divide
+        try:
+            scaling = root._get_window_scaling() if root else 1.0
+        except Exception:
+            scaling = 1.0
+
+        # Calculate centered position in screen coordinates
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            pos_x = root.winfo_rootx() + (root.winfo_width() - width) // 2
+            pos_y = root.winfo_rooty() + (root.winfo_height() - height) // 2
+        else:
+            screen_w = self.modal.winfo_screenwidth()
+            screen_h = self.modal.winfo_screenheight()
+            pos_x = (screen_w - width) // 2
+            pos_y = (screen_h - height) // 2
+
+        # Divide by scaling since CTk's geometry() multiplies internally
+        pos_x = int(pos_x / scaling)
+        pos_y = int(pos_y / scaling)
+
         self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
         # Disable the appear-on-top behavior that CTkToplevel does
@@ -863,11 +893,26 @@ class SkipConfirmationModal:
         )  # Cancel CTk's icon update
         self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))  # Blank icon
 
-        # Set geometry and hide BEFORE any other configuration
-        screen_width = self.modal.winfo_screenwidth()
-        screen_height = self.modal.winfo_screenheight()
-        pos_x = (screen_width - width) // 2
-        pos_y = (screen_height - height) // 2
+        # Get scaling factor - geometry() applies this internally, so we divide
+        try:
+            scaling = root._get_window_scaling() if root else 1.0
+        except Exception:
+            scaling = 1.0
+
+        # Calculate centered position in screen coordinates
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            pos_x = root.winfo_rootx() + (root.winfo_width() - width) // 2
+            pos_y = root.winfo_rooty() + (root.winfo_height() - height) // 2
+        else:
+            screen_width = self.modal.winfo_screenwidth()
+            screen_height = self.modal.winfo_screenheight()
+            pos_x = (screen_width - width) // 2
+            pos_y = (screen_height - height) // 2
+
+        # Divide by scaling since CTk's geometry() multiplies internally
+        pos_x = int(pos_x / scaling)
+        pos_y = int(pos_y / scaling)
+
         self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
         # Disable the appear-on-top behavior that CTkToplevel does

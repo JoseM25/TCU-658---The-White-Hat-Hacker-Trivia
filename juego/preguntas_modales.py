@@ -6,8 +6,8 @@ import customtkinter as ctk
 
 from juego.responsive_helpers import ResponsiveScaler
 from juego.widget_factory import (
-    ModalWidgetFactory,
     ModalLayoutBuilder,
+    ModalWidgetFactory,
     ScaledWidgetResizer,
 )
 
@@ -70,6 +70,12 @@ class BaseModal:
             pass
 
     def calculate_position(self, modal, root, width, height):
+        # Get scaling factor - geometry() applies this internally, so we divide
+        try:
+            scaling = root._get_window_scaling() if root else 1.0
+        except Exception:
+            scaling = 1.0
+
         screen_width, screen_height = (
             modal.winfo_screenwidth(),
             modal.winfo_screenheight(),
@@ -81,6 +87,10 @@ class BaseModal:
         else:
             pos_x = max((screen_width - width) // 2, 0)
             pos_y = max((screen_height - height) // 2, 0)
+
+        # Divide by scaling since CTk's geometry() multiplies internally
+        pos_x = int(pos_x / scaling)
+        pos_y = int(pos_y / scaling)
 
         return pos_x, pos_y
 

@@ -5,7 +5,6 @@ import customtkinter as ctk
 from juego.interfaz import AppController
 from juego.tts_service import TTSService
 
-
 BASE_DIR = Path(__file__).resolve().parent
 AUDIO_DIR = BASE_DIR / "recursos" / "audio"
 
