@@ -131,8 +131,8 @@ class GameCompletionModal:
 
         # Get scaling factor - geometry() applies this internally, so we divide
         try:
-            scaling = root._get_window_scaling() if root else 1.0
-        except Exception:
+            scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
+        except (AttributeError, KeyError):
             scaling = 1.0
 
         # Calculate centered position in screen coordinates
@@ -566,8 +566,8 @@ class QuestionSummaryModal:
 
         # Get scaling factor - geometry() applies this internally, so we divide
         try:
-            scaling = root._get_window_scaling() if root else 1.0
-        except Exception:
+            scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
+        except (AttributeError, KeyError):
             scaling = 1.0
 
         # Calculate centered position in screen coordinates
@@ -895,8 +895,8 @@ class SkipConfirmationModal:
 
         # Get scaling factor - geometry() applies this internally, so we divide
         try:
-            scaling = root._get_window_scaling() if root else 1.0
-        except Exception:
+            scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
+        except (AttributeError, KeyError):
             scaling = 1.0
 
         # Calculate centered position in screen coordinates
