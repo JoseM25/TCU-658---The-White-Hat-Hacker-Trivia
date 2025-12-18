@@ -89,7 +89,6 @@ class GameCompletionModal:
         score_size = max(int(50 * scale), 28)
         label_size = max(int(14 * scale), 10)
         value_size = max(int(14 * scale), 10)
-        badge_size = max(int(13 * scale), 10)
         footnote_size = max(int(12 * scale), 9)
         button_size = max(int(16 * scale), 12)
 
@@ -117,9 +116,6 @@ class GameCompletionModal:
         )
         value_font = ctk.CTkFont(
             family="Poppins SemiBold", size=value_size, weight="bold"
-        )
-        badge_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=badge_size, weight="bold"
         )
         footnote_font = ctk.CTkFont(family="Open Sans Regular", size=footnote_size)
         button_font = ctk.CTkFont(
@@ -310,7 +306,10 @@ class GameCompletionModal:
 
         ctk.CTkLabel(
             content,
-            text=f"You get the first {grace_seconds} seconds free to read the clue. Time-based scoring starts after that.",
+            text=(
+                f"You get the first {grace_seconds} seconds free to read the clue. "
+                "Time-based scoring starts after that."
+            ),
             font=footnote_font,
             text_color=self.COLORS["text_medium"],
             justify="center",
@@ -325,8 +324,8 @@ class GameCompletionModal:
             button_container,
             text="Previous Question",
             font=button_font,
-            fg_color="#D0D6E0" if self.has_previous else "#E8E8E8",
-            hover_color="#B8C0D0" if self.has_previous else "#E8E8E8",
+            fg_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
+            hover_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
             text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
             command=self.handle_previous if self.has_previous else None,
             state="normal" if self.has_previous else "disabled",
@@ -460,7 +459,6 @@ class GameCompletionModal:
 
 
 class QuestionSummaryModal:
-
     COLORS = {
         "bg_light": "#F5F7FA",
         "header_bg": "#202632",
@@ -662,8 +660,8 @@ class QuestionSummaryModal:
             button_container,
             text="Previous",
             font=button_font,
-            fg_color="#D0D6E0" if self.has_previous else "#E8E8E8",
-            hover_color="#B8C0D0" if self.has_previous else "#E8E8E8",
+            fg_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
+            hover_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
             text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
             command=self.handle_previous if self.has_previous else None,
             state="normal" if self.has_previous else "disabled",
@@ -802,7 +800,6 @@ class QuestionSummaryModal:
 
 
 class SkipConfirmationModal:
-
     COLORS = {
         "bg_light": "#F5F7FA",
         "header_bg": "#202632",
@@ -991,7 +988,6 @@ class SkipConfirmationModal:
 
 
 class GameScreen:
-
     BASE_DIMENSIONS = (1280, 720)
     BASE_FONT_SIZES = {
         "timer": 24,
