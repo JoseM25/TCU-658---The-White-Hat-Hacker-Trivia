@@ -1182,6 +1182,7 @@ class GameScreen:
         self.score_label = None
         self.audio_toggle_btn = None
         self.question_container = None
+        self.image_frame = None
         self.image_label = None
         self.definition_label = None
         self.answer_boxes_frame = None
@@ -1586,16 +1587,27 @@ class GameScreen:
         self.question_container.grid_rowconfigure(2, weight=0)
         self.question_container.grid_rowconfigure(3, weight=0)
 
-        image_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
-        image_frame.grid(row=0, column=0, pady=(20, 10))
+        # Use scaled size from the start to prevent small-to-large flash
+        initial_image_size = self.get_scaled_image_size()
+
+        # Frame expands horizontally with column, keeping label centered inside
+        self.image_frame = ctk.CTkFrame(
+            self.question_container,
+            fg_color="transparent",
+            height=initial_image_size,
+        )
+        self.image_frame.grid(row=0, column=0, sticky="ew", pady=(20, 10))
+        # Center content in frame
+        self.image_frame.grid_rowconfigure(0, weight=1)
+        self.image_frame.grid_columnconfigure(0, weight=1)
 
         self.image_label = ctk.CTkLabel(
-            image_frame,
+            self.image_frame,
             text="",
             fg_color=self.COLORS["bg_light"],
             corner_radius=16,
-            width=self.BASE_IMAGE_SIZE,
-            height=self.BASE_IMAGE_SIZE,
+            width=initial_image_size,
+            height=initial_image_size,
         )
         self.image_label.grid(row=0, column=0)
 
@@ -1627,10 +1639,21 @@ class GameScreen:
         )
         self.definition_label.grid(row=0, column=1, sticky="w")
 
+        # Use scaled size from the start to prevent small-to-large flash
+        initial_box_size = self.get_scaled_box_size()
+        # Pre-allocate frame for ~10 character word to prevent resize on first question
+        initial_frame_width = 10 * (initial_box_size + 6)
+        initial_frame_height = initial_box_size + 4
+
         self.answer_boxes_frame = ctk.CTkFrame(
-            self.question_container, fg_color="transparent"
+            self.question_container,
+            fg_color="transparent",
+            width=initial_frame_width,
+            height=initial_frame_height,
         )
         self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 8))
+        # Prevent frame from collapsing when children are hidden/shown
+        self.answer_boxes_frame.grid_propagate(False)
 
         # Feedback label (Correct / Incorrect)
         self.feedback_label = ctk.CTkLabel(
@@ -1812,24 +1835,38 @@ class GameScreen:
         self.check_button.grid(row=0, column=1, padx=16)
 
     def create_answer_boxes(self, word_length):
+        # Reuse existing boxes to prevent layout bounce during question transitions
+        current_count = len(self.answer_box_labels)
+        box_size = self.get_scaled_box_size()
 
-        for widget in self.answer_boxes_frame.winfo_children():
-            widget.destroy()
-        self.answer_box_labels.clear()
-
-        for i in range(word_length):
+        # Create additional boxes if needed
+        for i in range(current_count, word_length):
             box = ctk.CTkLabel(
                 self.answer_boxes_frame,
                 text="",
                 font=self.answer_box_font,
-                width=self.BASE_ANSWER_BOX_SIZE,
-                height=self.BASE_ANSWER_BOX_SIZE,
+                width=box_size,
+                height=box_size,
                 fg_color=self.COLORS["answer_box_empty"],
                 corner_radius=8,
                 text_color=self.COLORS["text_dark"],
             )
-            box.grid(row=0, column=i, padx=3)
             self.answer_box_labels.append(box)
+
+        # Show boxes needed for current word and reset their state
+        for i in range(word_length):
+            box = self.answer_box_labels[i]
+            box.configure(text="", fg_color=self.COLORS["answer_box_empty"], width=box_size, height=box_size)
+            box.grid(row=0, column=i, padx=3)
+
+        # Hide excess boxes (don't destroy - keep for reuse)
+        for i in range(word_length, len(self.answer_box_labels)):
+            self.answer_box_labels[i].grid_remove()
+
+        # Update frame size to fit current boxes
+        frame_width = max(box_size, word_length * (box_size + 6))  # 6 = 2*padx(3)
+        frame_height = box_size + 4  # Small padding
+        self.answer_boxes_frame.configure(width=frame_width, height=frame_height)
 
     def load_random_question(self):
         self.tts.stop()
@@ -1891,22 +1928,23 @@ class GameScreen:
             if os.path.exists(image_path):
                 pil_image = Image.open(image_path).convert("RGBA")
 
+                # Use current scaled size to fit image within container
+                max_size = self.get_scaled_image_size()
+
                 width, height = pil_image.size
-                max_size = self.BASE_IMAGE_SIZE
-                scale = min(max_size / width, max_size / height)
-                new_width = int(width * scale)
-                new_height = int(height * scale)
+                img_scale = min(max_size / width, max_size / height)
+                new_width = int(width * img_scale)
+                new_height = int(height * img_scale)
 
                 self.current_image = ctk.CTkImage(
                     light_image=pil_image,
                     dark_image=pil_image,
                     size=(new_width, new_height),
                 )
+                # Only update image content, not dimensions (frame handles size)
                 self.image_label.configure(
                     image=self.current_image,
                     text="",
-                    width=max_size,
-                    height=max_size,
                 )
             else:
                 self.image_label.configure(image=None, text="Image not found")
@@ -2457,6 +2495,25 @@ class GameScreen:
 
         self.timer_job = self.parent.after(1000, self.update_timer)
 
+    def get_current_scale(self):
+        """Calculate the current UI scale factor based on window dimensions."""
+        width = max(self.parent.winfo_width(), 1)
+        height = max(self.parent.winfo_height(), 1)
+        scale = min(width / self.BASE_DIMENSIONS[0], height / self.BASE_DIMENSIONS[1])
+        return max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
+
+    def get_scaled_image_size(self, scale=None):
+        """Get the image container size for the current scale."""
+        if scale is None:
+            scale = self.get_current_scale()
+        return int(max(self.IMAGE_MIN_SIZE, min(self.IMAGE_MAX_SIZE, self.BASE_IMAGE_SIZE * scale)))
+
+    def get_scaled_box_size(self, scale=None):
+        """Get the answer box size for the current scale."""
+        if scale is None:
+            scale = self.get_current_scale()
+        return int(max(self.ANSWER_BOX_MIN_SIZE, min(self.ANSWER_BOX_MAX_SIZE, self.BASE_ANSWER_BOX_SIZE * scale)))
+
     def on_resize(self, event):
         if event.widget is not self.parent:
             return
@@ -2525,12 +2582,9 @@ class GameScreen:
         audio_icon_size = self.calculate_audio_icon_size(scale, back_height)
         self.update_audio_icon_size(audio_icon_size, back_height, back_corner)
 
-        image_size = int(
-            max(
-                self.IMAGE_MIN_SIZE,
-                min(self.IMAGE_MAX_SIZE, self.BASE_IMAGE_SIZE * scale),
-            )
-        )
+        image_size = self.get_scaled_image_size(scale)
+        # Update frame height (width handled by sticky="ew") and label size
+        self.image_frame.configure(height=image_size)
         self.image_label.configure(width=image_size, height=image_size)
 
         if self.current_image and self.current_question:
@@ -2539,14 +2593,16 @@ class GameScreen:
         wrap_length = int(max(300, min(800, 600 * scale)))
         self.definition_label.configure(wraplength=wrap_length)
 
-        box_size = int(
-            max(
-                self.ANSWER_BOX_MIN_SIZE,
-                min(self.ANSWER_BOX_MAX_SIZE, self.BASE_ANSWER_BOX_SIZE * scale),
-            )
-        )
+        box_size = self.get_scaled_box_size(scale)
+        # Count visible boxes (those that are grid-managed)
+        visible_boxes = [b for b in self.answer_box_labels if b.winfo_manager()]
         for box in self.answer_box_labels:
             box.configure(width=box_size, height=box_size)
+        # Update frame size to match visible boxes
+        if visible_boxes:
+            frame_width = len(visible_boxes) * (box_size + 6)
+            frame_height = box_size + 4
+            self.answer_boxes_frame.configure(width=frame_width, height=frame_height)
 
         key_size = int(
             max(
