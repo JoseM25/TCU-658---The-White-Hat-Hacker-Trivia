@@ -1941,6 +1941,14 @@ class GameScreen:
         if not self.current_question:
             return
 
+        # Prevent skipping during completion processing or while in paused/history states
+        if (
+            self.processing_correct_answer
+            or self.awaiting_modal_decision
+            or self.viewing_history_index >= 0
+        ):
+            return
+
         if self.skip_modal is None:
             self.skip_modal = SkipConfirmationModal(self.parent, self._do_skip)
         self.skip_modal.show()
@@ -1949,26 +1957,40 @@ class GameScreen:
         if not self.current_question:
             return
 
+        # Freeze timer/audio for the completed question (skip behaves like a completed attempt)
+        self.stop_timer()
+        self.tts.stop()
+
         title = self.current_question.get("title", "")
+
+        points_earned = 0
 
         # Process skip through scoring system (0 points)
         if self.scoring_system:
             self.scoring_system.process_skip()
             self.questions_answered = self.scoring_system.questions_answered
-
-            # Log skip details
-            print("\n" + "=" * 50)
-            print(f"⏭ PREGUNTA SALTADA: {title}")
-            print("=" * 50)
-            print(f"  Tiempo en pregunta: {self.question_timer}s")
-            print(f"  Errores antes de saltar: {self.question_mistakes}")
-            print("  PUNTOS GANADOS: 0")
-            print(f"  Puntaje total: {self.score}")
-            print("=" * 50 + "\n")
+            self.score = self.scoring_system.total_score
         else:
             self.questions_answered += 1
 
-        self.load_random_question()
+        # Keep UI score in sync (even though skip awards 0, total may be managed by scoring_system)
+        self.score_label.configure(text=str(self.score))
+
+        # Store complete question state for history (so skipped questions can be revisited)
+        self.stored_modal_data = {
+            "correct_word": title,
+            "time_taken": self.question_timer,
+            "points_awarded": points_earned,
+            "total_score": self.score,
+            # Visual state for restoring when viewing history
+            "question": self.current_question,
+            "answer": self.current_answer,
+            "current_image": self.current_image,
+            "was_skipped": True,
+        }
+
+        self.show_feedback(skipped=True)
+        self._show_summary_modal_for_state(self.stored_modal_data)
 
     def _handle_game_completion(self):
         if self.game_completed:
@@ -2004,7 +2026,9 @@ class GameScreen:
         # If viewing history, just re-show the modal for that history item
         if self.viewing_history_index >= 0:
             history_item = self.question_history[self.viewing_history_index]
-            self._show_summary_modal_for_state(history_item, review_mode=self.game_completed)
+            self._show_summary_modal_for_state(
+                history_item, review_mode=self.game_completed
+            )
             return
 
         # If awaiting modal decision on current question, just re-show the modal
@@ -2052,6 +2076,7 @@ class GameScreen:
                 "question": self.current_question,
                 "answer": self.current_answer,
                 "current_image": self.current_image,
+                "was_skipped": False,
             }
 
             self.parent.after(
@@ -2116,13 +2141,12 @@ class GameScreen:
 
         self.viewing_history_index = len(self.question_history) - 1
         self._load_history_state(self.viewing_history_index)
-        history_item = self.question_history[self.viewing_history_index]
-        self._show_summary_modal_for_state(history_item, review_mode=True)
 
     def _on_review_modal_next(self):
-        if self.viewing_history_index >= 0 and self.viewing_history_index < len(
-            self.question_history
-        ) - 1:
+        if (
+            self.viewing_history_index >= 0
+            and self.viewing_history_index < len(self.question_history) - 1
+        ):
             self.viewing_history_index += 1
             self._load_history_state(self.viewing_history_index)
             return
@@ -2131,8 +2155,9 @@ class GameScreen:
         self._show_completion_modal_again()
 
     def _on_review_modal_close(self):
-        self.viewing_history_index = -1
-        self._show_completion_modal_again()
+        # Close should behave like the normal "paused" close: keep the current
+        # history question on screen and allow "Check" to open the modal again.
+        self._on_modal_close()
 
     def _on_review_modal_previous(self):
         if self.viewing_history_index > 0:
@@ -2157,6 +2182,8 @@ class GameScreen:
             self.stored_modal_data = None
             self._set_buttons_enabled(True)
             self.load_random_question()
+            if not self.game_completed and self.current_question:
+                self.start_timer()
 
     def _on_modal_close(self):
         self.awaiting_modal_decision = True
@@ -2206,8 +2233,11 @@ class GameScreen:
         # Restore the image
         self.load_question_image()
 
-        # Show correct feedback
-        self.show_feedback(correct=True)
+        # Show feedback based on how the question was completed
+        if state.get("was_skipped", False):
+            self.show_feedback(skipped=True)
+        else:
+            self.show_feedback(correct=True)
 
         # Ensure buttons are disabled
         self._set_buttons_enabled(False)
@@ -2245,7 +2275,10 @@ class GameScreen:
         self.score_label.configure(text=str(state["total_score"]))
 
         self.load_question_image()
-        self.show_feedback(correct=True)
+        if state.get("was_skipped", False):
+            self.show_feedback(skipped=True)
+        else:
+            self.show_feedback(correct=True)
 
         self._set_buttons_enabled(False)
         self.awaiting_modal_decision = True
@@ -2298,13 +2331,16 @@ class GameScreen:
             except (tk.TclError, AttributeError):
                 pass
 
-    def show_feedback(self, correct=True):
+    def show_feedback(self, correct=True, skipped=False):
         # Cancel any ongoing animation
         if self.feedback_animation_job:
             self.parent.after_cancel(self.feedback_animation_job)
             self.feedback_animation_job = None
 
-        if correct:
+        if skipped:
+            text = "⏭ Skipped"
+            color = self.COLORS.get("warning_yellow", "#FFC553")
+        elif correct:
             text = "✓ Correct!"
             color = self.COLORS["feedback_correct"]
         else:
@@ -2329,7 +2365,9 @@ class GameScreen:
         else:
             # Get target color from current feedback type
             current_text = self.feedback_label.cget("text")
-            if "Correct" in current_text:
+            if "Skipped" in current_text:
+                target_color = self.COLORS.get("warning_yellow", "#FFC553")
+            elif "Correct" in current_text:
                 target_color = self.COLORS["feedback_correct"]
             else:
                 target_color = self.COLORS["feedback_incorrect"]
@@ -2365,7 +2403,15 @@ class GameScreen:
 
     def start_timer(self):
         self.timer_running = True
-        self.update_timer()
+        if self.timer_job:
+            try:
+                self.parent.after_cancel(self.timer_job)
+            except tk.TclError:
+                pass
+            self.timer_job = None
+
+        # Start counting after 1 second so the timer shows 00:00 initially
+        self.timer_job = self.parent.after(1000, self.update_timer)
 
     def stop_timer(self):
         self.timer_running = False

@@ -130,28 +130,6 @@ class ScoringSystem:
         capped_streak = min(self.clean_streak, self.STREAK_MAX_LEVEL)
         return 1.0 + (self.STREAK_BONUS_PER_LEVEL * capped_streak)
 
-    def _log_scoring_details(
-        self,
-        action,
-        raw_points,
-        score_before_streak,
-        streak_mult,
-        final_points,
-        mistakes,
-        time_seconds,
-    ):
-        print(f"\n{'='*50}")
-        print(f"[SCORING] Action: {action}")
-        print(f"[SCORING] Time: {time_seconds}s | Mistakes: {mistakes}")
-        print(f"[SCORING] Raw Points: {raw_points}")
-        print(f"[SCORING] Score Before Streak: {score_before_streak}")
-        print(
-            f"[SCORING] Clean Streak: {self.clean_streak} | Streak Multiplier: {streak_mult:.2f}x"
-        )
-        print(f"[SCORING] Final Points: {final_points}")
-        print(f"[SCORING] Total Score: {self.total_score}")
-        print(f"{'='*50}\n")
-
     def process_correct_answer(self, time_seconds, mistakes):
         effective_time = self.get_effective_time(time_seconds)
         raw_points = self.calculate_raw_points(effective_time)
@@ -171,17 +149,6 @@ class ScoringSystem:
         self.questions_answered += 1
         self.total_raw_points += raw_points
 
-        # Log scoring details
-        self._log_scoring_details(
-            action="CORRECT",
-            raw_points=raw_points,
-            score_before_streak=score_before_streak,
-            streak_mult=streak_mult,
-            final_points=final_points,
-            mistakes=mistakes,
-            time_seconds=time_seconds,
-        )
-
         return QuestionResult(
             points_earned=final_points,
             was_correct=True,
@@ -192,18 +159,9 @@ class ScoringSystem:
 
     def process_skip(self):
         # Streak resets on skip
-        previous_streak = self.clean_streak
         self.clean_streak = 0
 
         self.questions_answered += 1
-
-        # Log skip action
-        print(f"\n{'='*50}")
-        print("[SCORING] Action: SKIP")
-        print(f"[SCORING] Previous Streak: {previous_streak} -> Reset to 0")
-        print("[SCORING] Points Earned: 0")
-        print(f"[SCORING] Total Score: {self.total_score}")
-        print(f"{'='*50}\n")
 
         return QuestionResult(
             points_earned=0,
@@ -214,7 +172,7 @@ class ScoringSystem:
         )
 
     def process_wrong_answer(self):
-        print("[SCORING] Wrong answer! Streak will reset on next question.")
+        pass
 
     def get_session_stats(self):
         mastery_pct = self.get_mastery_percentage()
