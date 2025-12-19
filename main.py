@@ -14,7 +14,7 @@ ctk.set_default_color_theme("blue")
 
 root = ctk.CTk()
 
-root.title("White Hat Hacker Trivia!")
+root.title("The White Hat Hacker Trivia")
 
 root.geometry("1280x720")
 

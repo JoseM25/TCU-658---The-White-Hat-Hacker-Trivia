@@ -1,6 +1,6 @@
 ﻿import os
 import customtkinter as ctk
-from PIL import ImageTk
+from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
 
@@ -55,6 +55,7 @@ class InstructionsScreen:
         {"key": "how_to_play", "icon": "keyboard.svg", "fallback": "PLAY"},
         {"key": "scoring", "icon": "star.svg", "fallback": "PTS"},
     ]
+    ICON_TINT_COLOR = "#005DFF"
 
     LANGUAGE_CONTENT = {
         "EN": {
@@ -347,7 +348,12 @@ class InstructionsScreen:
 
             icon_image = None
             svg_path = os.path.join(self.images_dir, config["icon"])
-            svg_image = self.load_svg_image(svg_path, scale=self.SVG_RASTER_SCALE)
+            tint_color = (
+                self.ICON_TINT_COLOR if config["icon"] == "star.svg" else None
+            )
+            svg_image = self.load_svg_image(
+                svg_path, scale=self.SVG_RASTER_SCALE, tint_color=tint_color
+            )
             if svg_image:
                 icon_image = ctk.CTkImage(
                     light_image=svg_image,
@@ -587,11 +593,26 @@ class InstructionsScreen:
         if self.on_return_callback:
             self.on_return_callback()
 
-    def load_svg_image(self, svg_path, scale=1.0):
+    def _tint_image(self, pil_image, hex_color):
+        if not hex_color:
+            return pil_image
+        try:
+            hex_color = hex_color.lstrip("#")
+            r = int(hex_color[0:2], 16)
+            g = int(hex_color[2:4], 16)
+            b = int(hex_color[4:6], 16)
+        except (AttributeError, ValueError, IndexError):
+            return pil_image
+        alpha = pil_image.split()[-1]
+        tinted = Image.new("RGBA", pil_image.size, (r, g, b, 0))
+        tinted.putalpha(alpha)
+        return tinted
+
+    def load_svg_image(self, svg_path, scale=1.0, tint_color=None):
         try:
             svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
             pil_image = ImageTk.getimage(svg_photo).convert("RGBA")
-            return pil_image
+            return self._tint_image(pil_image, tint_color)
         except (FileNotFoundError, ValueError) as error:
             print(f"Error loading SVG image '{svg_path}': {error}")
             return None
