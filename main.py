@@ -34,6 +34,6 @@ sfx_service = SFXService(AUDIO_DIR)
 sfx_service.preload()
 hover_binder = HoverSoundBinder(root, sfx_service)
 
-app = AppController(root, tts_service=tts_service)
+app = AppController(root, tts_service=tts_service, sfx_service=sfx_service)
 
 root.mainloop()

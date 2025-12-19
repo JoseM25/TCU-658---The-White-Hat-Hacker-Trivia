@@ -14,9 +14,9 @@ except ImportError:
 LOGGER = logging.getLogger(__name__)
 PYGAME_EXCEPTIONS = (OSError, RuntimeError)
 if pygame is not None:
-    pygame_error = getattr(pygame, "error", None)
-    if pygame_error is not None:
-        PYGAME_EXCEPTIONS = (pygame_error,) + PYGAME_EXCEPTIONS
+    PYGAME_ERROR = getattr(pygame, "error", None)
+    if PYGAME_ERROR is not None:
+        PYGAME_EXCEPTIONS = (PYGAME_ERROR,) + PYGAME_EXCEPTIONS
 
 
 class SFXService:
@@ -25,12 +25,17 @@ class SFXService:
         self._sound_paths = {
             "hover": self._audio_dir / "sfx" / "hover.wav",
             "click": self._audio_dir / "sfx" / "click.wav",
+            "freeze": self._audio_dir / "sfx" / "freeze.wav",
+            "points": self._audio_dir / "sfx" / "points.wav",
+            "reveal": self._audio_dir / "sfx" / "reveal.wav",
+            "win": self._audio_dir / "sfx" / "win.wav",
         }
         self._sounds = {}
         self._channels = {}
         self._last_play_time = {}
         self._load_lock = threading.Lock()
         self._enabled = self._init_mixer()
+        self._muted = False
 
     def _init_mixer(self):
         if pygame is None:
@@ -51,9 +56,24 @@ class SFXService:
     def preload(self):
         self._load_sound("hover")
         self._load_sound("click")
+        self._load_sound("freeze")
+        self._load_sound("points")
+        self._load_sound("reveal")
+        self._load_sound("win")
+
+    def set_muted(self, muted):
+        self._muted = bool(muted)
+        if self._muted and self._enabled and pygame is not None:
+            try:
+                pygame.mixer.stop()
+            except PYGAME_EXCEPTIONS as exc:
+                LOGGER.debug("Failed to stop SFX: %s", exc)
+
+    def is_muted(self):
+        return self._muted
 
     def play(self, name, cooldown_ms=0, stop_previous=False, volume=1.0):
-        if not self._enabled or pygame is None:
+        if not self._enabled or pygame is None or self._muted:
             return
 
         if name not in self._sounds:
@@ -118,7 +138,7 @@ class SFXService:
 
 class HoverSoundBinder:
     CLICK_HOOK_INSTALLED = False
-    ORIGINAL_CTKBUTTON_INIT = None
+    ORIGINAL_CTKBUTTON_CLICKED = None
 
     def __init__(self, root, sfx_service):
         self._root = root
@@ -136,22 +156,19 @@ class HoverSoundBinder:
         if type(self).CLICK_HOOK_INSTALLED:
             return
 
-        original_init = ctk.CTkButton.__init__
+        original_clicked = ctk.CTkButton._clicked
 
-        def _init_with_sfx(button_self, *args, **kwargs):
-            original_init(button_self, *args, **kwargs)
+        def _clicked_with_sfx(button_self, event=None):
             try:
-                button_self.bind(
-                    "<Button-1>",
-                    lambda event, btn=button_self: self._on_button_click(btn),
-                    add="+",
-                )
+                if button_self.cget("state") == "normal":
+                    self._on_button_click(button_self, force=True)
             except tk.TclError:
                 pass
+            return original_clicked(button_self, event)
 
-        ctk.CTkButton.__init__ = _init_with_sfx
+        ctk.CTkButton._clicked = _clicked_with_sfx
         type(self).CLICK_HOOK_INSTALLED = True
-        type(self).ORIGINAL_CTKBUTTON_INIT = original_init
+        type(self).ORIGINAL_CTKBUTTON_CLICKED = original_clicked
 
     def _on_enter(self, event):
         button = self._find_button(event.widget)
@@ -170,13 +187,20 @@ class HoverSoundBinder:
         self._hovered_button = button
         self._sfx.play("hover", cooldown_ms=self._hover_cooldown_ms, stop_previous=True)
 
-    def _on_button_click(self, button):
-        try:
-            if button.cget("state") != "normal":
+    def _on_button_click(self, button, force=False):
+        if not force:
+            try:
+                if button.cget("state") != "normal":
+                    return
+            except tk.TclError:
                 return
-        except tk.TclError:
+        self._sfx.play("click", stop_previous=True, volume=0.8)
+
+    def _on_click_event(self, event):
+        button = self._find_button(event.widget)
+        if not button:
             return
-        self._sfx.play("click", stop_previous=True)
+        self._on_button_click(button, force=True)
 
     def _on_leave(self, event):
         if not self._hovered_button:

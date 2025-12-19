@@ -37,9 +37,12 @@ class GameScreenBase:
     # SVG rendering scale
     SVG_RASTER_SCALE = 2.0
 
-    def __init__(self, parent, on_return_callback=None, tts_service=None):
+    def __init__(
+        self, parent, on_return_callback=None, tts_service=None, sfx_service=None
+    ):
         self.parent = parent
         self.on_return_callback = on_return_callback
+        self.sfx = sfx_service
 
         # Game state
         self.current_question = None
@@ -49,6 +52,8 @@ class GameScreenBase:
         self.current_answer = ""
         self.timer_seconds = 0
         self.audio_enabled = True
+        if self.sfx and hasattr(self.sfx, "is_muted"):
+            self.audio_enabled = not self.sfx.is_muted()
         self.timer_running = False
         self.timer_job = None
         self.questions_answered = 0

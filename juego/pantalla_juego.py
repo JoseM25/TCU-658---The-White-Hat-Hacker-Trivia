@@ -8,8 +8,10 @@ from juego.pantalla_juego_logica import GameScreenLogic
 
 class GameScreen(GameScreenLogic):
 
-    def __init__(self, parent, on_return_callback=None, tts_service=None):
-        super().__init__(parent, on_return_callback, tts_service)
+    def __init__(
+        self, parent, on_return_callback=None, tts_service=None, sfx_service=None
+    ):
+        super().__init__(parent, on_return_callback, tts_service, sfx_service)
 
         # Bind resize event
         self.parent.bind("<Configure>", self.on_resize)
@@ -613,6 +615,7 @@ class GameScreen(GameScreenLogic):
         key_sym = event.keysym
 
         if key_sym == "Return":
+            self._play_click_if_button_ready(self.check_button)
             self.simulate_button_press(self.check_button)
             self.on_check()
             return
@@ -621,19 +624,32 @@ class GameScreen(GameScreenLogic):
             return
 
         if key_char.isalpha() and len(key_char) == 1:
+            self._play_click_if_button_ready(self.key_button_map.get(key_char))
             self.show_key_feedback(key_char)
             self.on_key_press(key_char)
             return
 
         if key_sym == "BackSpace":
+            self._play_click_if_button_ready(self.delete_button)
             self.show_key_feedback("⌫")
             self.on_key_press("⌫")
             return
 
         if key_sym == "Escape":
+            self._play_click_if_button_ready(self.skip_button)
             self.simulate_button_press(self.skip_button)
             self.on_skip()
             return
+
+    def _play_click_if_button_ready(self, button):
+        if not self.sfx or not button:
+            return
+        try:
+            if button.cget("state") != "normal":
+                return
+        except tk.TclError:
+            return
+        self.sfx.play("click", stop_previous=True, volume=0.8)
 
     def on_physical_key_release(self, event):
         key_char = event.char.upper() if event.char else ""

@@ -29,6 +29,8 @@ class GameScreenLogic(GameScreenBase):
             self.wildcard_x2_btn.configure(text=f"X{multiplier}")
             self.apply_double_points_visuals(multiplier)
             self.update_wildcard_buttons_state()
+            if self.sfx:
+                self.sfx.play("points", stop_previous=True)
 
     def on_wildcard_hint(self):
         if (
@@ -53,6 +55,8 @@ class GameScreenLogic(GameScreenBase):
         self.current_answer = "".join(ans).rstrip()
         self.update_answer_boxes_with_reveal(pos)
         self.update_wildcard_buttons_state()
+        if self.sfx:
+            self.sfx.play("reveal", stop_previous=True)
 
     def on_wildcard_freeze(self):
         if (
@@ -68,6 +72,8 @@ class GameScreenLogic(GameScreenBase):
         self.apply_freeze_timer_visuals()
         self.stop_timer()
         self.update_wildcard_buttons_state()
+        if self.sfx:
+            self.sfx.play("freeze", stop_previous=True)
 
     def load_random_question(self):
         self.tts.stop()
@@ -220,6 +226,8 @@ class GameScreenLogic(GameScreenBase):
     def toggle_audio(self):
         self.audio_enabled = not self.audio_enabled
         self.update_audio_button_icon()
+        if self.sfx:
+            self.sfx.set_muted(not self.audio_enabled)
         if self.audio_enabled and self.current_question:
             defn = self.current_question.get("definition", "").strip()
             if defn:
@@ -301,6 +309,8 @@ class GameScreenLogic(GameScreenBase):
         self.definition_label.configure(text="Game Complete!")
 
         stats = self.scoring_system.get_session_stats() if self.scoring_system else None
+        if self.sfx:
+            self.sfx.play("win", stop_previous=True)
         self.completion_modal = GameCompletionModal(
             self.parent,
             self.score,
