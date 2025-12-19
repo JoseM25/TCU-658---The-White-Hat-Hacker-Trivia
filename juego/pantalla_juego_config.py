@@ -159,11 +159,11 @@ GAME_FONT_SPECS = {
 
 # Header height profile (reduced slightly at lower resolutions to fit content)
 GAME_HEADER_HEIGHT_PROFILE = [
-    (720, 56),
-    (900, 62),
-    (1080, 70),
-    (1280, 80),
-    (1600, 96),
+    (720, 50),
+    (900, 56),
+    (1080, 66),
+    (1280, 76),
+    (1600, 92),
     (1920, 110),
     (2560, 130),
     (3200, 150),
@@ -172,9 +172,9 @@ GAME_HEADER_HEIGHT_PROFILE = [
 
 # Image size profile (aggressively reduced at low res)
 GAME_IMAGE_SIZE_PROFILE = [
-    (720, 100),
-    (900, 110),
-    (1080, 120),
+    (720, 90),
+    (900, 100),
+    (1080, 115),
     (1280, 130),
     (1600, 160),
     (1920, 190),
@@ -198,10 +198,10 @@ GAME_ANSWER_BOX_PROFILE = [
 
 # Keyboard key size profile (aggressively reduced at low res)
 GAME_KEY_SIZE_PROFILE = [
-    (720, 24),
-    (900, 28),
-    (1080, 36),
-    (1280, 46),
+    (720, 22),
+    (900, 26),
+    (1080, 34),
+    (1280, 44),
     (1600, 54),
     (1920, 62),
     (2560, 72),
@@ -238,9 +238,9 @@ GAME_DEFINITION_WRAP_PROFILE = [
 
 # Action button width profile (reduced at low res for more content space)
 GAME_ACTION_BUTTON_PROFILE = [
-    (720, 100),
-    (900, 115),
-    (1080, 130),
+    (720, 90),
+    (900, 105),
+    (1080, 125),
     (1280, 140),
     (1600, 165),
     (1920, 190),
@@ -251,11 +251,11 @@ GAME_ACTION_BUTTON_PROFILE = [
 
 # Wildcard size profile (reduced at low res)
 GAME_WILDCARD_SIZE_PROFILE = [
-    (720, 32),
-    (900, 36),
-    (1080, 42),
-    (1280, 48),
-    (1600, 56),
+    (720, 28),
+    (900, 32),
+    (1080, 40),
+    (1280, 46),
+    (1600, 54),
     (1920, 64),
     (2560, 76),
     (3200, 88),
@@ -387,12 +387,20 @@ class GameFontRegistry:
 class GameSizeCalculator:
 
     # Height threshold below which we apply compact sizing
-    # Set low to disable the aggressive compact mode - use profile scaling instead
-    HEIGHT_CONSTRAINED_THRESHOLD = 700
+    # Include 720p (720) and 768p (768) screens as height-constrained
+    HEIGHT_CONSTRAINED_THRESHOLD = 768
 
     def __init__(self, scaler, profiles):
         self.scaler = scaler
         self.profiles = profiles
+
+    def _apply_compact_scale(self, value, scale, min_value=None):
+        if scale >= 1.0:
+            return value
+        scaled = int(round(value * scale))
+        if min_value is not None:
+            scaled = max(min_value, scaled)
+        return scaled
 
     def calculate_sizes(self, scale, window_width, window_height):
         s = self.scaler.scale_value
@@ -502,6 +510,32 @@ class GameSizeCalculator:
         sizes["window_width"] = window_width
         sizes["window_height"] = window_height
         sizes["is_height_constrained"] = is_height_constrained
+
+        # If the actual height is below the 720p base, shrink profile-based sizes
+        # to avoid content overflow caused by window chrome reducing client height.
+        if is_height_constrained and scale < 1.0:
+            compact_scale = scale
+            sizes["header_height"] = self._apply_compact_scale(
+                sizes["header_height"], compact_scale, min_value=44
+            )
+            sizes["image_size"] = self._apply_compact_scale(
+                sizes["image_size"],
+                compact_scale,
+                min_value=GAME_BASE_SIZES["image_min"],
+            )
+            sizes["answer_box"] = self._apply_compact_scale(
+                sizes["answer_box"], compact_scale, min_value=24
+            )
+            sizes["key_size"] = self._apply_compact_scale(
+                sizes["key_size"], compact_scale, min_value=20
+            )
+            sizes["wildcard_size"] = self._apply_compact_scale(
+                sizes["wildcard_size"], compact_scale, min_value=24
+            )
+            sizes["wildcard_corner_radius"] = sizes["wildcard_size"] // 2
+            sizes["freeze_icon"] = int(
+                sizes["wildcard_size"] * GAME_BASE_SIZES["freeze_icon_ratio"]
+            )
 
         return sizes
 

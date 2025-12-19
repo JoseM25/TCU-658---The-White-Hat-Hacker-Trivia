@@ -46,6 +46,14 @@ class GameScreen(GameScreenLogic):
 
         # Update size state
         self.size_state = self.size_calc.calculate_sizes(scale, width, height)
+        needed_height = self._estimate_layout_height(self.size_state)
+        if needed_height > height:
+            fit_ratio = height / needed_height
+            fit_scale = max(
+                self.scaler.min_scale, min(self.scaler.max_scale, scale * fit_ratio)
+            )
+            self.size_state = self.size_calc.calculate_sizes(fit_scale, width, height)
+            scale = fit_scale
         self.current_scale = scale
         self.current_window_width = width
         self.current_window_height = height
@@ -63,6 +71,71 @@ class GameScreen(GameScreenLogic):
 
         # Clear resize job
         self.resize_job = None
+
+    def _estimate_layout_height(self, sizes):
+        scale = sizes.get("scale", 1.0)
+        is_compact = sizes.get("is_height_constrained", False)
+
+        header_h = sizes["header_height"]
+        container_pad = sizes["container_pad_y"] * 2
+
+        img_sz = sizes["image_size"]
+        if is_compact:
+            img_pad_top = self.scale_value(12, scale, 6, 20)
+            img_pad_bottom = self.scale_value(6, scale, 3, 10)
+        else:
+            img_pad_top = self.scale_value(24, scale, 12, 60)
+            img_pad_bottom = self.scale_value(12, scale, 6, 30)
+        image_row = img_pad_top + img_sz + img_pad_bottom
+
+        if is_compact:
+            def_pad_y = self.scale_value(6, scale, 3, 12)
+            def_height = self.scale_value(42, scale, 38, 50)
+        else:
+            def_pad_y = self.scale_value(14, scale, 8, 36)
+            def_height = self.scale_value(50, scale, 42, 65)
+        definition_row = def_height + def_pad_y * 2
+
+        box_sz = sizes["answer_box"]
+        extra_pad = self.scale_value(16, scale, 8, 20)
+        if is_compact:
+            ab_pad = self.scale_value(8, scale, 6, 12)
+        else:
+            ab_pad = self.scale_value(14, scale, 8, 28)
+        answer_row = box_sz + extra_pad + ab_pad + (ab_pad // 2)
+
+        feedback_pad = sizes["feedback_pad_bottom"]
+        if is_compact:
+            feedback_pad = max(6, feedback_pad // 2)
+        feedback_row = feedback_pad + self.scale_value(12, scale, 8, 16)
+
+        left_height = image_row + definition_row + answer_row + feedback_row
+
+        wc_sz = sizes["wildcard_size"]
+        if is_compact:
+            wc_pad_y = self.scale_value(10, scale, 6, 18)
+            btn_gap = self.scale_value(6, scale, 3, 10)
+            charges_pad = self.scale_value(10, scale, 4, 14)
+        else:
+            wc_pad_y = self.scale_value(28, scale, 16, 56)
+            btn_gap = self.scale_value(10, scale, 6, 20)
+            charges_pad = self.scale_value(14, scale, 8, 24)
+        charges_h = max(sizes["lightning_icon"], sizes["charges_font"])
+        wildcard_buttons_height = 3 * (wc_sz + btn_gap * 2)
+        wildcards_height = (
+            wc_pad_y * 2 + charges_h + charges_pad + wildcard_buttons_height
+        )
+
+        question_height = max(left_height, wildcards_height)
+
+        keyboard_height = 3 * (
+            sizes["key_size"] + sizes["key_row_gap"] * 2
+        ) + sizes["keyboard_pad_y"]
+        action_height = sizes["action_button_height"] + self.scale_value(
+            24, scale, 12, 48
+        )
+
+        return header_h + container_pad + question_height + keyboard_height + action_height
 
     def _update_fonts(self, scale):
         self.font_registry.update_scale(scale, self.scaler)
@@ -193,7 +266,10 @@ class GameScreen(GameScreenLogic):
             self.definition_frame.grid_configure(padx=pad_x, pady=pad_y)
 
         # Update scrollable frame wrapper height for long definitions
-        if self.definition_scroll_wrapper and self.definition_scroll_wrapper.winfo_exists():
+        if (
+            self.definition_scroll_wrapper
+            and self.definition_scroll_wrapper.winfo_exists()
+        ):
             if is_compact:
                 max_height = self.scale_value(42, scale, 38, 50)
             else:
@@ -215,6 +291,7 @@ class GameScreen(GameScreenLogic):
         is_compact = sizes.get("is_height_constrained", False)
         box_sz = sizes["answer_box"]
         gap = sizes["answer_box_gap"]
+        extra_pad = self.scale_value(16, scale, 8, 20)
 
         # Update answer box labels - only update boxes that are currently visible (managed)
         # Using grid_configure on a grid_remove()'d widget would re-show it!
@@ -222,20 +299,20 @@ class GameScreen(GameScreenLogic):
         for box in visible_boxes:
             if box and box.winfo_exists():
                 box.configure(width=box_sz, height=box_sz)
-                box.grid_configure(padx=gap)
+                box.grid_configure(padx=gap, pady=4)
 
-        # Update frame size if we have visible boxes
+        # Update frame size if we have visible boxes (extra height padding to prevent clipping)
         if (
             visible_boxes
             and self.answer_boxes_frame
             and self.answer_boxes_frame.winfo_exists()
         ):
             frame_width = len(visible_boxes) * (box_sz + gap * 2)
-            frame_height = box_sz + 4
+            frame_height = box_sz + extra_pad
             self.answer_boxes_frame.configure(width=frame_width, height=frame_height)
             # Update answer boxes frame padding - reduce at low res, expand at high res
             if is_compact:
-                pad_y = self.scale_value(8, scale, 4, 10)
+                pad_y = self.scale_value(8, scale, 6, 12)
             else:
                 pad_y = self.scale_value(14, scale, 8, 28)
             self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))

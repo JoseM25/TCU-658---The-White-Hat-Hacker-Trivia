@@ -498,7 +498,6 @@ class GameScreenBase:
 
         # Inner frame that centers content but expands horizontally
         self.def_inner = ctk.CTkFrame(self.definition_scroll, fg_color="transparent")
-        # Configure the actual internal parent frame for centering (CTkScrollableFrame uses internal frame)
         self.def_inner.master.grid_columnconfigure(0, weight=1)
         self.def_inner.grid(row=0, column=0, sticky="")
         self.def_inner.grid_columnconfigure(1, weight=1)
@@ -525,11 +524,14 @@ class GameScreenBase:
         self.answer_boxes_frame = ctk.CTkFrame(
             self.question_container,
             fg_color="transparent",
-            width=10 * (box_sz + 6),
-            height=box_sz + 4,
+            width=10 * (box_sz + 8),
+            height=box_sz + 16,  # Extra padding to prevent clipping at low res
         )
-        self.answer_boxes_frame.grid(row=2, column=0, pady=(2, 2), padx=20)
+        self.answer_boxes_frame.grid(row=2, column=0, pady=(6, 6), padx=20)
         self.answer_boxes_frame.grid_propagate(False)
+        # Configure internal grid to center content properly
+        self.answer_boxes_frame.grid_rowconfigure(0, weight=1)
+        self.answer_boxes_frame.grid_columnconfigure(0, weight=1)
 
     def build_feedback_section(self):
         self.feedback_label = ctk.CTkLabel(
@@ -766,6 +768,9 @@ class GameScreenBase:
     def create_answer_boxes(self, word_length):
         box_sz = self.get_scaled_box_size()
         gap = self.size_state.get("answer_box_gap", 3)
+        scale = self.size_state.get("scale", 1.0) if self.size_state else 1.0
+        is_compact = self.size_state.get("is_height_constrained", False)
+        extra_pad = self.scale_value(16, scale, 8, 20)
 
         # Create new boxes if needed
         for i in range(len(self.answer_box_labels), word_length):
@@ -806,17 +811,23 @@ class GameScreenBase:
                     width=box_sz,
                     height=box_sz,
                 )
-            box.grid(row=0, column=i, padx=gap)
+            box.grid(row=0, column=i, padx=gap, pady=4)
 
         # Hide extra boxes
         for i in range(word_length, len(self.answer_box_labels)):
             self.answer_box_labels[i].grid_remove()
 
-        # Update frame size
+        # Update frame size (extra height padding to prevent clipping at low res)
         self.answer_boxes_frame.configure(
             width=max(box_sz, word_length * (box_sz + gap * 2)),
-            height=box_sz + 4,
+            height=box_sz + extra_pad,
         )
+        if self.answer_boxes_frame and self.answer_boxes_frame.winfo_exists():
+            if is_compact:
+                pad_y = self.scale_value(8, scale, 6, 12)
+            else:
+                pad_y = self.scale_value(14, scale, 8, 28)
+            self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))
 
     def on_wildcard_x2(self):
         pass  # Override in logic class
