@@ -58,7 +58,7 @@ class GameScreenLogic(GameScreenBase):
         if self.wildcard_manager.is_timer_frozen():
             return
         self.wildcard_manager.activate_freeze()
-        self.wildcard_freeze_btn.configure(fg_color="#4CAF50")
+        self.wildcard_freeze_btn.configure(fg_color="#4CAF50", state="disabled")
         self.apply_freeze_timer_visuals()
         self.stop_timer()
 
