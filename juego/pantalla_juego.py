@@ -95,7 +95,10 @@ class GameScreen(GameScreenLogic):
             def_height = self.scale_value(42, scale, 38, 50)
         else:
             def_pad_y = self.scale_value(14, scale, 8, 36)
-            def_height = self.scale_value(50, scale, 42, 65)
+            if sizes.get("window_height", 0) >= 1080:
+                def_height = self.scale_value(70, scale, 50, 110)
+            else:
+                def_height = self.scale_value(50, scale, 42, 65)
         definition_row = def_height + def_pad_y * 2
 
         box_sz = sizes["answer_box"]
@@ -313,7 +316,10 @@ class GameScreen(GameScreenLogic):
             if is_compact:
                 max_height = self.scale_value(42, scale, 38, 50)
             else:
-                max_height = self.scale_value(50, scale, 42, 65)
+                if sizes.get("window_height", 0) >= 1080:
+                    max_height = self.scale_value(70, scale, 50, 110)
+                else:
+                    max_height = self.scale_value(50, scale, 42, 65)
             self.definition_scroll_wrapper.configure(height=max_height)
 
         if self.definition_label and self.definition_label.winfo_exists():
