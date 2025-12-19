@@ -1,10 +1,10 @@
-import os
 import tkinter as tk
 
 import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.app_paths import get_resource_images_dir
 from juego.pantalla_juego_config import (
     GAME_COLORS,
     LEVEL_BADGE_COLORS,
@@ -15,7 +15,7 @@ from juego.pantalla_juego_config import (
 
 class ModalBase:
     COLORS = GAME_COLORS
-    IMAGES_DIR = os.path.join("recursos", "imagenes")
+    IMAGES_DIR = get_resource_images_dir()
     SVG_RASTER_SCALE = 2.0
     ANIMATION_DELAY_MS = MODAL_ANIMATION["delay_ms"]
     FADE_STEPS = MODAL_ANIMATION["fade_steps"]
@@ -526,9 +526,7 @@ class GameCompletionModal(ModalBase):
         self.start_fade_in_animation(bg)
 
     def _load_star_icon(self, size):
-        img = self.load_svg_image(
-            os.path.join(self.IMAGES_DIR, "star.svg"), self.SVG_RASTER_SCALE
-        )
+        img = self.load_svg_image(self.IMAGES_DIR / "star.svg", self.SVG_RASTER_SCALE)
         if img:
             r, g, b = (
                 int(self.COLORS["warning_yellow"][1:3], 16),

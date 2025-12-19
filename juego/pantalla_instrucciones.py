@@ -1,7 +1,8 @@
-﻿import os
-import customtkinter as ctk
+﻿import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
+
+from juego.app_paths import get_resource_images_dir
 
 
 class InstructionsScreen:
@@ -184,8 +185,8 @@ class InstructionsScreen:
         self.section_widgets = {}
         self.toggle_buttons = {}
 
-        self.images_dir = os.path.join("recursos", "imagenes")
-        self.logo_svg_path = os.path.join(self.images_dir, "Hat.svg")
+        self.images_dir = get_resource_images_dir()
+        self.logo_svg_path = self.images_dir / "Hat.svg"
 
         self.title_font = ctk.CTkFont(
             family="Poppins ExtraBold",
@@ -347,10 +348,8 @@ class InstructionsScreen:
             icon_frame.grid_propagate(False)
 
             icon_image = None
-            svg_path = os.path.join(self.images_dir, config["icon"])
-            tint_color = (
-                self.ICON_TINT_COLOR if config["icon"] == "star.svg" else None
-            )
+            svg_path = self.images_dir / config["icon"]
+            tint_color = self.ICON_TINT_COLOR if config["icon"] == "star.svg" else None
             svg_image = self.load_svg_image(
                 svg_path, scale=self.SVG_RASTER_SCALE, tint_color=tint_color
             )

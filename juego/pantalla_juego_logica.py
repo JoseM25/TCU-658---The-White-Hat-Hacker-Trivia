@@ -1,4 +1,3 @@
-import os
 import random
 import tkinter as tk
 
@@ -120,13 +119,11 @@ class GameScreenLogic(GameScreenBase):
             return
 
         try:
-            if not os.path.isabs(image_path):
-                image_path = os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)), image_path
-                )
-
-            if os.path.exists(image_path):
-                pil_img = Image.open(image_path).convert("RGBA")
+            resolved_path = None
+            if self.image_handler:
+                resolved_path = self.image_handler.resolve_image_path(image_path)
+            if resolved_path and resolved_path.exists():
+                pil_img = Image.open(resolved_path).convert("RGBA")
                 max_sz = self.get_scaled_image_size()
                 w, h = pil_img.size
                 sc = min(max_sz / w, max_sz / h)

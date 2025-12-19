@@ -1,7 +1,8 @@
-import os
 import customtkinter as ctk
 from PIL import ImageTk
 from tksvg import SvgImage as TkSvgImage
+
+from juego.app_paths import get_resource_images_dir
 
 
 class CreditsScreen:
@@ -44,7 +45,7 @@ class CreditsScreen:
             family="Poppins SemiBold", size=self.BASE_FONT_SIZES["button"]
         )
 
-        self.logo_svg_path = os.path.join("recursos", "imagenes", "Hat.svg")
+        self.logo_svg_path = get_resource_images_dir() / "Hat.svg"
         self._resize_job = None
 
         self.build_ui()

@@ -1,13 +1,11 @@
-from pathlib import Path
-
 import customtkinter as ctk
 
+from juego.app_paths import ensure_user_data, get_resource_audio_dir
 from juego.interfaz import AppController
 from juego.sfx_service import HoverSoundBinder, SFXService
 from juego.tts_service import TTSService
 
-BASE_DIR = Path(__file__).resolve().parent
-AUDIO_DIR = BASE_DIR / "recursos" / "audio"
+AUDIO_DIR = get_resource_audio_dir()
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
@@ -26,6 +24,8 @@ root.grid_rowconfigure(0, weight=1)
 root.grid_columnconfigure(0, weight=1)
 
 root.configure(fg_color="#F5F7FA")
+
+ensure_user_data()
 
 tts_service = TTSService(AUDIO_DIR)
 tts_service.preload()

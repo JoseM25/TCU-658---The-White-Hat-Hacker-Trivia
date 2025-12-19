@@ -12,8 +12,21 @@ class ImageHandler:
     ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
     MAX_DISPLAY_NAME_LENGTH = 60
 
-    def __init__(self, images_dir):
-        self.images_dir = images_dir
+    def __init__(
+        self,
+        images_dir,
+        user_images_dir=None,
+        data_root=None,
+        resource_root=None,
+    ):
+        self.images_dir = Path(images_dir)
+        self.user_images_dir = (
+            Path(user_images_dir) if user_images_dir is not None else None
+        )
+        self.data_root = Path(data_root) if data_root is not None else None
+        self.resource_root = Path(resource_root) if resource_root is not None else None
+        if self.user_images_dir is None and self.data_root is not None:
+            self.user_images_dir = self.data_root / "recursos" / "imagenes"
 
     def load_svg_image(self, svg_path, scale=1.0):
         try:
@@ -86,6 +99,17 @@ class ImageHandler:
 
         candidate = Path(image_path)
         if not candidate.is_absolute():
+            for base in (
+                self.data_root,
+                self.resource_root,
+                self.user_images_dir,
+                self.images_dir,
+            ):
+                if base is None:
+                    continue
+                resolved = base / candidate
+                if resolved.exists():
+                    return resolved
             candidate = Path(__file__).resolve().parent.parent / candidate
 
         return candidate if candidate.exists() else None
@@ -133,19 +157,21 @@ class ImageHandler:
         return file_path.suffix.lower() in self.ALLOWED_EXTENSIONS
 
     def resolve_paths(self, source_path):
+        target_dir = self.user_images_dir or self.images_dir
         try:
-            return self.images_dir.resolve(), source_path.resolve()
+            return target_dir.resolve(), source_path.resolve()
         except OSError:
-            return self.images_dir, source_path
+            return target_dir, source_path
 
     def get_unique_destination(self, source_path):
         stem = source_path.stem or "image"
         suffix = source_path.suffix or ".png"
 
-        destination = self.images_dir / source_path.name or "image.png"
+        target_dir = self.user_images_dir or self.images_dir
+        destination = target_dir / source_path.name or "image.png"
         counter = 1
         while destination.exists():
-            destination = self.images_dir / f"{stem}_{counter}{suffix}"
+            destination = target_dir / f"{stem}_{counter}{suffix}"
             counter += 1
 
         return destination
@@ -160,7 +186,7 @@ class ImageHandler:
             pass
 
         try:
-            self.images_dir.mkdir(parents=True, exist_ok=True)
+            images_dir.mkdir(parents=True, exist_ok=True)
         except OSError as error:
             messagebox.showerror(
                 "Image Folder Error",

@@ -1,8 +1,10 @@
-import os
 from tkinter import messagebox
+
 import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
+
+from juego.app_paths import get_resource_images_dir
 
 
 class MenuScreen:
@@ -40,7 +42,8 @@ class MenuScreen:
             family="Poppins SemiBold", size=self.BASE_FONT_SIZES["button"]
         )
 
-        self.logo_svg_path = os.path.join("recursos", "imagenes", "Hat.svg")
+        self.images_dir = get_resource_images_dir()
+        self.logo_svg_path = self.images_dir / "Hat.svg"
 
         self._resize_job = None
 
@@ -168,7 +171,7 @@ class MenuScreen:
         for col, (filename, base_size, sticky, padx, fallback) in enumerate(
             footer_images
         ):
-            path = os.path.join("recursos", "imagenes", filename)
+            path = self.images_dir / filename
             img = self.load_png_image(path)
 
             if img:

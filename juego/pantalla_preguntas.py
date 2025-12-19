@@ -1,10 +1,17 @@
 import tkinter as tk
-from pathlib import Path
 from tkinter import messagebox
 from types import SimpleNamespace
 
 import customtkinter as ctk
 
+from juego.app_paths import (
+    get_data_questions_path,
+    get_data_root,
+    get_resource_audio_dir,
+    get_resource_images_dir,
+    get_resource_root,
+    get_user_images_dir,
+)
 from juego.image_handler import ImageHandler
 from juego.pantalla_preguntas_config import (
     SCREEN_BASE_DIMENSIONS,
@@ -836,10 +843,9 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
     LOW_RES_SCALE_PROFILE = SCREEN_LOW_RES_SCALE_PROFILE
     FONT_SPECS = SCREEN_FONT_SPECS
 
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    QUESTIONS_FILE = BASE_DIR / "datos" / "preguntas.json"
-    IMAGES_DIR = BASE_DIR / "recursos" / "imagenes"
-    AUDIO_DIR = BASE_DIR / "recursos" / "audio"
+    QUESTIONS_FILE = get_data_questions_path()
+    IMAGES_DIR = get_resource_images_dir()
+    AUDIO_DIR = get_resource_audio_dir()
 
     def __init__(self, parent, on_return_callback=None, tts_service=None):
         self.parent = parent
@@ -866,7 +872,13 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.layout_calc = LayoutCalculator(self.scaler, profiles)
 
         self.tts = tts_service or TTSService(self.AUDIO_DIR)
-        self.image_handler = ImageHandler(self.IMAGES_DIR)
+        data_root = get_data_root()
+        self.image_handler = ImageHandler(
+            self.IMAGES_DIR,
+            user_images_dir=get_user_images_dir(),
+            data_root=data_root,
+            resource_root=get_resource_root(),
+        )
         self.repository = QuestionRepository(self.QUESTIONS_FILE)
 
         self.refresh_question_cache()

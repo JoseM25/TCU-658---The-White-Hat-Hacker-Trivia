@@ -1,10 +1,16 @@
 import json
-import os
 import tkinter as tk
-from pathlib import Path
 
 import customtkinter as ctk
 
+from juego.app_paths import (
+    get_data_questions_path,
+    get_data_root,
+    get_resource_audio_dir,
+    get_resource_images_dir,
+    get_resource_root,
+    get_user_images_dir,
+)
 from juego.comodines import WildcardManager
 from juego.image_handler import ImageHandler
 from juego.logica import ScoringSystem
@@ -158,12 +164,22 @@ class GameScreenBase:
         self.viewing_history_index = -1
 
         # Paths
-        self.images_dir = os.path.join("recursos", "imagenes")
-        self.audio_dir = os.path.join("recursos", "audio")
-        self.questions_path = os.path.join("datos", "preguntas.json")
+        resource_images_dir = get_resource_images_dir()
+        resource_audio_dir = get_resource_audio_dir()
+        data_root = get_data_root()
+        resource_root = get_resource_root()
+
+        self.images_dir = resource_images_dir
+        self.audio_dir = resource_audio_dir
+        self.questions_path = get_data_questions_path()
 
         # Image handler for icon loading
-        self.image_handler = ImageHandler(Path(self.images_dir))
+        self.image_handler = ImageHandler(
+            self.images_dir,
+            user_images_dir=get_user_images_dir(),
+            data_root=data_root,
+            resource_root=resource_root,
+        )
 
         # TTS service
         self.tts = tts_service or TTSService(self.audio_dir)
