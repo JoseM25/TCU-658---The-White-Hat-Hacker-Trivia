@@ -974,8 +974,8 @@ class GameScreenBase:
                 if self.wildcard_manager.is_double_points_active():
                     self.wildcard_x2_btn.configure(
                         text=btn_text,
-                        fg_color=self.COLORS["wildcard_x2_active"],
-                        hover_color="#45A049",
+                        fg_color=self.COLORS["wildcard_x2"],
+                        hover_color=self.COLORS["wildcard_x2_hover"],
                         state="normal",
                     )
                 else:
