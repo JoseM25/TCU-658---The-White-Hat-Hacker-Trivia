@@ -636,9 +636,9 @@ class GameScreenBase:
         )
         self.answer_boxes_frame.grid(row=2, column=0, pady=(6, 6), padx=20)
         self.answer_boxes_frame.grid_propagate(False)
-        # Configure internal grid to center content properly
+        # Configure internal grid to center content without stretching a single column.
         self.answer_boxes_frame.grid_rowconfigure(0, weight=1)
-        self.answer_boxes_frame.grid_columnconfigure(0, weight=1)
+        self.answer_boxes_frame.grid_anchor("center")
 
     def build_feedback_section(self):
         self.feedback_label = ctk.CTkLabel(
