@@ -22,7 +22,10 @@ if pygame is not None:
 class SFXService:
     def __init__(self, audio_dir):
         self._audio_dir = Path(audio_dir)
-        self._sound_paths = {"hover": self._audio_dir / "sfx" / "hover.wav"}
+        self._sound_paths = {
+            "hover": self._audio_dir / "sfx" / "hover.wav",
+            "click": self._audio_dir / "sfx" / "click.wav",
+        }
         self._sounds = {}
         self._channels = {}
         self._last_play_time = {}
@@ -39,6 +42,7 @@ class SFXService:
                 mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
             mixer.set_num_channels(16)
             self._channels["hover"] = mixer.Channel(0)
+            self._channels["click"] = mixer.Channel(1)
             return True
         except PYGAME_EXCEPTIONS as exc:
             LOGGER.warning("Failed to init pygame mixer: %s", exc)
@@ -46,6 +50,7 @@ class SFXService:
 
     def preload(self):
         self._load_sound("hover")
+        self._load_sound("click")
 
     def play(self, name, cooldown_ms=0, stop_previous=False, volume=1.0):
         if not self._enabled or pygame is None:
@@ -112,16 +117,41 @@ class SFXService:
 
 
 class HoverSoundBinder:
+    CLICK_HOOK_INSTALLED = False
+    ORIGINAL_CTKBUTTON_INIT = None
+
     def __init__(self, root, sfx_service):
         self._root = root
         self._sfx = sfx_service
         self._hovered_button = None
         self._hover_cooldown_ms = 80
         self._bind_events()
+        self._install_click_hook()
 
     def _bind_events(self):
         self._root.bind_all("<Enter>", self._on_enter, add="+")
         self._root.bind_all("<Leave>", self._on_leave, add="+")
+
+    def _install_click_hook(self):
+        if type(self).CLICK_HOOK_INSTALLED:
+            return
+
+        original_init = ctk.CTkButton.__init__
+
+        def _init_with_sfx(button_self, *args, **kwargs):
+            original_init(button_self, *args, **kwargs)
+            try:
+                button_self.bind(
+                    "<Button-1>",
+                    lambda event, btn=button_self: self._on_button_click(btn),
+                    add="+",
+                )
+            except tk.TclError:
+                pass
+
+        ctk.CTkButton.__init__ = _init_with_sfx
+        type(self).CLICK_HOOK_INSTALLED = True
+        type(self).ORIGINAL_CTKBUTTON_INIT = original_init
 
     def _on_enter(self, event):
         button = self._find_button(event.widget)
@@ -139,6 +169,14 @@ class HoverSoundBinder:
 
         self._hovered_button = button
         self._sfx.play("hover", cooldown_ms=self._hover_cooldown_ms, stop_previous=True)
+
+    def _on_button_click(self, button):
+        try:
+            if button.cget("state") != "normal":
+                return
+        except tk.TclError:
+            return
+        self._sfx.play("click", stop_previous=True)
 
     def _on_leave(self, event):
         if not self._hovered_button:
