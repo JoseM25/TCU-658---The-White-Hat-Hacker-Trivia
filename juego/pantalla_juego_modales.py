@@ -241,25 +241,37 @@ class GameCompletionModal(ModalBase):
         if self.modal and self.modal.winfo_exists():
             self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return
+        self._show_with_scale()
+
+    def _show_with_scale(self, scale_override=None, attempt=0):
         root = self.parent.winfo_toplevel() if self.parent else None
-        self.current_scale = self.calculate_scale_factor(root)
-        scale = self.current_scale
+        base_scale = self.calculate_scale_factor(root)
+        scale = scale_override if scale_override is not None else base_scale
+        self.current_scale = scale
         base_w, base_h = (
             MODAL_BASE_SIZES["completion_width"],
             MODAL_BASE_SIZES["completion_height"],
         )
-        if root and root.winfo_width() > 1:
+        win_width = root.winfo_width() if root else base_w
+        win_height = root.winfo_height() if root else base_h
+        if root and win_width > 1 and win_height > 1:
+            min_w = int(base_w * 0.85)
+            min_h = int(base_h * 0.85)
             width = max(
-                int(root.winfo_width() * MODAL_BASE_SIZES["completion_width_ratio"]),
-                480,
+                int(win_width * MODAL_BASE_SIZES["completion_width_ratio"]),
+                min_w,
             )
             height = max(
-                int(root.winfo_height() * MODAL_BASE_SIZES["completion_height_ratio"]),
-                400,
+                int(win_height * MODAL_BASE_SIZES["completion_height_ratio"]),
+                min_h,
             )
+            width = min(width, win_width)
+            height = min(height, win_height)
+            extra_h = int(base_h * 0.04)
+            height = min(height + extra_h, win_height)
         else:
             width, height = base_w, base_h
-        sizes = self._calc_sizes(scale)
+        sizes = self._calc_sizes(scale, width, height)
         self.create_modal(width, height, "Game Complete")
         container = self.create_container(sizes["corner_r"], sizes["border_w"])
         self.create_header(
@@ -279,34 +291,64 @@ class GameCompletionModal(ModalBase):
         content.grid(row=0, column=0, sticky="", padx=sizes["pad"], pady=sizes["pad"])
         content.grid_columnconfigure(0, weight=1)
         self._build_content(content, width, sizes)
+        self.modal.update_idletasks()
+        available_h = height - sizes["header_h"] - (sizes["border_w"] * 2)
+        required_h = (
+            content.winfo_reqheight() + (sizes["pad"] * 2) + (sizes["border_w"] * 2) + 6
+        )
+        if attempt == 0 and available_h > 0 and required_h > available_h:
+            shrink = available_h / required_h
+            if shrink < 0.98:
+                target_scale = max(0.3, scale * shrink)
+                self.close()
+                self._show_with_scale(scale_override=target_scale, attempt=1)
+                return
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
         self.modal.bind("<Escape>", lambda e: self.handle_close())
         self.modal.bind("<Return>", lambda e: self.handle_close())
 
-    def _calc_sizes(self, scale):
+    def _calc_sizes(self, scale, modal_width, modal_height):
+        base_w = MODAL_BASE_SIZES["completion_width"]
+        base_h = MODAL_BASE_SIZES["completion_height"]
+        w_scale = modal_width / base_w if base_w else 1.0
+        h_scale = modal_height / base_h if base_h else 1.0
+        modal_scale = min(w_scale, h_scale)
+        effective_scale = min(scale, modal_scale)
+        compact = modal_height < (base_h * 0.85)
+        pad_min = 10 if compact else 14
+        row_pad_min = 4 if compact else 6
+        header_min = 40 if compact else 48
+        btn_w_min = 110 if compact else 120
+        btn_h_min = 30 if compact else 34
+        score_min = 28 if compact else 32
+
         def sv(b, mn, mx):
-            return self.scale_value(b, scale, mn, mx)
+            return self.scale_value(b, effective_scale, mn, mx)
 
         return {
             "title_font": self.make_font("Poppins ExtraBold", sv(28, 18, 48), "bold"),
             "message_font": self.make_font("Poppins SemiBold", sv(16, 12, 28), "bold"),
-            "score_font": self.make_font("Poppins ExtraBold", sv(54, 32, 96), "bold"),
+            "score_font": self.make_font(
+                "Poppins ExtraBold", sv(54, score_min, 96), "bold"
+            ),
             "label_font": self.make_font("Poppins SemiBold", sv(15, 11, 26), "bold"),
             "value_font": self.make_font("Poppins SemiBold", sv(15, 11, 26), "bold"),
             "badge_font": self.make_font("Poppins SemiBold", sv(14, 10, 24), "bold"),
             "footnote_font": self.make_font("Open Sans Regular", sv(13, 10, 22)),
             "button_font": self.make_font("Poppins SemiBold", sv(17, 13, 28), "bold"),
-            "header_h": sv(72, 48, 120),
-            "btn_w": sv(180, 120, 300),
-            "btn_h": sv(46, 34, 76),
+            "header_h": sv(72, header_min, 120),
+            "btn_w": sv(180, btn_w_min, 300),
+            "btn_h": sv(46, btn_h_min, 76),
             "btn_r": sv(12, 8, 20),
-            "pad": sv(24, 14, 40),
-            "row_pad": sv(10, 6, 18),
+            "pad": sv(24, pad_min, 40),
+            "row_pad": sv(10, row_pad_min, 18),
             "corner_r": sv(16, 12, 28),
             "border_w": sv(3, 2, 5),
             "card_corner_r": sv(14, 10, 24),
             "star_size": sv(32, 20, 56),
-            "scale": scale,
+            "scale": effective_scale,
+            "modal_scale": modal_scale,
+            "compact": compact,
         }
 
     def _build_content(self, content, width, s):
@@ -449,7 +491,7 @@ class GameCompletionModal(ModalBase):
             text_color=self.COLORS["text_light"],
             justify="center",
             anchor="center",
-            wraplength=int(width * 0.82),
+            wraplength=int(width * (0.9 if s.get("compact") else 0.82)),
         ).grid(row=4, column=0, pady=(0, s["pad"] // 2))
         # Buttons
         btn_container = ctk.CTkFrame(content, fg_color="transparent")

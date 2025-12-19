@@ -25,6 +25,8 @@ class SFXService:
         self._sound_paths = {
             "hover": self._audio_dir / "sfx" / "hover.wav",
             "click": self._audio_dir / "sfx" / "click.wav",
+            "correct": self._audio_dir / "sfx" / "correct.wav",
+            "incorrect": self._audio_dir / "sfx" / "incorrect.wav",
             "freeze": self._audio_dir / "sfx" / "freeze.wav",
             "points": self._audio_dir / "sfx" / "points.wav",
             "reveal": self._audio_dir / "sfx" / "reveal.wav",
@@ -56,6 +58,8 @@ class SFXService:
     def preload(self):
         self._load_sound("hover")
         self._load_sound("click")
+        self._load_sound("correct")
+        self._load_sound("incorrect")
         self._load_sound("freeze")
         self._load_sound("points")
         self._load_sound("reveal")

@@ -347,6 +347,8 @@ class GameScreenLogic(GameScreenBase):
             self.stop_timer()
             self.tts.stop()
             self.show_feedback(correct=True)
+            if self.sfx:
+                self.sfx.play("correct", stop_previous=True)
 
             pts = 0
             raw_pts = 0
@@ -413,6 +415,8 @@ class GameScreenLogic(GameScreenBase):
         else:
             self.question_mistakes += 1
             self.show_feedback(correct=False)
+            if self.sfx:
+                self.sfx.play("incorrect", stop_previous=True)
 
     def show_summary_modal_for_state(self, state, review_mode=False):
         has_prev = (
