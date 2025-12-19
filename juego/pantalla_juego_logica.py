@@ -233,6 +233,12 @@ class GameScreenLogic(GameScreenBase):
         else:
             self.questions_answered += 1
         self.score_label.configure(text=str(self.score))
+        streak = self.scoring_system.clean_streak if self.scoring_system else 0
+        streak_mult = (
+            self.scoring_system.calculate_streak_multiplier()
+            if self.scoring_system
+            else 1.0
+        )
         self.stored_modal_data = {
             "correct_word": title,
             "time_taken": self.question_timer,
@@ -243,6 +249,8 @@ class GameScreenLogic(GameScreenBase):
             "current_image": self.current_image,
             "was_skipped": True,
             "multiplier": 1,
+            "streak": streak,
+            "streak_multiplier": streak_mult,
         }
         self.show_feedback(skipped=True)
         self.show_summary_modal_for_state(self.stored_modal_data)
@@ -305,6 +313,12 @@ class GameScreenLogic(GameScreenBase):
                 self.score += pts
                 self.questions_answered += 1
             self.score_label.configure(text=str(self.score))
+            streak = self.scoring_system.clean_streak if self.scoring_system else 0
+            streak_mult = (
+                self.scoring_system.calculate_streak_multiplier()
+                if self.scoring_system
+                else 1.0
+            )
             self.stored_modal_data = {
                 "correct_word": title,
                 "time_taken": self.question_timer,
@@ -315,6 +329,8 @@ class GameScreenLogic(GameScreenBase):
                 "current_image": self.current_image,
                 "was_skipped": False,
                 "multiplier": mult,
+                "streak": streak,
+                "streak_multiplier": streak_mult,
             }
             self.parent.after(
                 600, lambda: self.show_summary_modal_for_state(self.stored_modal_data)
@@ -352,8 +368,14 @@ class GameScreenLogic(GameScreenBase):
             on_prev,
             has_prev,
             state.get("multiplier", 1),
+            self.on_modal_main_menu,
+            state.get("streak", 0),
+            state.get("streak_multiplier", 1.0),
         )
         self.summary_modal.show()
+
+    def on_modal_main_menu(self):
+        self.return_to_menu()
 
     def show_completion_modal_again(self):
         if self.completion_modal is None:

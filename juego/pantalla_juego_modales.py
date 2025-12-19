@@ -499,6 +499,9 @@ class QuestionSummaryModal(ModalBase):
         on_previous_callback=None,
         has_previous=False,
         multiplier=1,
+        on_main_menu_callback=None,
+        streak=0,
+        streak_multiplier=1.0,
     ):
         super().__init__(parent)
         self.correct_word = correct_word
@@ -510,6 +513,9 @@ class QuestionSummaryModal(ModalBase):
         self.on_previous_callback = on_previous_callback
         self.has_previous = has_previous
         self.multiplier = multiplier
+        self.on_main_menu_callback = on_main_menu_callback
+        self.streak = streak
+        self.streak_multiplier = streak_multiplier
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -520,10 +526,10 @@ class QuestionSummaryModal(ModalBase):
 
         if root and root.winfo_width() > 1 and root.winfo_height() > 1:
             width, height = int(root.winfo_width() * 0.38), int(
-                root.winfo_height() * 0.38
+                root.winfo_height() * 0.48
             )
         else:
-            width, height = 450, 280
+            width, height = 450, 360
 
         scale = min(width / 450, height / 340) * 0.75
         s = self._calc_sizes(scale)
@@ -550,11 +556,15 @@ class QuestionSummaryModal(ModalBase):
         if self.multiplier > 1:
             points_display = f"{self.points_awarded}"
 
+        # Format streak display with multiplier
+        streak_display = f"{self.streak} ({self.streak_multiplier:.2f}x)"
+
         rows = [
             ("Correct Word:", self.correct_word, self.COLORS["primary_blue"]),
             ("Time Taken:", f"{self.time_taken}s", self.COLORS["primary_blue"]),
             ("Points Awarded:", points_display, self.COLORS["primary_blue"]),
             ("Total Score:", str(self.total_score), self.COLORS["primary_blue"]),
+            ("Streak:", streak_display, "#673AB7"),
         ]
 
         self.animated_widgets.clear()
@@ -619,7 +629,8 @@ class QuestionSummaryModal(ModalBase):
                 self.animated_widgets.append((lw, vw))
 
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
-        btn_container.grid(row=8, column=0, pady=(s["pad"], 0))
+        btn_container.grid(row=10, column=0, pady=(s["pad"], 0))
+        btn_container.grid_columnconfigure((0, 1, 2), weight=1)
 
         ctk.CTkButton(
             btn_container,
@@ -660,6 +671,19 @@ class QuestionSummaryModal(ModalBase):
             height=s["btn_h"],
             corner_radius=s["btn_r"],
         ).grid(row=0, column=2, padx=(s["pad"] // 2, 0))
+
+        ctk.CTkButton(
+            btn_container,
+            text="Main Menu",
+            font=s["button_font"],
+            fg_color="#202632",
+            hover_color="#2D3444",
+            text_color=self.COLORS["text_white"],
+            command=self.handle_main_menu,
+            width=s["btn_w"],
+            height=s["btn_h"],
+            corner_radius=s["btn_r"],
+        ).grid(row=1, column=0, columnspan=3, pady=(s["pad"] // 2, 0))
 
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
         self.modal.bind("<Escape>", lambda e: self.handle_close())
@@ -706,6 +730,11 @@ class QuestionSummaryModal(ModalBase):
         self.close()
         if self.on_previous_callback:
             self.on_previous_callback()
+
+    def handle_main_menu(self):
+        self.close()
+        if self.on_main_menu_callback:
+            self.on_main_menu_callback()
 
 
 class SkipConfirmationModal(ModalBase):

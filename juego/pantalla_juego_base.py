@@ -94,8 +94,14 @@ class GameScreenBase:
         self.resize_job = None
         self.main = None
         self.header_frame = None
+        self.header_left_container = None
+        self.header_center_container = None
+        self.header_right_container = None
         self.back_button = None
         self.back_arrow_icon = None
+        self.timer_container = None
+        self.score_container = None
+        self.audio_container = None
         self.timer_label = None
         self.score_label = None
         self.audio_toggle_btn = None
@@ -224,60 +230,83 @@ class GameScreenBase:
         )
         self.header_frame.grid(row=0, column=0, sticky="ew")
         self.header_frame.grid_propagate(False)
-        self.header_frame.grid_columnconfigure(0, weight=1)
+        # Spanned header layout:
+        # - left: timer
+        # - center: score (visually centered)
+        # - right: mute toggle
+        #
+        # Use `uniform` so left/right columns share the same base width, keeping the
+        # center column perfectly centered even if timer/mute have different widths.
+        self.header_frame.grid_columnconfigure(0, weight=1, uniform="header_side")
         self.header_frame.grid_columnconfigure(1, weight=0)
-        self.header_frame.grid_columnconfigure(2, weight=1)
+        self.header_frame.grid_columnconfigure(2, weight=1, uniform="header_side")
         self.header_frame.grid_rowconfigure(0, weight=1)
-
-        left_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        left_container.grid(row=0, column=0, sticky="w")
 
         self.load_header_icons()
 
-        self.back_button = ctk.CTkButton(
-            left_container,
-            text="Menu",
-            image=self.back_arrow_icon,
-            compound="left",
-            anchor="w",
-            font=self.header_button_font,
-            width=96,
-            height=40,
-            fg_color="transparent",
-            hover_color=self.COLORS["header_hover"],
-            text_color="white",
-            corner_radius=8,
-            command=self.return_to_menu,
-        )
-        self.back_button.grid(row=0, column=0, padx=(0, 16))
+        # The Menu/back button is intentionally not shown on game screens.
+        self.back_button = None
 
-        timer_container = ctk.CTkFrame(left_container, fg_color="transparent")
-        timer_container.grid(row=0, column=1, padx=(8, 0))
+        self.header_left_container = ctk.CTkFrame(
+            self.header_frame, fg_color="transparent"
+        )
+        self.header_left_container.grid(row=0, column=0, sticky="w", padx=(24, 0))
+
+        self.header_center_container = ctk.CTkFrame(
+            self.header_frame, fg_color="transparent"
+        )
+        self.header_center_container.grid(row=0, column=1)
+
+        self.header_right_container = ctk.CTkFrame(
+            self.header_frame, fg_color="transparent"
+        )
+        self.header_right_container.grid(row=0, column=2, sticky="e", padx=(0, 24))
+
+        # Left: timer
+        self.timer_container = ctk.CTkFrame(
+            self.header_left_container, fg_color="transparent"
+        )
+        self.timer_container.grid(row=0, column=0)
         self.timer_icon_label = ctk.CTkLabel(
-            timer_container, text="", image=self.clock_icon
+            self.timer_container, text="", image=self.clock_icon
         )
         self.timer_icon_label.grid(row=0, column=0, padx=(0, 8))
         self.timer_label = ctk.CTkLabel(
-            timer_container, text="00:00", font=self.timer_font, text_color="white"
+            self.timer_container, text="00:00", font=self.timer_font, text_color="white"
         )
         self.timer_label.grid(row=0, column=1)
 
-        score_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        score_container.grid(row=0, column=1)
+        # Center: score (balanced so the number remains centered even with an icon)
+        self.score_container = ctk.CTkFrame(
+            self.header_center_container, fg_color="transparent"
+        )
+        self.score_container.grid(row=0, column=0)
+        star_sz = 24
         self.star_icon_label = ctk.CTkLabel(
-            score_container, text="", image=self.star_icon
+            self.score_container,
+            text="",
+            image=self.star_icon,
+            width=star_sz,
+            height=star_sz,
         )
         self.star_icon_label.grid(row=0, column=0, padx=(0, 8))
         self.score_label = ctk.CTkLabel(
-            score_container, text="0", font=self.score_font, text_color="white"
+            self.score_container, text="0", font=self.score_font, text_color="white"
         )
         self.score_label.grid(row=0, column=1)
+        # Spacer mirrors the icon+gap so the score text stays visually centered.
+        ctk.CTkLabel(self.score_container, text="", width=star_sz + 8).grid(
+            row=0, column=2
+        )
 
-        audio_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        audio_container.grid(row=0, column=2, sticky="e", padx=(0, 24))
+        # Right: mute toggle
+        self.audio_container = ctk.CTkFrame(
+            self.header_right_container, fg_color="transparent"
+        )
+        self.audio_container.grid(row=0, column=0)
         self.load_audio_icons()
         self.audio_toggle_btn = ctk.CTkButton(
-            audio_container,
+            self.audio_container,
             text="",
             image=self.audio_icon_on,
             font=self.timer_font,

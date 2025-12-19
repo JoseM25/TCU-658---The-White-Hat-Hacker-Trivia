@@ -59,29 +59,24 @@ class GameScreen(GameScreenLogic):
         def clamp_scaled(base, min_value, max_value):
             return int(max(min_value, min(max_value, base * scale)))
 
-        pad_top = clamp_scaled(28, 12, 64)
-        pad_bottom = clamp_scaled(32, 14, 72)
-        pad_left = clamp_scaled(24, 10, 60)
-        pad_right = clamp_scaled(16, 8, 48)
-        back_width = clamp_scaled(96, 70, 170)
-        back_height = clamp_scaled(40, 30, 64)
-        back_corner = clamp_scaled(8, 6, 16)
+        # Header: spanned layout (timer left, score centered, mute right).
+        control_height = clamp_scaled(40, 32, 64)
+        control_corner = clamp_scaled(8, 6, 16)
+        pad_y = clamp_scaled(10, 8, 24)
+        pad_x = clamp_scaled(24, 10, 64)
 
-        header_height = max(
-            back_height + pad_top + pad_bottom, int(max(48, 60 * scale))
-        )
+        header_height = max(control_height + pad_y * 2, clamp_scaled(60, 48, 110))
         self.header_frame.configure(height=header_height)
 
-        if self.back_button:
-            self.back_button.grid_configure(
-                padx=(pad_left, pad_right), pady=(pad_top, pad_bottom)
-            )
-            self.back_button.configure(
-                width=back_width, height=back_height, corner_radius=back_corner
-            )
+        if getattr(self, "header_left_container", None):
+            self.header_left_container.grid_configure(padx=(pad_x, 0), pady=pad_y)
+        if getattr(self, "header_right_container", None):
+            self.header_right_container.grid_configure(padx=(0, pad_x), pady=pad_y)
+        if getattr(self, "header_center_container", None):
+            self.header_center_container.grid_configure(pady=pad_y)
 
-        audio_icon_size = self.calculate_audio_icon_size(scale, back_height)
-        self.update_audio_icon_size(audio_icon_size, back_height, back_corner)
+        audio_icon_size = self.calculate_audio_icon_size(scale, control_height)
+        self.update_audio_icon_size(audio_icon_size, control_height, control_corner)
 
         image_size = self.get_scaled_image_size(scale)
         self.image_frame.configure(height=image_size)
