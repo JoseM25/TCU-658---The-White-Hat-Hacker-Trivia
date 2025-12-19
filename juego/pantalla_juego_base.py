@@ -1,5 +1,6 @@
 import json
 import os
+import tkinter as tk
 from pathlib import Path
 
 import customtkinter as ctk
@@ -95,6 +96,9 @@ class GameScreenBase:
         self.definition_scroll = None
         self.def_inner = None
         self.definition_label = None
+        self._definition_scrollbar_visible = None
+        self._definition_scrollbar_manager = None
+        self._definition_scroll_update_job = None
         self.answer_boxes_frame = None
         self.answer_box_labels = []
 
@@ -523,6 +527,104 @@ class GameScreenBase:
         )
         self.definition_label.grid(row=0, column=1, sticky="nw")
 
+    def set_definition_text(self, text):
+        if self.definition_label and self.definition_label.winfo_exists():
+            self.definition_label.configure(text=text)
+        self.queue_definition_scroll_update()
+
+    def queue_definition_scroll_update(self):
+        if not self.parent or not self.parent.winfo_exists():
+            return
+        if self._definition_scroll_update_job:
+            try:
+                self.parent.after_cancel(self._definition_scroll_update_job)
+            except tk.TclError:
+                pass
+            self._definition_scroll_update_job = None
+        try:
+            self._definition_scroll_update_job = self.parent.after_idle(
+                self.update_definition_scrollbar_visibility
+            )
+        except tk.TclError:
+            self._definition_scroll_update_job = None
+            self.update_definition_scrollbar_visibility()
+
+    def update_definition_scrollbar_visibility(self):
+        self._definition_scroll_update_job = None
+        if not self.definition_scroll or not self.definition_scroll.winfo_exists():
+            return
+        if (
+            not self.definition_scroll_wrapper
+            or not self.definition_scroll_wrapper.winfo_exists()
+        ):
+            return
+
+        content = None
+        if self.def_inner and self.def_inner.winfo_exists():
+            content = self.def_inner
+        elif self.definition_label and self.definition_label.winfo_exists():
+            content = self.definition_label
+        if not content:
+            return
+
+        try:
+            content.update_idletasks()
+            self.definition_scroll_wrapper.update_idletasks()
+        except tk.TclError:
+            return
+
+        wrapper_height = self.definition_scroll_wrapper.winfo_height()
+        if wrapper_height <= 1:
+            wrapper_height = self.definition_scroll_wrapper.winfo_reqheight()
+        content_height = content.winfo_reqheight()
+
+        needs_scroll = content_height > (wrapper_height + 2)
+        self._set_definition_scrollbar_visible(needs_scroll)
+
+    def _set_definition_scrollbar_visible(self, visible):
+        if self._definition_scrollbar_visible is visible:
+            return
+
+        scrollbar = self._get_scrollbar_widget(self.definition_scroll)
+        if not scrollbar or not scrollbar.winfo_exists():
+            return
+
+        manager = self._definition_scrollbar_manager or scrollbar.winfo_manager()
+        if not manager:
+            manager = "grid"
+        self._definition_scrollbar_manager = manager
+
+        if visible:
+            if manager == "grid":
+                scrollbar.grid()
+            elif manager == "pack":
+                scrollbar.pack()
+            elif manager == "place":
+                scrollbar.place()
+        else:
+            if manager == "grid":
+                scrollbar.grid_remove()
+            elif manager == "pack":
+                scrollbar.pack_forget()
+            elif manager == "place":
+                scrollbar.place_forget()
+
+        self._definition_scrollbar_visible = visible
+
+    def _get_scrollbar_widget(self, scrollable):
+        if not scrollable:
+            return None
+        for attr in (
+            "_scrollbar",
+            "_scrollbar_vertical",
+            "_y_scrollbar",
+            "_scrollbar_y",
+        ):
+            scrollbar = getattr(scrollable, attr, None)
+            if scrollbar:
+                return scrollbar
+        return None
+
     def build_answer_boxes_section(self):
         box_sz = self.get_scaled_box_size()
 
@@ -653,6 +755,8 @@ class GameScreenBase:
 
         key_sz = self.BASE_SIZES["key_base"]
         key_gap = self.BASE_SIZES["key_gap"]
+        key_width_ratio = self.BASE_SIZES.get("key_width_ratio", 1.0)
+        delete_ratio = self.BASE_SIZES.get("delete_key_width_ratio", 1.8)
 
         for row_idx, row_keys in enumerate(self.KEYBOARD_LAYOUT):
             row_frame = ctk.CTkFrame(self.keyboard_frame, fg_color="transparent")
@@ -665,7 +769,11 @@ class GameScreenBase:
 
             for col, key in enumerate(row_keys):
                 is_del = key == "⌫"
-                w = int(key_sz * 1.8) if is_del else key_sz
+                w = (
+                    int(key_sz * delete_ratio * key_width_ratio)
+                    if is_del
+                    else int(key_sz * key_width_ratio)
+                )
                 fg = self.COLORS["danger_red"] if is_del else self.COLORS["key_bg"]
                 hv = self.COLORS["danger_hover"] if is_del else self.COLORS["key_hover"]
                 tc = "white" if is_del else self.COLORS["text_dark"]

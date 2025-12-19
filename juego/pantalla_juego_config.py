@@ -117,7 +117,9 @@ GAME_BASE_SIZES = {
     "key_max": 68,
     "key_gap": 10,
     "key_row_gap": 3,
-    "keyboard_pad_x": 256,
+    "key_width_ratio": 1.2,
+    "delete_key_width_ratio": 1.8,
+    "keyboard_pad_x": 308,
     "keyboard_pad_y": 10,
     "delete_icon_base": 26,
     # Action buttons
@@ -211,24 +213,24 @@ GAME_KEY_SIZE_PROFILE = [
 
 # Keyboard scale profile (height-based) to keep the keyboard compact on smaller screens
 GAME_KEYBOARD_SCALE_PROFILE = [
-    (720, 0.85),
-    (900, 0.92),
-    (1080, 1.00),
-    (1440, 1.00),
-    (2160, 1.00),
+    (720, 0.65),
+    (900, 0.70),
+    (1080, 0.80),
+    (1440, 0.80),
+    (2160, 0.80),
 ]
 
 # Keyboard horizontal padding profile
 GAME_KEYBOARD_PAD_PROFILE = [
-    (720, 80),
-    (900, 140),
-    (1080, 200),
-    (1280, 256),
-    (1600, 340),
-    (1920, 420),
-    (2560, 560),
-    (3200, 700),
-    (3840, 800),
+    (720, 96),
+    (900, 168),
+    (1080, 240),
+    (1280, 308),
+    (1600, 408),
+    (1920, 504),
+    (2560, 672),
+    (3200, 840),
+    (3840, 960),
 ]
 
 # Definition wrap length profile - capped to ensure text wraps nicely
@@ -479,7 +481,10 @@ class GameSizeCalculator:
         sizes["key_row_gap"] = s(GAME_BASE_SIZES["key_row_gap"], scale, 2, 8)
         sizes["keyboard_pad"] = ip(window_width, self.profiles["keyboard_pad"])
         sizes["keyboard_pad_y"] = s(GAME_BASE_SIZES["keyboard_pad_y"], scale, 8, 32)
-        sizes["delete_key_width_ratio"] = 1.8
+        sizes["key_width_ratio"] = GAME_BASE_SIZES.get("key_width_ratio", 1.0)
+        sizes["delete_key_width_ratio"] = GAME_BASE_SIZES.get(
+            "delete_key_width_ratio", 1.8
+        )
         sizes["delete_icon"] = s(GAME_BASE_SIZES["delete_icon_base"], scale, 16, 48)
 
         # Action buttons - use vertical_dimension for height-constrained

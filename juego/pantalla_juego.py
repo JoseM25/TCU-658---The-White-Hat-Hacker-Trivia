@@ -116,7 +116,13 @@ class GameScreen(GameScreenLogic):
         feedback_pad = sizes["feedback_pad_bottom"]
         if is_compact:
             feedback_pad = max(6, feedback_pad // 2)
-        feedback_row = feedback_pad + self.scale_value(12, scale, 8, 16)
+        feedback_base = self.font_base_sizes.get("feedback", 14)
+        feedback_min = self.font_min_sizes.get("feedback", 10)
+        feedback_text = self.scale_value(
+            feedback_base, scale, feedback_min, feedback_base * 2.5
+        )
+        feedback_buffer = self.scale_value(4, scale, 2, 8)
+        feedback_row = feedback_pad + feedback_text + feedback_buffer
 
         left_height = image_row + definition_row + answer_row + feedback_row
 
@@ -348,6 +354,8 @@ class GameScreen(GameScreenLogic):
             sz = sizes["info_icon"]
             self.info_icon.configure(size=(sz, sz))
 
+        self.queue_definition_scroll_update()
+
     def _update_answer_boxes(self):
         sizes = self.size_state
         scale = sizes.get("scale", 1.0)
@@ -399,6 +407,7 @@ class GameScreen(GameScreenLogic):
         keyboard_pad = sizes["keyboard_pad"]
         keyboard_pad_y = sizes["keyboard_pad_y"]
         keyboard_scale = sizes.get("keyboard_scale", 1.0)
+        key_width_ratio = sizes.get("key_width_ratio", 1.0)
 
         if keyboard_scale < 1.0:
             key_sz = max(10, int(round(key_sz * keyboard_scale)))
@@ -414,7 +423,7 @@ class GameScreen(GameScreenLogic):
             delete_icon_sz = max(8, int(round(sizes["delete_icon"] * keyboard_scale)))
         else:
             delete_icon_sz = sizes["delete_icon"]
-        delete_width = int(key_sz * sizes["delete_key_width_ratio"])
+        delete_width = int(key_sz * sizes["delete_key_width_ratio"] * key_width_ratio)
 
         if self.keyboard_frame and self.keyboard_frame.winfo_exists():
             self.keyboard_frame.grid_configure(
@@ -430,7 +439,7 @@ class GameScreen(GameScreenLogic):
         for btn in self.keyboard_buttons:
             if btn and btn.winfo_exists():
                 is_delete = btn is self.delete_button
-                width = delete_width if is_delete else key_sz
+                width = delete_width if is_delete else int(key_sz * key_width_ratio)
                 btn.configure(width=width, height=key_sz)
                 btn.grid_configure(padx=key_gap // 2)
 

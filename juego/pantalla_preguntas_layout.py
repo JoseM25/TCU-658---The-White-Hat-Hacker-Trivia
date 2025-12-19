@@ -371,6 +371,9 @@ class QuestionScreenLayoutMixin:
             title_height = int(current_font_size * 1.35 * 2)
             self.detail_title_label.configure(height=title_height)
 
+        if hasattr(self, "queue_detail_scroll_update"):
+            self.queue_detail_scroll_update()
+
     def update_definition_audio_layout(self, container_width, scale):
         if not self.definition_row or not self.definition_row.winfo_exists():
             return

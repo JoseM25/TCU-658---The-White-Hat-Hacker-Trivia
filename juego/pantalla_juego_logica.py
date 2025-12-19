@@ -85,7 +85,7 @@ class GameScreenLogic(GameScreenBase):
         self.reset_double_points_visuals()
 
         if not self.questions:
-            self.definition_label.configure(text="No questions available!")
+            self.set_definition_text("No questions available!")
             return
 
         if not self.available_questions:
@@ -100,7 +100,7 @@ class GameScreenLogic(GameScreenBase):
         self.timer_label.configure(text="00:00")
 
         definition = self.current_question.get("definition", "No definition")
-        self.definition_label.configure(text=definition)
+        self.set_definition_text(definition)
         self.create_answer_boxes(
             len(self.current_question.get("title", "").replace(" ", ""))
         )
@@ -306,7 +306,7 @@ class GameScreenLogic(GameScreenBase):
         self.stop_timer()
         self.tts.stop()
         self.current_question = None
-        self.definition_label.configure(text="Game Complete!")
+        self.set_definition_text("Game Complete!")
 
         stats = self.scoring_system.get_session_stats() if self.scoring_system else None
         if self.sfx:
@@ -532,8 +532,8 @@ class GameScreenLogic(GameScreenBase):
         self.current_question = state["question"]
         self.current_answer = state["answer"]
 
-        self.definition_label.configure(
-            text=self.current_question.get("definition", "No definition")
+        self.set_definition_text(
+            self.current_question.get("definition", "No definition")
         )
         self.create_answer_boxes(
             len(self.current_question.get("title", "").replace(" ", ""))
@@ -563,8 +563,8 @@ class GameScreenLogic(GameScreenBase):
         self.current_question = state["question"]
         self.current_answer = state["answer"]
 
-        self.definition_label.configure(
-            text=self.current_question.get("definition", "No definition")
+        self.set_definition_text(
+            self.current_question.get("definition", "No definition")
         )
         self.create_answer_boxes(
             len(self.current_question.get("title", "").replace(" ", ""))
