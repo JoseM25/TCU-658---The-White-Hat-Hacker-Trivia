@@ -85,22 +85,22 @@ GAME_BASE_SIZES = {
     "header_pad_x": 24,
     "header_pad_y": 10,
     # Timer and score
-    "timer_icon_size": 24,
-    "star_icon_size": 24,
+    "timer_icon_size": 16,
+    "star_icon_size": 16,
     # Audio toggle
-    "audio_icon_base": 36,
-    "audio_icon_min": 28,
-    "audio_icon_max": 56,
-    "audio_button_width": 48,
-    "audio_button_height": 40,
+    "audio_icon_base": 20,
+    "audio_icon_min": 16,
+    "audio_icon_max": 32,
+    "audio_button_width": 30,
+    "audio_button_height": 30,
     # Question container
-    "container_pad_x": 40,
-    "container_pad_y": 20,
-    "container_corner_radius": 20,
+    "container_pad_x": 24,
+    "container_pad_y": 12,
+    "container_corner_radius": 16,
     # Image
-    "image_base": 180,
-    "image_min": 100,
-    "image_max": 320,
+    "image_base": 130,
+    "image_min": 80,
+    "image_max": 240,
     # Definition
     "definition_wrap_base": 600,
     "definition_wrap_min": 320,
@@ -124,14 +124,14 @@ GAME_BASE_SIZES = {
     "action_button_gap": 16,
     "action_corner_radius": 12,
     # Wildcards
-    "wildcard_size": 64,
-    "wildcard_min": 48,
-    "wildcard_max": 96,
-    "wildcard_corner_radius": 32,
-    "wildcard_gap": 8,
-    "wildcard_font_size": 18,
-    "charges_font_size": 14,
-    "lightning_icon_size": 18,
+    "wildcard_size": 48,
+    "wildcard_min": 36,
+    "wildcard_max": 72,
+    "wildcard_corner_radius": 24,
+    "wildcard_gap": 6,
+    "wildcard_font_size": 14,
+    "charges_font_size": 12,
+    "lightning_icon_size": 14,
     "freeze_icon_ratio": 0.5,
     # Feedback
     "feedback_pad_bottom": 16,
@@ -170,15 +170,15 @@ GAME_HEADER_HEIGHT_PROFILE = [
 
 # Image size profile
 GAME_IMAGE_SIZE_PROFILE = [
-    (720, 120),
-    (900, 140),
-    (1080, 160),
-    (1280, 180),
-    (1600, 220),
-    (1920, 260),
-    (2560, 300),
-    (3200, 340),
-    (3840, 380),
+    (720, 90),
+    (900, 100),
+    (1080, 115),
+    (1280, 130),
+    (1600, 160),
+    (1920, 190),
+    (2560, 230),
+    (3200, 270),
+    (3840, 300),
 ]
 
 # Answer box size profile
@@ -220,17 +220,18 @@ GAME_KEYBOARD_PAD_PROFILE = [
     (3840, 800),
 ]
 
-# Definition wrap length profile
+# Definition wrap length profile - capped to ensure text wraps nicely
+# Larger wraplength at high res causes single-line text that clips
 GAME_DEFINITION_WRAP_PROFILE = [
     (720, 380),
     (900, 480),
     (1080, 540),
     (1280, 620),
-    (1600, 760),
-    (1920, 880),
-    (2560, 1050),
-    (3200, 1200),
-    (3840, 1300),
+    (1600, 700),
+    (1920, 780),
+    (2560, 860),
+    (3200, 920),
+    (3840, 980),
 ]
 
 # Action button width profile
@@ -248,28 +249,28 @@ GAME_ACTION_BUTTON_PROFILE = [
 
 # Wildcard size profile
 GAME_WILDCARD_SIZE_PROFILE = [
-    (720, 48),
-    (900, 54),
-    (1080, 58),
-    (1280, 64),
-    (1600, 76),
-    (1920, 86),
-    (2560, 100),
-    (3200, 114),
-    (3840, 126),
+    (720, 36),
+    (900, 40),
+    (1080, 44),
+    (1280, 48),
+    (1600, 56),
+    (1920, 64),
+    (2560, 76),
+    (3200, 88),
+    (3840, 96),
 ]
 
 # Container padding profile
 GAME_CONTAINER_PAD_PROFILE = [
-    (720, 20),
-    (900, 28),
-    (1080, 34),
-    (1280, 40),
-    (1600, 52),
-    (1920, 64),
-    (2560, 80),
-    (3200, 96),
-    (3840, 110),
+    (720, 12),
+    (900, 16),
+    (1080, 20),
+    (1280, 24),
+    (1600, 32),
+    (1920, 40),
+    (2560, 52),
+    (3200, 64),
+    (3840, 76),
 ]
 
 # Low resolution scale penalty profile
@@ -382,6 +383,9 @@ class GameFontRegistry:
 
 class GameSizeCalculator:
 
+    # Height threshold below which we apply compact sizing
+    HEIGHT_CONSTRAINED_THRESHOLD = 800
+
     def __init__(self, scaler, profiles):
         self.scaler = scaler
         self.profiles = profiles
@@ -392,8 +396,21 @@ class GameSizeCalculator:
 
         sizes = {}
 
-        # Header
+        # Determine if we're height-constrained (720p or similar low-height displays)
+        # Only apply compact sizing when height is actually limited
+        is_height_constrained = window_height <= self.HEIGHT_CONSTRAINED_THRESHOLD
+
+        # For height-constrained layouts, use height for vertical elements
+        # Otherwise use width as the profiles were designed
+        vertical_dimension = (
+            window_height if is_height_constrained else window_width
+        )
+
+        # Header - always use width, but clamp for very low heights
         sizes["header_height"] = ip(window_width, self.profiles["header_height"])
+        if is_height_constrained:
+            # Reduce header at low heights
+            sizes["header_height"] = min(sizes["header_height"], 52)
         sizes["header_pad_x"] = s(GAME_BASE_SIZES["header_pad_x"], scale, 12, 60)
         sizes["header_pad_y"] = s(GAME_BASE_SIZES["header_pad_y"], scale, 6, 24)
 
@@ -417,31 +434,33 @@ class GameSizeCalculator:
 
         # Question container
         sizes["container_pad_x"] = ip(window_width, self.profiles["container_pad"])
-        sizes["container_pad_y"] = s(GAME_BASE_SIZES["container_pad_y"], scale, 12, 50)
+        sizes["container_pad_y"] = s(GAME_BASE_SIZES["container_pad_y"], scale, 8, 50)
         sizes["container_corner_radius"] = s(
             GAME_BASE_SIZES["container_corner_radius"], scale, 12, 36
         )
 
-        # Image
-        sizes["image_size"] = ip(window_width, self.profiles["image_size"])
+        # Image - use vertical_dimension for height-constrained, width otherwise
+        sizes["image_size"] = ip(vertical_dimension, self.profiles["image_size"])
 
-        # Definition
+        # Definition - always use width for wraplength (horizontal constraint)
         sizes["definition_wrap"] = ip(window_width, self.profiles["definition_wrap"])
         sizes["info_icon"] = s(GAME_BASE_SIZES["info_icon_size"], scale, 16, 40)
 
-        # Answer boxes
-        sizes["answer_box"] = ip(window_width, self.profiles["answer_box"])
+        # Answer boxes - use vertical_dimension for height-constrained
+        sizes["answer_box"] = ip(vertical_dimension, self.profiles["answer_box"])
         sizes["answer_box_gap"] = s(GAME_BASE_SIZES["answer_box_gap"], scale, 2, 6)
 
-        # Keyboard
-        sizes["key_size"] = ip(window_width, self.profiles["key_size"])
+        # Keyboard - key sizes use vertical_dimension, padding uses width
+        sizes["key_size"] = ip(vertical_dimension, self.profiles["key_size"])
         sizes["key_gap"] = s(GAME_BASE_SIZES["key_gap"], scale, 6, 24)
         sizes["keyboard_pad"] = ip(window_width, self.profiles["keyboard_pad"])
         sizes["delete_key_width_ratio"] = 1.8
         sizes["delete_icon"] = s(GAME_BASE_SIZES["delete_icon_base"], scale, 16, 48)
 
-        # Action buttons
-        sizes["action_button_width"] = ip(window_width, self.profiles["action_button"])
+        # Action buttons - use vertical_dimension for height-constrained
+        sizes["action_button_width"] = ip(
+            vertical_dimension, self.profiles["action_button"]
+        )
         sizes["action_button_height"] = s(
             GAME_BASE_SIZES["action_button_height"], scale, 36, 80
         )
@@ -452,8 +471,8 @@ class GameSizeCalculator:
             GAME_BASE_SIZES["action_corner_radius"], scale, 8, 24
         )
 
-        # Wildcards
-        sizes["wildcard_size"] = ip(window_width, self.profiles["wildcard_size"])
+        # Wildcards - use vertical_dimension for height-constrained
+        sizes["wildcard_size"] = ip(vertical_dimension, self.profiles["wildcard_size"])
         sizes["wildcard_corner_radius"] = sizes["wildcard_size"] // 2
         sizes["wildcard_gap"] = s(GAME_BASE_SIZES["wildcard_gap"], scale, 4, 16)
         sizes["wildcard_font"] = s(GAME_BASE_SIZES["wildcard_font_size"], scale, 12, 32)
@@ -474,6 +493,7 @@ class GameSizeCalculator:
         sizes["scale"] = scale
         sizes["window_width"] = window_width
         sizes["window_height"] = window_height
+        sizes["is_height_constrained"] = is_height_constrained
 
         return sizes
 

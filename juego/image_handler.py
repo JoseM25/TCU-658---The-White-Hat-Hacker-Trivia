@@ -11,7 +11,6 @@ class ImageHandler:
 
     ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
     MAX_DISPLAY_NAME_LENGTH = 60
-    SVG_RASTER_SCALE = 2.0
 
     def __init__(self, images_dir):
         self.images_dir = images_dir
@@ -23,6 +22,14 @@ class ImageHandler:
             ).convert("RGBA")
         except (FileNotFoundError, OSError, ValueError, RuntimeError):
             return None
+
+    def get_svg_base_size(self, svg_path):
+        """Get the base size of an SVG by loading at scale 1.0"""
+        try:
+            img = ImageTk.getimage(TkSvgImage(file=str(svg_path), scale=1.0))
+            return img.size
+        except (FileNotFoundError, OSError, ValueError, RuntimeError):
+            return (24, 24)  # fallback
 
     def crop_to_alpha_bounds(self, pil_image):
         try:
@@ -38,16 +45,40 @@ class ImageHandler:
         return image.resize(target_size, resample)
 
     def create_ctk_icon(self, svg_filename, size, scale=None):
-        pil_image = self.load_svg_image(
-            self.images_dir / svg_filename, scale or self.SVG_RASTER_SCALE
-        )
+        svg_path = self.images_dir / svg_filename
+        target_w, target_h = size
+        target_max = max(target_w, target_h)
+
+        if scale is None:
+            # Calculate the scale needed to rasterize SVG at target resolution
+            base_w, base_h = self.get_svg_base_size(svg_path)
+            base_max = max(base_w, base_h, 1)
+            # Rasterize at 2x target size for crispness, then downscale
+            scale = (target_max * 2) / base_max
+
+        pil_image = self.load_svg_image(svg_path, scale)
         if not pil_image:
             return None
 
         cropped = self.crop_to_alpha_bounds(pil_image)
-        resized = self.resize_image(cropped, size)
 
-        return ctk.CTkImage(light_image=resized, dark_image=resized, size=size)
+        # Preserve aspect ratio when resizing
+        orig_w, orig_h = cropped.size
+        if orig_w > 0 and orig_h > 0:
+            ratio = min(target_w / orig_w, target_h / orig_h)
+            new_w = max(1, int(orig_w * ratio))
+            new_h = max(1, int(orig_h * ratio))
+            resized = self.resize_image(cropped, (new_w, new_h))
+
+            # Center on transparent canvas
+            final = Image.new("RGBA", size, (0, 0, 0, 0))
+            paste_x = (target_w - new_w) // 2
+            paste_y = (target_h - new_h) // 2
+            final.paste(resized, (paste_x, paste_y))
+        else:
+            final = cropped
+
+        return ctk.CTkImage(light_image=final, dark_image=final, size=size)
 
     def resolve_image_path(self, image_path):
         if not image_path:

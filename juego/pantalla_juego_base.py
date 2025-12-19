@@ -85,6 +85,8 @@ class GameScreenBase:
         self.question_container = None
         self.image_frame = None
         self.image_label = None
+        self.definition_frame = None
+        self.def_inner = None
         self.definition_label = None
         self.answer_boxes_frame = None
         self.answer_box_labels = []
@@ -460,21 +462,28 @@ class GameScreenBase:
         self.image_label.grid(row=0, column=0)
 
     def build_definition_section(self):
-        def_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
-        def_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=10)
-        def_frame.grid_columnconfigure(0, weight=1)
-        def_frame.grid_rowconfigure(0, weight=1)
+        # Store reference to frame for responsive updates
+        self.definition_frame = ctk.CTkFrame(
+            self.question_container, fg_color="transparent"
+        )
+        self.definition_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=10)
+        self.definition_frame.grid_columnconfigure(0, weight=1)
+        self.definition_frame.grid_rowconfigure(0, weight=1)
 
         self.load_info_icon()
 
-        def_inner = ctk.CTkFrame(def_frame, fg_color="transparent")
-        def_inner.grid(row=0, column=0, sticky="")
+        # Inner frame that centers content but expands horizontally
+        self.def_inner = ctk.CTkFrame(self.definition_frame, fg_color="transparent")
+        self.def_inner.grid(row=0, column=0, sticky="")
+        self.def_inner.grid_columnconfigure(1, weight=1)
 
-        self.info_icon_label = ctk.CTkLabel(def_inner, text="", image=self.info_icon)
+        self.info_icon_label = ctk.CTkLabel(
+            self.def_inner, text="", image=self.info_icon
+        )
         self.info_icon_label.grid(row=0, column=0, sticky="n", padx=(0, 8), pady=(2, 0))
 
         self.definition_label = ctk.CTkLabel(
-            def_inner,
+            self.def_inner,
             text="Loading question...",
             font=self.definition_font,
             text_color=self.COLORS["text_medium"],
@@ -482,7 +491,7 @@ class GameScreenBase:
             justify="left",
             anchor="w",
         )
-        self.definition_label.grid(row=0, column=1, sticky="w")
+        self.definition_label.grid(row=0, column=1, sticky="nw")
 
     def build_answer_boxes_section(self):
         box_sz = self.get_scaled_box_size()

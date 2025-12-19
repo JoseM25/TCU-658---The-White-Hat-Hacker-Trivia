@@ -167,6 +167,20 @@ class GameScreen(GameScreenLogic):
 
     def _update_definition(self):
         sizes = self.size_state
+        scale = sizes.get("scale", 1.0)
+        is_compact = sizes.get("is_height_constrained", False)
+
+        # Update definition frame padding responsively
+        if self.definition_frame and self.definition_frame.winfo_exists():
+            if is_compact:
+                # Tighter padding for height-constrained screens
+                pad_x = self.scale_value(20, scale, 10, 40)
+                pad_y = self.scale_value(6, scale, 3, 12)
+            else:
+                # Normal padding for larger screens
+                pad_x = self.scale_value(30, scale, 16, 60)
+                pad_y = self.scale_value(10, scale, 6, 24)
+            self.definition_frame.grid_configure(padx=pad_x, pady=pad_y)
 
         if self.definition_label and self.definition_label.winfo_exists():
             wrap = sizes["definition_wrap"]
@@ -182,14 +196,15 @@ class GameScreen(GameScreenLogic):
         box_sz = sizes["answer_box"]
         gap = sizes["answer_box_gap"]
 
-        # Update answer box labels
-        for box in self.answer_box_labels:
+        # Update answer box labels - only update boxes that are currently visible (managed)
+        # Using grid_configure on a grid_remove()'d widget would re-show it!
+        visible_boxes = [b for b in self.answer_box_labels if b.winfo_manager()]
+        for box in visible_boxes:
             if box and box.winfo_exists():
                 box.configure(width=box_sz, height=box_sz)
                 box.grid_configure(padx=gap)
 
         # Update frame size if we have visible boxes
-        visible_boxes = [b for b in self.answer_box_labels if b.winfo_manager()]
         if (
             visible_boxes
             and self.answer_boxes_frame

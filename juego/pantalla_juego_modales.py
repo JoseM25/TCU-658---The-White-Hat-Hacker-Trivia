@@ -45,7 +45,8 @@ class ModalBase:
             return 1.0
         if width <= 1 or height <= 1:
             return 1.0
-        return max(0.5, min(2.2, width / 1280, height / 720))
+        # Clamp scale lower (max 1.4) so modals fit on screen
+        return max(0.5, min(1.4, width / 1280, height / 720))
 
     def create_modal(self, width, height, title):
         root = self.parent.winfo_toplevel() if self.parent else None
