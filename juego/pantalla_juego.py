@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from juego.juego_logica import GameScreenLogic
+from juego.pantalla_juego_logica import GameScreenLogic
 
 
 class GameScreen(GameScreenLogic):

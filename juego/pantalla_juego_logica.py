@@ -5,12 +5,12 @@ import tkinter as tk
 import customtkinter as ctk
 from PIL import Image
 
-from juego.juego_modales import (
+from juego.pantalla_juego_base import GameScreenBase
+from juego.pantalla_juego_modales import (
     GameCompletionModal,
     QuestionSummaryModal,
     SkipConfirmationModal,
 )
-from juego.pantalla_juego_base import GameScreenBase
 
 
 class GameScreenLogic(GameScreenBase):
