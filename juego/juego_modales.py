@@ -1,0 +1,759 @@
+import os
+import tkinter as tk
+
+import customtkinter as ctk
+from PIL import Image, ImageTk
+from tksvg import SvgImage as TkSvgImage
+
+
+class ModalBase:
+    COLORS = {
+        "bg_light": "#F5F7FA",
+        "header_bg": "#202632",
+        "text_white": "#FFFFFF",
+        "text_dark": "#3A3F4B",
+        "text_medium": "#7A7A7A",
+        "primary_blue": "#005DFF",
+        "primary_hover": "#003BB8",
+        "success_green": "#00CFC5",
+        "warning_yellow": "#FFC553",
+        "danger_red": "#FF4F60",
+        "border_blue": "#1D6CFF",
+        "card_bg": "#FFFFFF",
+        "border_light": "#E2E7F3",
+        "master_purple": "#7C3AED",
+        "cancel_bg": "#D0D6E0",
+        "cancel_hover": "#B8C0D0",
+        "skip_bg": "#FF4F60",
+        "skip_hover": "#CC3F4D",
+    }
+
+    IMAGES_DIR = os.path.join("recursos", "imagenes")
+    SVG_RASTER_SCALE = 2.0
+    ANIMATION_DELAY_MS = 160
+    FADE_STEPS = 12
+    FADE_STEP_MS = 30
+
+    def __init__(self, parent):
+        self.parent = parent
+        self.modal = None
+        self.root = None
+        self.animation_jobs = []
+        self.animated_widgets = []
+        self.widget_target_colors = {}
+
+    def create_modal(self, width, height, title):
+        root = self.parent.winfo_toplevel() if self.parent else None
+        self.root = root
+
+        self.modal = ctk.CTkToplevel(root if root else self.parent)
+        self.modal.after_cancel(self.modal.after(0, lambda: None))
+        self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))
+
+        try:
+            scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
+        except (AttributeError, KeyError):
+            scaling = 1.0
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            pos_x = root.winfo_rootx() + (root.winfo_width() - width) // 2
+            pos_y = root.winfo_rooty() + (root.winfo_height() - height) // 2
+        else:
+            pos_x = (self.modal.winfo_screenwidth() - width) // 2
+            pos_y = (self.modal.winfo_screenheight() - height) // 2
+
+        pos_x = int(pos_x / scaling)
+        pos_y = int(pos_y / scaling)
+
+        self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+        self.modal.attributes("-topmost", False)
+        self.modal.title(title)
+
+        if root:
+            self.modal.transient(root)
+            self.modal.grab_set()
+        self.modal.resizable(False, False)
+        self.modal.configure(fg_color=self.COLORS["bg_light"])
+        self.modal.grid_rowconfigure(0, weight=1)
+        self.modal.grid_columnconfigure(0, weight=1)
+
+        return root
+
+    def create_container(self, corner_r, border_w):
+        container = ctk.CTkFrame(
+            self.modal,
+            fg_color=self.COLORS["bg_light"],
+            corner_radius=corner_r,
+            border_width=border_w,
+            border_color=self.COLORS["border_blue"],
+        )
+        container.grid(row=0, column=0, sticky="nsew")
+        container.grid_rowconfigure(0, weight=0)
+        container.grid_rowconfigure(1, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+        return container
+
+    def create_header(self, container, title, title_font, header_h, pad):
+        header = ctk.CTkFrame(
+            container,
+            fg_color=self.COLORS["header_bg"],
+            corner_radius=0,
+            height=header_h,
+        )
+        header.grid(row=0, column=0, sticky="new")
+        header.grid_propagate(False)
+        header.grid_columnconfigure(0, weight=1)
+        header.grid_rowconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text=title,
+            font=title_font,
+            text_color=self.COLORS["text_white"],
+            anchor="center",
+        ).grid(row=0, column=0, sticky="nsew", padx=pad)
+
+        return header
+
+    def interpolate_color(self, start_hex, end_hex, progress):
+        sr, sg, sb = (
+            int(start_hex[1:3], 16),
+            int(start_hex[3:5], 16),
+            int(start_hex[5:7], 16),
+        )
+        er, eg, eb = int(end_hex[1:3], 16), int(end_hex[3:5], 16), int(end_hex[5:7], 16)
+        r = int(sr + (er - sr) * progress)
+        g = int(sg + (eg - sg) * progress)
+        b = int(sb + (eb - sb) * progress)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def start_fade_in_animation(self, bg_color):
+        for row_index, (label_widget, value_widget) in enumerate(self.animated_widgets):
+            delay = row_index * self.ANIMATION_DELAY_MS
+            job = self.modal.after(
+                delay,
+                lambda lw=label_widget, vw=value_widget, bg=bg_color: self.fade_in_row(
+                    lw, vw, bg, 0
+                ),
+            )
+            self.animation_jobs.append(job)
+
+    def fade_in_row(self, label_widget, value_widget, bg_color, step):
+        if not self.modal or not self.modal.winfo_exists():
+            return
+
+        label_target = self.widget_target_colors.get(id(label_widget))
+        value_target = self.widget_target_colors.get(id(value_widget))
+
+        if step >= self.FADE_STEPS:
+            self.safe_try(lambda: label_widget.configure(text_color=label_target))
+            self.safe_try(lambda: value_widget.configure(text_color=value_target))
+            return
+
+        progress = (step + 1) / self.FADE_STEPS
+        label_color = self.interpolate_color(bg_color, label_target, progress)
+        value_color = self.interpolate_color(bg_color, value_target, progress)
+
+        self.safe_try(lambda: label_widget.configure(text_color=label_color))
+        self.safe_try(lambda: value_widget.configure(text_color=value_color))
+
+        job = self.modal.after(
+            self.FADE_STEP_MS,
+            lambda: self.fade_in_row(label_widget, value_widget, bg_color, step + 1),
+        )
+        self.animation_jobs.append(job)
+
+    def load_svg_image(self, svg_path, scale=1.0):
+        try:
+            svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
+            return ImageTk.getimage(svg_photo).convert("RGBA")
+        except (FileNotFoundError, ValueError):
+            return None
+
+    def close(self):
+        modal = self.modal
+        for job in self.animation_jobs:
+            if modal:
+                self.safe_try(lambda j=job, m=modal: m.after_cancel(j))
+        self.animation_jobs.clear()
+        self.animated_widgets.clear()
+        self.widget_target_colors.clear()
+
+        if modal:
+            try:
+                if modal.winfo_exists():
+                    self.safe_try(modal.grab_release)
+                    self.safe_try(modal.destroy)
+            except tk.TclError:
+                pass
+        self.modal = None
+        self.root = None
+
+    def safe_try(self, func):
+        try:
+            func()
+        except tk.TclError:
+            pass
+
+
+class GameCompletionModal(ModalBase):
+
+    def __init__(
+        self,
+        parent,
+        final_score,
+        total_questions,
+        session_stats=None,
+        on_previous_callback=None,
+        has_previous=False,
+        on_close_callback=None,
+    ):
+        super().__init__(parent)
+        self.final_score = final_score
+        self.total_questions = total_questions
+        self.session_stats = session_stats or {}
+        self.on_previous_callback = on_previous_callback
+        self.has_previous = has_previous
+        self.on_close_callback = on_close_callback
+        self.star_icon = None
+
+    def show(self):
+        if self.modal and self.modal.winfo_exists():
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+        base_w, base_h = 560, 520
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            width = max(int(root.winfo_width() * 0.42), 480)
+            height = max(int(root.winfo_height() * 0.52), 400)
+        else:
+            width, height = base_w, base_h
+
+        scale = min(width / base_w, height / base_h) * 0.90
+        sizes = self._calc_sizes(scale)
+
+        self.create_modal(width, height, "Game Complete")
+        container = self.create_container(sizes["corner_r"], sizes["border_w"])
+        self.create_header(
+            container,
+            "Game Complete",
+            sizes["title_font"],
+            sizes["header_h"],
+            sizes["pad"],
+        )
+
+        content_wrapper = ctk.CTkFrame(
+            container, fg_color=self.COLORS["bg_light"], corner_radius=0
+        )
+        content_wrapper.grid(row=1, column=0, sticky="nsew")
+        content_wrapper.grid_rowconfigure(0, weight=1)
+        content_wrapper.grid_columnconfigure(0, weight=1)
+
+        content = ctk.CTkFrame(content_wrapper, fg_color="transparent")
+        content.grid(row=0, column=0, sticky="", padx=sizes["pad"], pady=sizes["pad"])
+        content.grid_columnconfigure(0, weight=1)
+
+        self._build_content(content, width, sizes)
+
+        self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
+        self.modal.bind("<Escape>", lambda e: self.handle_close())
+        self.modal.bind("<Return>", lambda e: self.handle_close())
+
+    def _calc_sizes(self, scale):
+        return {
+            "title_font": ctk.CTkFont(
+                family="Poppins ExtraBold", size=max(int(28 * scale), 18), weight="bold"
+            ),
+            "message_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(16 * scale), 12), weight="bold"
+            ),
+            "score_font": ctk.CTkFont(
+                family="Poppins ExtraBold", size=max(int(54 * scale), 32), weight="bold"
+            ),
+            "label_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
+            ),
+            "value_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
+            ),
+            "footnote_font": ctk.CTkFont(
+                family="Open Sans Regular", size=max(int(13 * scale), 10)
+            ),
+            "button_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(17 * scale), 13), weight="bold"
+            ),
+            "header_h": max(int(72 * scale), 48),
+            "btn_w": max(int(180 * scale), 120),
+            "btn_h": max(int(46 * scale), 34),
+            "btn_r": max(int(12 * scale), 8),
+            "pad": max(int(24 * scale), 14),
+            "row_pad": max(int(10 * scale), 6),
+            "corner_r": max(int(16 * scale), 12),
+            "border_w": max(int(3 * scale), 2),
+            "card_corner_r": max(int(14 * scale), 10),
+            "star_size": max(int(32 * scale), 20),
+            "scale": scale,
+        }
+
+    def _build_content(self, content, width, s):
+        stats = self.session_stats or {}
+
+        def to_int(v, d=0):
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return d
+
+        total_q = to_int(
+            stats.get("total_questions", self.total_questions),
+            to_int(self.total_questions, 0),
+        )
+        answered = to_int(stats.get("questions_answered", total_q), 0)
+        skipped = to_int(stats.get("questions_skipped"), 0)
+        correct = stats.get("questions_correct")
+        correct = (
+            to_int(correct, max(0, answered - skipped))
+            if correct is None
+            else to_int(correct, 0)
+        )
+        errors = to_int(stats.get("total_errors"), 0)
+        streak = to_int(stats.get("highest_streak", stats.get("clean_streak")), 0)
+        grace = to_int(stats.get("grace_period_seconds", 5), 5)
+
+        ctk.CTkLabel(
+            content,
+            text="You've completed all questions!",
+            font=s["message_font"],
+            text_color=self.COLORS["text_medium"],
+            anchor="center",
+        ).grid(row=0, column=0, pady=(0, s["row_pad"]))
+
+        score_frame = ctk.CTkFrame(content, fg_color="transparent")
+        score_frame.grid(row=1, column=0, pady=(0, s["row_pad"]))
+
+        self._load_star_icon(s["star_size"])
+        ctk.CTkLabel(
+            score_frame,
+            text="★" if not self.star_icon else "",
+            image=self.star_icon,
+            font=ctk.CTkFont(family="Segoe UI Symbol", size=s["star_size"]),
+            text_color=self.COLORS["warning_yellow"],
+        ).grid(row=0, column=0, padx=(0, 12))
+        ctk.CTkLabel(
+            score_frame,
+            text=str(self.final_score),
+            font=s["score_font"],
+            text_color=self.COLORS["success_green"],
+        ).grid(row=0, column=1)
+        ctk.CTkLabel(
+            score_frame,
+            text="points",
+            font=s["message_font"],
+            text_color=self.COLORS["text_medium"],
+        ).grid(row=0, column=2, padx=(8, 0), sticky="s", pady=(0, 6))
+
+        stats_card = ctk.CTkFrame(
+            content,
+            fg_color=self.COLORS["card_bg"],
+            corner_radius=s["card_corner_r"],
+            border_width=1,
+            border_color=self.COLORS["border_light"],
+        )
+        stats_card.grid(row=2, column=0, sticky="ew", pady=(0, s["pad"] // 2))
+        stats_card.grid_columnconfigure(0, weight=1)
+
+        rows_container = ctk.CTkFrame(stats_card, fg_color="transparent")
+        rows_container.grid(
+            row=0, column=0, sticky="nsew", padx=s["pad"], pady=s["pad"] // 2
+        )
+        rows_container.grid_columnconfigure(0, weight=1)
+
+        rows = [
+            ("Total questions", str(total_q), self.COLORS["primary_blue"]),
+            ("Correct", str(correct), self.COLORS["success_green"]),
+            ("Skipped", str(skipped), self.COLORS["warning_yellow"]),
+            ("Errors", str(errors), self.COLORS["danger_red"]),
+            ("Highest streak", str(streak), self.COLORS["master_purple"]),
+        ]
+
+        self.animated_widgets.clear()
+        self.widget_target_colors.clear()
+        bg = self.COLORS["bg_light"]
+
+        for i, (lbl, val, clr) in enumerate(rows):
+            rf = ctk.CTkFrame(rows_container, fg_color="transparent")
+            rf.grid(row=i, column=0, sticky="ew", pady=s["row_pad"] // 2)
+            rf.grid_columnconfigure(0, weight=1)
+            rf.grid_columnconfigure(1, weight=0)
+
+            lw = ctk.CTkLabel(
+                rf, text=f"{lbl}:", font=s["label_font"], text_color=bg, anchor="w"
+            )
+            lw.grid(row=0, column=0, sticky="w")
+            self.widget_target_colors[id(lw)] = self.COLORS["text_dark"]
+
+            vw = ctk.CTkLabel(
+                rf, text=val, font=s["value_font"], text_color=bg, anchor="e"
+            )
+            vw.grid(row=0, column=1, sticky="e", padx=(s["pad"] // 2, 0))
+            self.widget_target_colors[id(vw)] = clr
+
+            self.animated_widgets.append((lw, vw))
+
+        ctk.CTkLabel(
+            content,
+            text=f"You get the first {grace} seconds free to read the clue. Time-based scoring starts after that.",
+            font=s["footnote_font"],
+            text_color=self.COLORS["text_medium"],
+            justify="center",
+            anchor="center",
+            wraplength=int(width * 0.82),
+        ).grid(row=3, column=0, pady=(0, s["pad"] // 2))
+
+        btn_container = ctk.CTkFrame(content, fg_color="transparent")
+        btn_container.grid(row=4, column=0, pady=(s["pad"] // 2, 0))
+
+        ctk.CTkButton(
+            btn_container,
+            text="Previous Question",
+            font=s["button_font"],
+            fg_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
+            hover_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
+            text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
+            command=self.handle_previous if self.has_previous else None,
+            state="normal" if self.has_previous else "disabled",
+            width=s["btn_w"],
+            height=s["btn_h"],
+            corner_radius=s["btn_r"],
+        ).grid(row=0, column=0, padx=(0, s["pad"] // 2))
+
+        rb = ctk.CTkButton(
+            btn_container,
+            text="Return to Menu",
+            font=s["button_font"],
+            width=s["btn_w"],
+            height=s["btn_h"],
+            fg_color=self.COLORS["primary_blue"],
+            hover_color=self.COLORS["primary_hover"],
+            text_color=self.COLORS["text_white"],
+            corner_radius=s["btn_r"],
+            command=self.handle_close,
+        )
+        rb.grid(row=0, column=1, padx=(s["pad"] // 2, 0))
+
+        self.safe_try(rb.focus_set)
+        self.start_fade_in_animation(bg)
+
+    def _load_star_icon(self, size):
+        img = self.load_svg_image(
+            os.path.join(self.IMAGES_DIR, "star.svg"), self.SVG_RASTER_SCALE
+        )
+        if img:
+            r, g, b = (
+                int(self.COLORS["warning_yellow"][1:3], 16),
+                int(self.COLORS["warning_yellow"][3:5], 16),
+                int(self.COLORS["warning_yellow"][5:7], 16),
+            )
+            ir, ig, ib, ia = img.split()
+            img = Image.merge(
+                "RGBA",
+                (
+                    ir.point(lambda x: int(x * r / 255)),
+                    ig.point(lambda x: int(x * g / 255)),
+                    ib.point(lambda x: int(x * b / 255)),
+                    ia,
+                ),
+            )
+            self.star_icon = ctk.CTkImage(
+                light_image=img, dark_image=img, size=(size, size)
+            )
+
+    def handle_previous(self):
+        self.close()
+        if self.on_previous_callback:
+            self.on_previous_callback()
+
+    def handle_close(self):
+        self.close()
+        if self.on_close_callback:
+            self.on_close_callback()
+
+
+class QuestionSummaryModal(ModalBase):
+
+    def __init__(
+        self,
+        parent,
+        correct_word,
+        time_taken,
+        points_awarded,
+        total_score,
+        on_next_callback,
+        on_close_callback=None,
+        on_previous_callback=None,
+        has_previous=False,
+    ):
+        super().__init__(parent)
+        self.correct_word = correct_word
+        self.time_taken = time_taken
+        self.points_awarded = points_awarded
+        self.total_score = total_score
+        self.on_next_callback = on_next_callback
+        self.on_close_callback = on_close_callback
+        self.on_previous_callback = on_previous_callback
+        self.has_previous = has_previous
+
+    def show(self):
+        if self.modal and self.modal.winfo_exists():
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            width, height = int(root.winfo_width() * 0.38), int(
+                root.winfo_height() * 0.38
+            )
+        else:
+            width, height = 450, 280
+
+        scale = min(width / 450, height / 340) * 0.75
+        s = self._calc_sizes(scale)
+
+        self.create_modal(width, height, "Summary")
+        container = self.create_container(s["corner_r"], s["border_w"])
+        self.create_header(
+            container, "Summary", s["title_font"], s["header_h"], s["pad"]
+        )
+
+        content_wrapper = ctk.CTkFrame(
+            container, fg_color=self.COLORS["bg_light"], corner_radius=0
+        )
+        content_wrapper.grid(row=1, column=0, sticky="nsew")
+        content_wrapper.grid_rowconfigure(0, weight=1)
+        content_wrapper.grid_columnconfigure(0, weight=1)
+
+        content = ctk.CTkFrame(content_wrapper, fg_color="transparent")
+        content.grid(row=0, column=0, sticky="")
+        content.grid_columnconfigure(0, weight=1)
+
+        rows = [
+            ("Correct Word:", self.correct_word, self.COLORS["primary_blue"]),
+            ("Time Taken:", f"{self.time_taken}s", self.COLORS["primary_blue"]),
+            ("Points Awarded:", str(self.points_awarded), self.COLORS["primary_blue"]),
+            ("Total Score:", str(self.total_score), self.COLORS["primary_blue"]),
+        ]
+
+        self.animated_widgets.clear()
+        self.widget_target_colors.clear()
+        bg = self.COLORS["bg_light"]
+
+        for i, (lbl, val, clr) in enumerate(rows):
+            lw = ctk.CTkLabel(
+                content, text=lbl, font=s["label_font"], text_color=bg, anchor="center"
+            )
+            lw.grid(row=i * 2, column=0, pady=(s["row_pad"], 0))
+            self.widget_target_colors[id(lw)] = self.COLORS["text_dark"]
+
+            vw = ctk.CTkLabel(
+                content, text=val, font=s["value_font"], text_color=bg, anchor="center"
+            )
+            vw.grid(row=i * 2 + 1, column=0, pady=(0, s["row_pad"]))
+            self.widget_target_colors[id(vw)] = clr
+
+            self.animated_widgets.append((lw, vw))
+
+        btn_container = ctk.CTkFrame(content, fg_color="transparent")
+        btn_container.grid(row=8, column=0, pady=(s["pad"], 0))
+
+        ctk.CTkButton(
+            btn_container,
+            text="Previous",
+            font=s["button_font"],
+            fg_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
+            hover_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
+            text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
+            command=self.handle_previous if self.has_previous else None,
+            state="normal" if self.has_previous else "disabled",
+            width=s["btn_w"],
+            height=s["btn_h"],
+            corner_radius=s["btn_r"],
+        ).grid(row=0, column=0, padx=(0, s["pad"] // 2))
+
+        ctk.CTkButton(
+            btn_container,
+            text="Close",
+            font=s["button_font"],
+            fg_color="#D0D6E0",
+            hover_color="#B8C0D0",
+            text_color=self.COLORS["text_white"],
+            command=self.handle_close,
+            width=s["btn_w"],
+            height=s["btn_h"],
+            corner_radius=s["btn_r"],
+        ).grid(row=0, column=1, padx=(s["pad"] // 2, s["pad"] // 2))
+
+        ctk.CTkButton(
+            btn_container,
+            text="Next Question",
+            font=s["button_font"],
+            fg_color=self.COLORS["primary_blue"],
+            hover_color=self.COLORS["primary_hover"],
+            text_color=self.COLORS["text_white"],
+            command=self.handle_next,
+            width=s["btn_w"],
+            height=s["btn_h"],
+            corner_radius=s["btn_r"],
+        ).grid(row=0, column=2, padx=(s["pad"] // 2, 0))
+
+        self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
+        self.modal.bind("<Escape>", lambda e: self.handle_close())
+        self.modal.bind("<Return>", lambda e: self.handle_next())
+
+        self.start_fade_in_animation(bg)
+
+    def _calc_sizes(self, scale):
+        return {
+            "title_font": ctk.CTkFont(
+                family="Poppins ExtraBold", size=max(int(26 * scale), 16), weight="bold"
+            ),
+            "label_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
+            ),
+            "value_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
+            ),
+            "button_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(16 * scale), 12), weight="bold"
+            ),
+            "header_h": max(int(66 * scale), 44),
+            "btn_w": max(int(150 * scale), 100),
+            "btn_h": max(int(44 * scale), 32),
+            "btn_r": max(int(12 * scale), 8),
+            "pad": max(int(20 * scale), 12),
+            "row_pad": max(int(6 * scale), 4),
+            "corner_r": max(int(16 * scale), 12),
+            "border_w": max(int(3 * scale), 2),
+        }
+
+    def handle_next(self):
+        self.close()
+        if self.on_next_callback:
+            self.on_next_callback()
+
+    def handle_close(self):
+        self.close()
+        if self.on_close_callback:
+            self.on_close_callback()
+
+    def handle_previous(self):
+        self.close()
+        if self.on_previous_callback:
+            self.on_previous_callback()
+
+
+class SkipConfirmationModal(ModalBase):
+
+    def __init__(self, parent, on_skip_callback):
+        super().__init__(parent)
+        self.on_skip_callback = on_skip_callback
+
+    def show(self):
+        if self.modal and self.modal.winfo_exists():
+            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            return
+
+        root = self.parent.winfo_toplevel() if self.parent else None
+
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            width, height = int(root.winfo_width() * 0.35), int(
+                root.winfo_height() * 0.35
+            )
+        else:
+            width, height = 400, 200
+
+        scale = min(width / 400, height / 200) * 0.6
+        s = self._calc_sizes(scale)
+
+        self.create_modal(width, height, "Skip Question")
+        container = self.create_container(s["corner_r"], s["border_w"])
+        self.create_header(
+            container, "Skip Question", s["title_font"], s["header_h"], s["pad"]
+        )
+
+        content_wrapper = ctk.CTkFrame(
+            container, fg_color=self.COLORS["bg_light"], corner_radius=0
+        )
+        content_wrapper.grid(row=1, column=0, sticky="nsew")
+        content_wrapper.grid_rowconfigure(0, weight=1)
+        content_wrapper.grid_rowconfigure(1, weight=0)
+        content_wrapper.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            content_wrapper,
+            text="Are you sure you want to skip the question? No points will be awarded.",
+            font=s["body_font"],
+            text_color=self.COLORS["text_dark"],
+            justify="center",
+            anchor="center",
+            wraplength=int(width * 0.8),
+        ).grid(row=0, column=0, sticky="nsew", pady=s["pad"], padx=s["pad"])
+
+        btn_frame = ctk.CTkFrame(content_wrapper, fg_color="transparent")
+        btn_frame.grid(row=1, column=0, pady=(0, s["pad"]))
+
+        ctk.CTkButton(
+            btn_frame,
+            text="Cancel",
+            font=s["button_font"],
+            fg_color=self.COLORS["cancel_bg"],
+            hover_color=self.COLORS["cancel_hover"],
+            text_color=self.COLORS["text_white"],
+            command=self.close,
+            width=s["btn_w"],
+            height=s["btn_h"],
+            corner_radius=s["btn_r"],
+        ).grid(row=0, column=0, padx=(0, s["pad"]))
+
+        ctk.CTkButton(
+            btn_frame,
+            text="Skip",
+            font=s["button_font"],
+            fg_color=self.COLORS["skip_bg"],
+            hover_color=self.COLORS["skip_hover"],
+            text_color=self.COLORS["text_white"],
+            command=self.handle_skip,
+            width=s["btn_w"],
+            height=s["btn_h"],
+            corner_radius=s["btn_r"],
+        ).grid(row=0, column=1, padx=(s["pad"], 0))
+
+        self.modal.protocol("WM_DELETE_WINDOW", self.close)
+        self.modal.bind("<Escape>", lambda e: self.close())
+
+    def _calc_sizes(self, scale):
+        return {
+            "title_font": ctk.CTkFont(
+                family="Poppins ExtraBold", size=max(int(24 * scale), 16), weight="bold"
+            ),
+            "body_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(16 * scale), 12), weight="bold"
+            ),
+            "button_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(16 * scale), 12), weight="bold"
+            ),
+            "header_h": max(int(72 * scale), 48),
+            "btn_w": max(int(120 * scale), 80),
+            "btn_h": max(int(44 * scale), 32),
+            "btn_r": max(int(12 * scale), 8),
+            "pad": max(int(24 * scale), 16),
+            "corner_r": max(int(16 * scale), 12),
+            "border_w": max(int(3 * scale), 2),
+        }
+
+    def handle_skip(self):
+        self.close()
+        if self.on_skip_callback:
+            self.on_skip_callback()
