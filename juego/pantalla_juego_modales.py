@@ -284,7 +284,9 @@ class GameCompletionModal(ModalBase):
         self.modal.bind("<Return>", lambda e: self.handle_close())
 
     def _calc_sizes(self, scale):
-        sv = lambda b, mn, mx: self.scale_value(b, scale, mn, mx)
+        def sv(b, mn, mx):
+            return self.scale_value(b, scale, mn, mx)
+
         return {
             "title_font": self.make_font("Poppins ExtraBold", sv(28, 18, 48), "bold"),
             "message_font": self.make_font("Poppins SemiBold", sv(16, 12, 28), "bold"),
@@ -436,7 +438,10 @@ class GameCompletionModal(ModalBase):
             self.widget_target_colors[id(vw)] = clr
             self.animated_widgets.append((lw, vw))
         # Grace period note
-        grace_text = f"You get the first {grace} seconds free to read the clue. Time-based scoring starts after that."
+        grace_text = (
+            f"You get the first {grace} seconds free to read the clue. "
+            "Time-based scoring starts after that."
+        )
         ctk.CTkLabel(
             content,
             text=grace_text,
@@ -737,7 +742,10 @@ class QuestionSummaryModal(ModalBase):
     def _calc_sizes(self, scale, modal_width, modal_height):
         w_scale, h_scale = modal_width / 450, modal_height / 380
         m_scale = min(w_scale, h_scale)
-        sz = lambda b, mn, mx: int(max(mn, min(mx, b * m_scale)))
+
+        def sz(b, mn, mx):
+            return int(max(mn, min(mx, b * m_scale)))
+
         return {
             "title_font": self.make_font("Poppins ExtraBold", sz(20, 12, 36), "bold"),
             "label_font": self.make_font("Poppins SemiBold", sz(13, 9, 22), "bold"),
@@ -852,7 +860,9 @@ class SkipConfirmationModal(ModalBase):
         self.modal.bind("<Escape>", lambda e: self.close())
 
     def _calc_sizes(self, scale):
-        sv = lambda b, mn, mx: self.scale_value(b, scale, mn, mx)
+        def sv(b, mn, mx):
+            return self.scale_value(b, scale, mn, mx)
+
         return {
             "title_font": self.make_font("Poppins ExtraBold", sv(24, 16, 40), "bold"),
             "body_font": self.make_font("Poppins SemiBold", sv(16, 12, 28), "bold"),

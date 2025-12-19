@@ -192,6 +192,14 @@ class GameScreen(GameScreenLogic):
                 pad_y = self.scale_value(14, scale, 8, 36)
             self.definition_frame.grid_configure(padx=pad_x, pady=pad_y)
 
+        # Update scrollable frame wrapper height for long definitions
+        if self.definition_scroll_wrapper and self.definition_scroll_wrapper.winfo_exists():
+            if is_compact:
+                max_height = self.scale_value(42, scale, 38, 50)
+            else:
+                max_height = self.scale_value(50, scale, 42, 65)
+            self.definition_scroll_wrapper.configure(height=max_height)
+
         if self.definition_label and self.definition_label.winfo_exists():
             wrap = sizes["definition_wrap"]
             self.definition_label.configure(wraplength=wrap)
