@@ -198,6 +198,14 @@ class ModalBase:
 
 class GameCompletionModal(ModalBase):
 
+    LEVEL_BADGE_COLORS = {
+        "Beginner": ModalBase.COLORS["danger_red"],
+        "Student": ModalBase.COLORS["primary_blue"],
+        "Professional": ModalBase.COLORS["success_green"],
+        "Expert": "#CC9A42",
+        "Master": ModalBase.COLORS["master_purple"],
+    }
+
     def __init__(
         self,
         parent,
@@ -278,6 +286,9 @@ class GameCompletionModal(ModalBase):
             "value_font": ctk.CTkFont(
                 family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
             ),
+            "badge_font": ctk.CTkFont(
+                family="Poppins SemiBold", size=max(int(14 * scale), 10), weight="bold"
+            ),
             "footnote_font": ctk.CTkFont(
                 family="Open Sans Regular", size=max(int(13 * scale), 10)
             ),
@@ -322,6 +333,19 @@ class GameCompletionModal(ModalBase):
         streak = to_int(stats.get("highest_streak", stats.get("clean_streak")), 0)
         grace = to_int(stats.get("grace_period_seconds", 5), 5)
 
+        # Get mastery percentage and knowledge level
+        mastery_pct = stats.get("mastery_pct", 0.0)
+        try:
+            mastery_pct = float(mastery_pct)
+        except (TypeError, ValueError):
+            mastery_pct = 0.0
+        knowledge_level = stats.get(
+            "knowledge_level", self._knowledge_level_from_pct(mastery_pct)
+        )
+        level_color = self.LEVEL_BADGE_COLORS.get(
+            knowledge_level, self.COLORS["text_medium"]
+        )
+
         ctk.CTkLabel(
             content,
             text="You've completed all questions!",
@@ -354,6 +378,33 @@ class GameCompletionModal(ModalBase):
             text_color=self.COLORS["text_medium"],
         ).grid(row=0, column=2, padx=(8, 0), sticky="s", pady=(0, 6))
 
+        # Knowledge Level Badge (after score)
+        badge_frame = ctk.CTkFrame(content, fg_color="transparent")
+        badge_frame.grid(row=2, column=0, pady=(0, s["row_pad"]))
+
+        ctk.CTkLabel(
+            badge_frame,
+            text="Knowledge Level:",
+            font=s["label_font"],
+            text_color=self.COLORS["text_dark"],
+        ).grid(row=0, column=0, padx=(0, 8))
+
+        ctk.CTkLabel(
+            badge_frame,
+            text=f" {knowledge_level} ",
+            font=s["badge_font"],
+            text_color=self.COLORS["text_white"],
+            fg_color=level_color,
+            corner_radius=6,
+        ).grid(row=0, column=1, padx=(0, 8))
+
+        ctk.CTkLabel(
+            badge_frame,
+            text=f"({mastery_pct:.1f}%)",
+            font=s["badge_font"],
+            text_color=self.COLORS["text_medium"],
+        ).grid(row=0, column=2)
+
         stats_card = ctk.CTkFrame(
             content,
             fg_color=self.COLORS["card_bg"],
@@ -361,7 +412,7 @@ class GameCompletionModal(ModalBase):
             border_width=1,
             border_color=self.COLORS["border_light"],
         )
-        stats_card.grid(row=2, column=0, sticky="ew", pady=(0, s["pad"] // 2))
+        stats_card.grid(row=3, column=0, sticky="ew", pady=(0, s["pad"] // 2))
         stats_card.grid_columnconfigure(0, weight=1)
 
         rows_container = ctk.CTkFrame(stats_card, fg_color="transparent")
@@ -414,10 +465,10 @@ class GameCompletionModal(ModalBase):
             justify="center",
             anchor="center",
             wraplength=int(width * 0.82),
-        ).grid(row=3, column=0, pady=(0, s["pad"] // 2))
+        ).grid(row=4, column=0, pady=(0, s["pad"] // 2))
 
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
-        btn_container.grid(row=4, column=0, pady=(s["pad"] // 2, 0))
+        btn_container.grid(row=5, column=0, pady=(s["pad"] // 2, 0))
 
         ctk.CTkButton(
             btn_container,
@@ -473,6 +524,19 @@ class GameCompletionModal(ModalBase):
             self.star_icon = ctk.CTkImage(
                 light_image=img, dark_image=img, size=(size, size)
             )
+
+    def _knowledge_level_from_pct(self, mastery_pct):
+        """Determine knowledge level from mastery percentage (fallback if not in stats)."""
+        pct = max(0.0, min(100.0, float(mastery_pct)))
+        if pct < 40:
+            return "Beginner"
+        if pct < 55:
+            return "Student"
+        if pct < 70:
+            return "Professional"
+        if pct < 85:
+            return "Expert"
+        return "Master"
 
     def handle_previous(self):
         self.close()

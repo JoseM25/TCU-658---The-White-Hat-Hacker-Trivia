@@ -132,32 +132,34 @@ class GameScreenLogic(GameScreenBase):
         max_len = len(title)
         revealed = self.wildcard_manager.get_revealed_positions()
 
+        # Pad the current answer to max_len with spaces to preserve positions
+        # This ensures revealed positions stay at their correct indices
+        ans = list(self.current_answer.ljust(max_len))
+
         if key == "⌫":
-            if self.current_answer:
-                ans = list(self.current_answer)
-                for i in range(len(ans) - 1, -1, -1):
-                    if i in revealed or not ans[i] or ans[i] == " ":
-                        continue
-                    ans[i] = ""
+            # Find the last non-revealed position with actual content and clear it
+            for i in range(max_len - 1, -1, -1):
+                if i in revealed:
+                    continue
+                if ans[i].strip():  # has a real character (not just space)
+                    ans[i] = " "
                     break
-                while (
-                    ans
-                    and (len(ans) - 1) not in revealed
-                    and (not ans[-1] or ans[-1] == " ")
-                ):
-                    ans.pop()
-                self.current_answer = "".join(ans)
         else:
-            ans = list(self.current_answer)
-            while len(ans) < max_len:
-                ans.append("")
+            # Find the first non-revealed empty position and fill it
             for i in range(max_len):
-                if i not in revealed and (not ans[i] or ans[i] == " "):
+                if i in revealed:
+                    continue
+                if not ans[i].strip():  # empty or whitespace
                     ans[i] = key
                     break
-            while ans and (not ans[-1] or ans[-1] == " "):
-                ans.pop()
-            self.current_answer = "".join(ans)
+
+        # Trim trailing spaces, but never below the highest revealed position + 1
+        # This preserves the positions of revealed letters
+        min_len = (max(revealed) + 1) if revealed else 0
+        while len(ans) > min_len and not ans[-1].strip():
+            ans.pop()
+
+        self.current_answer = "".join(ans)
         self.update_answer_boxes()
 
     def update_answer_boxes(self):
