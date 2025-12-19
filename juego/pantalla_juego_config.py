@@ -307,6 +307,7 @@ MODAL_BASE_SIZES = {
     "summary_height": 380,
     "summary_width_ratio": 0.35,
     "summary_height_ratio": 0.48,
+    "summary_max_scale": 1.6,
     # Game completion modal
     "completion_width": 560,
     "completion_height": 520,

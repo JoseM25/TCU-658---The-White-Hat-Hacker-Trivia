@@ -628,6 +628,11 @@ class QuestionSummaryModal(ModalBase):
                 MODAL_BASE_SIZES["summary_width"],
                 MODAL_BASE_SIZES["summary_height"],
             )
+        max_scale = MODAL_BASE_SIZES.get("summary_max_scale", 1.6)
+        max_width = int(MODAL_BASE_SIZES["summary_width"] * max_scale)
+        max_height = int(MODAL_BASE_SIZES["summary_height"] * max_scale)
+        width = min(width, max_width)
+        height = min(height, max_height)
         sizes = self._calc_sizes(scale, width, height)
         self.create_modal(width, height, "Summary")
         container = self.create_container(sizes["corner_r"], sizes["border_w"])
@@ -727,6 +732,9 @@ class QuestionSummaryModal(ModalBase):
         btn_container.grid(row=6, column=0, columnspan=2, pady=(sizes["pad"], 0))
         btn_container.grid_columnconfigure((0, 1, 2), weight=1)
         btn_gap = max(2, sizes["pad"] // 3)
+        menu_gap = max(btn_gap, sizes["pad"] // 2)
+        if sizes["modal_scale"] >= 1.2:
+            menu_gap = max(menu_gap, sizes["pad"])
         ctk.CTkButton(
             btn_container,
             text="Previous",
@@ -775,7 +783,7 @@ class QuestionSummaryModal(ModalBase):
             width=sizes["btn_w"],
             height=sizes["btn_h"],
             corner_radius=sizes["btn_r"],
-        ).grid(row=1, column=0, columnspan=3, pady=(btn_gap, 0))
+        ).grid(row=1, column=0, columnspan=3, pady=(menu_gap, 0))
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
         self.modal.bind("<Escape>", lambda e: self.handle_close())
         self.modal.bind("<Return>", lambda e: self.handle_next())
