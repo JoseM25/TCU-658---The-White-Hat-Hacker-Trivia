@@ -53,8 +53,8 @@ class GameScreen(GameScreenLogic):
         # Update all components
         self._update_fonts(scale)
         self._update_header(scale)
-        self._update_question_container(scale)
-        self._update_keyboard(scale)
+        self._update_question_container()
+        self._update_keyboard()
         self._update_action_buttons(scale)
         self._update_wildcards(scale)
 
@@ -88,12 +88,12 @@ class GameScreen(GameScreenLogic):
             self.header_center_container.grid_configure(pady=pad_y)
 
         # Update header icons
-        self._update_header_icons(scale)
+        self._update_header_icons()
 
         # Update audio button
         self._update_audio_button(scale)
 
-    def _update_header_icons(self, scale):
+    def _update_header_icons(self):
         sizes = self.size_state
 
         # Clock icon
@@ -131,7 +131,7 @@ class GameScreen(GameScreenLogic):
                 corner_radius=corner_r,
             )
 
-    def _update_question_container(self, scale):
+    def _update_question_container(self):
         sizes = self.size_state
 
         if not self.question_container or not self.question_container.winfo_exists():
@@ -146,12 +146,12 @@ class GameScreen(GameScreenLogic):
         self.question_container.configure(corner_radius=corner_r)
 
         # Update sub-components
-        self._update_image(scale)
-        self._update_definition(scale)
-        self._update_answer_boxes(scale)
-        self._update_feedback(scale)
+        self._update_image()
+        self._update_definition()
+        self._update_answer_boxes()
+        self._update_feedback()
 
-    def _update_image(self, scale):
+    def _update_image(self):
         sizes = self.size_state
         img_sz = sizes["image_size"]
 
@@ -165,7 +165,7 @@ class GameScreen(GameScreenLogic):
         if self.current_image and self.current_question:
             self.load_question_image()
 
-    def _update_definition(self, scale):
+    def _update_definition(self):
         sizes = self.size_state
 
         if self.definition_label and self.definition_label.winfo_exists():
@@ -177,7 +177,7 @@ class GameScreen(GameScreenLogic):
             sz = sizes["info_icon"]
             self.info_icon.configure(size=(sz, sz))
 
-    def _update_answer_boxes(self, scale):
+    def _update_answer_boxes(self):
         sizes = self.size_state
         box_sz = sizes["answer_box"]
         gap = sizes["answer_box_gap"]
@@ -199,14 +199,14 @@ class GameScreen(GameScreenLogic):
             frame_height = box_sz + 4
             self.answer_boxes_frame.configure(width=frame_width, height=frame_height)
 
-    def _update_feedback(self, scale):
+    def _update_feedback(self):
         sizes = self.size_state
 
         if self.feedback_label and self.feedback_label.winfo_exists():
             pad_bottom = sizes["feedback_pad_bottom"]
             self.feedback_label.grid_configure(pady=(0, pad_bottom))
 
-    def _update_keyboard(self, scale):
+    def _update_keyboard(self):
         sizes = self.size_state
         key_sz = sizes["key_size"]
         key_gap = sizes["key_gap"]
@@ -296,7 +296,7 @@ class GameScreen(GameScreenLogic):
             for btn in [self.wildcard_x2_btn, self.wildcard_hint_btn]:
                 if btn and btn.winfo_exists():
                     btn.configure(font=wc_font)
-        except Exception:
+        except tk.TclError:
             pass
 
         # Update charges label font
@@ -306,7 +306,7 @@ class GameScreen(GameScreenLogic):
                     family="Poppins SemiBold", size=charges_font_size, weight="bold"
                 )
                 self.charges_label.configure(font=charges_font)
-            except Exception:
+            except tk.TclError:
                 pass
 
         # Update multiplier label font
@@ -317,7 +317,7 @@ class GameScreen(GameScreenLogic):
                     family="Poppins ExtraBold", size=mul_font_size, weight="bold"
                 )
                 self.multiplier_label.configure(font=mul_font)
-            except Exception:
+            except tk.TclError:
                 pass
 
     def _resize_modals(self, scale):

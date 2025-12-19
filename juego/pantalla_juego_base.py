@@ -1,11 +1,11 @@
 import json
 import os
+from pathlib import Path
 
 import customtkinter as ctk
-from PIL import ImageTk
-from tksvg import SvgImage as TkSvgImage
 
 from juego.comodines import WildcardManager
+from juego.image_handler import ImageHandler
 from juego.logica import ScoringSystem
 from juego.pantalla_juego_config import (
     GAME_BASE_DIMENSIONS,
@@ -148,6 +148,9 @@ class GameScreenBase:
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
         self.questions_path = os.path.join("datos", "preguntas.json")
+
+        # Image handler for icon loading
+        self.image_handler = ImageHandler(Path(self.images_dir))
 
         # TTS service
         self.tts = tts_service or TTSService(self.audio_dir)
@@ -683,110 +686,32 @@ class GameScreenBase:
         )
         self.check_button.grid(row=0, column=1, padx=btn_gap // 2)
 
-    def load_svg_image(self, svg_path, scale=1.0):
-        try:
-            svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
-            return ImageTk.getimage(svg_photo).convert("RGBA")
-        except (FileNotFoundError, ValueError) as e:
-            print(f"Error loading SVG image '{svg_path}': {e}")
-            return None
+    def _load_icon(self, icon_key, size):
+        return self.image_handler.create_ctk_icon(self.ICONS[icon_key], (size, size))
 
     def load_header_icons(self):
-        icon_specs = [
-            ("clock_icon", self.ICONS["clock"], 24),
-            ("star_icon", self.ICONS["star"], 24),
-            ("freeze_icon", self.ICONS["freeze"], 24),
-        ]
-
-        for attr, fname, sz in icon_specs:
-            try:
-                img = self.load_svg_image(
-                    os.path.join(self.images_dir, fname), self.SVG_RASTER_SCALE
-                )
-                if img:
-                    setattr(
-                        self,
-                        attr,
-                        ctk.CTkImage(light_image=img, dark_image=img, size=(sz, sz)),
-                    )
-            except (FileNotFoundError, OSError, ValueError):
-                setattr(self, attr, None)
+        self.clock_icon = self._load_icon("clock", 24)
+        self.star_icon = self._load_icon("star", 24)
+        self.freeze_icon = self._load_icon("freeze", 24)
 
     def load_audio_icons(self):
-        self.audio_icon_on = None
-        self.audio_icon_off = None
         sz = self.BASE_SIZES["audio_icon_base"]
-
-        icon_specs = [
-            ("audio_icon_on", self.ICONS["volume_on"]),
-            ("audio_icon_off", self.ICONS["volume_off"]),
-        ]
-
-        for attr, fname in icon_specs:
-            try:
-                img = self.load_svg_image(
-                    os.path.join(self.images_dir, fname), self.SVG_RASTER_SCALE
-                )
-                if img:
-                    setattr(
-                        self,
-                        attr,
-                        ctk.CTkImage(light_image=img, dark_image=img, size=(sz, sz)),
-                    )
-            except (FileNotFoundError, OSError, ValueError):
-                setattr(self, attr, None)
+        self.audio_icon_on = self._load_icon("volume_on", sz)
+        self.audio_icon_off = self._load_icon("volume_off", sz)
 
     def load_info_icon(self):
-        try:
-            img = self.load_svg_image(
-                os.path.join(self.images_dir, self.ICONS["info"]), self.SVG_RASTER_SCALE
-            )
-            if img:
-                self.info_icon = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(24, 24)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.info_icon = None
+        self.info_icon = self._load_icon("info", 24)
 
     def load_delete_icon(self):
-        try:
-            img = self.load_svg_image(
-                os.path.join(self.images_dir, self.ICONS["delete"]),
-                self.SVG_RASTER_SCALE,
-            )
-            if img:
-                sz = self.BASE_SIZES["delete_icon_base"]
-                self.delete_icon = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(sz, sz)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.delete_icon = None
+        self.delete_icon = self._load_icon(
+            "delete", self.BASE_SIZES["delete_icon_base"]
+        )
 
     def load_lightning_icon(self, size=18):
-        try:
-            img = self.load_svg_image(
-                os.path.join(self.images_dir, self.ICONS["lightning"]),
-                self.SVG_RASTER_SCALE,
-            )
-            if img:
-                self.lightning_icon = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(size, size)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.lightning_icon = None
+        self.lightning_icon = self._load_icon("lightning", size)
 
     def load_freeze_wildcard_icon(self, size=28):
-        try:
-            img = self.load_svg_image(
-                os.path.join(self.images_dir, self.ICONS["freeze"]),
-                self.SVG_RASTER_SCALE,
-            )
-            if img:
-                self.freeze_wildcard_icon = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(size, size)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.freeze_wildcard_icon = None
+        self.freeze_wildcard_icon = self._load_icon("freeze", size)
 
     def update_audio_button_icon(self):
         if not self.audio_toggle_btn:

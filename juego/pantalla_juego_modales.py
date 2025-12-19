@@ -10,12 +10,10 @@ from juego.pantalla_juego_config import (
     LEVEL_BADGE_COLORS,
     MODAL_ANIMATION,
     MODAL_BASE_SIZES,
-    MODAL_FONT_SPECS,
 )
 
 
 class ModalBase:
-
     COLORS = GAME_COLORS
     IMAGES_DIR = os.path.join("recursos", "imagenes")
     SVG_RASTER_SCALE = 2.0
@@ -41,22 +39,13 @@ class ModalBase:
     def calculate_scale_factor(self, root):
         if not root or not root.winfo_exists():
             return 1.0
-
         try:
-            width = root.winfo_width()
-            height = root.winfo_height()
+            width, height = root.winfo_width(), root.winfo_height()
         except tk.TclError:
             return 1.0
-
         if width <= 1 or height <= 1:
             return 1.0
-
-        # Base dimensions
-        base_w, base_h = 1280, 720
-
-        # Calculate scale
-        scale = min(width / base_w, height / base_h)
-        return max(0.5, min(2.2, scale))
+        return max(0.5, min(2.2, width / 1280, height / 720))
 
     def create_modal(self, width, height, title):
         root = self.parent.winfo_toplevel() if self.parent else None
@@ -99,8 +88,7 @@ class ModalBase:
         return root
 
     def scale_value(self, base, scale=None, min_val=None, max_val=None):
-        s = scale or self.current_scale
-        value = base * s
+        value = base * (scale or self.current_scale)
         if min_val is not None:
             value = max(min_val, value)
         if max_val is not None:
@@ -211,7 +199,6 @@ class ModalBase:
         self.animation_jobs.clear()
         self.animated_widgets.clear()
         self.widget_target_colors.clear()
-
         if modal:
             try:
                 if modal.winfo_exists():
@@ -219,7 +206,6 @@ class ModalBase:
                     self.safe_try(modal.destroy)
             except tk.TclError:
                 pass
-
         self.modal = None
         self.root = None
 
@@ -608,10 +594,6 @@ class GameCompletionModal(ModalBase):
         self.close()
         if self.on_close_callback:
             self.on_close_callback()
-
-    def resize(self, scale):
-        super().resize(scale)
-        # Modal is recreated on next show, no live resize needed
 
 
 class QuestionSummaryModal(ModalBase):
