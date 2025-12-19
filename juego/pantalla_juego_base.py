@@ -449,7 +449,7 @@ class GameScreenBase:
         self.image_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent", height=img_sz
         )
-        self.image_frame.grid(row=0, column=0, sticky="ew", pady=(20, 10))
+        self.image_frame.grid(row=0, column=0, sticky="ew", pady=(12, 6))
         self.image_frame.grid_rowconfigure(0, weight=1)
         self.image_frame.grid_columnconfigure(0, weight=1)
 
@@ -468,7 +468,7 @@ class GameScreenBase:
         self.definition_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent"
         )
-        self.definition_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=10)
+        self.definition_frame.grid(row=1, column=0, sticky="nsew", padx=24, pady=6)
         self.definition_frame.grid_columnconfigure(0, weight=1)
         self.definition_frame.grid_rowconfigure(0, weight=1)
 
@@ -504,7 +504,7 @@ class GameScreenBase:
             width=10 * (box_sz + 6),
             height=box_sz + 4,
         )
-        self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 8))
+        self.answer_boxes_frame.grid(row=2, column=0, pady=(6, 4))
         self.answer_boxes_frame.grid_propagate(False)
 
     def build_feedback_section(self):
@@ -514,14 +514,14 @@ class GameScreenBase:
             font=self.feedback_font,
             text_color=self.COLORS["feedback_correct"],
         )
-        self.feedback_label.grid(row=3, column=0, pady=(0, 16))
+        self.feedback_label.grid(row=3, column=0, pady=(0, 10))
 
     def build_wildcards_panel(self):
         self.wildcards_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent"
         )
         self.wildcards_frame.grid(
-            row=0, column=1, rowspan=4, sticky="ns", padx=(0, 24), pady=24
+            row=0, column=1, rowspan=4, sticky="ns", padx=(0, 16), pady=12
         )
         self.wildcards_frame.grid_rowconfigure(0, weight=1)
         self.wildcards_frame.grid_rowconfigure(5, weight=1)
@@ -538,7 +538,7 @@ class GameScreenBase:
 
         # Charges display
         self.charges_frame = ctk.CTkFrame(self.wildcards_frame, fg_color="transparent")
-        self.charges_frame.grid(row=1, column=0, pady=(0, 12))
+        self.charges_frame.grid(row=1, column=0, pady=(0, 6))
 
         self.load_lightning_icon()
         if self.lightning_icon:
@@ -568,7 +568,7 @@ class GameScreenBase:
             text_color="white",
             command=self.on_wildcard_x2,
         )
-        self.wildcard_x2_btn.grid(row=2, column=0, pady=8)
+        self.wildcard_x2_btn.grid(row=2, column=0, pady=4)
 
         # Hint button - same width as X2 for consistency
         self.wildcard_hint_btn = ctk.CTkButton(
@@ -583,7 +583,7 @@ class GameScreenBase:
             text_color="white",
             command=self.on_wildcard_hint,
         )
-        self.wildcard_hint_btn.grid(row=3, column=0, pady=8)
+        self.wildcard_hint_btn.grid(row=3, column=0, pady=4)
 
         # Freeze button - same width as others for consistency
         self.load_freeze_wildcard_icon(int(wc_sz * 0.5))
@@ -601,7 +601,7 @@ class GameScreenBase:
             text_color="white",
             command=self.on_wildcard_freeze,
         )
-        self.wildcard_freeze_btn.grid(row=4, column=0, pady=8)
+        self.wildcard_freeze_btn.grid(row=4, column=0, pady=4)
 
         self.update_wildcard_buttons_state()
 

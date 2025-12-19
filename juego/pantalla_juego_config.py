@@ -80,10 +80,10 @@ GAME_ICONS = {
 
 
 GAME_BASE_SIZES = {
-    # Header (increased for better visual balance with other screens)
-    "header_height": 96,
-    "header_pad_x": 28,
-    "header_pad_y": 20,
+    # Header
+    "header_height": 72,
+    "header_pad_x": 24,
+    "header_pad_y": 14,
     # Timer and score
     "timer_icon_size": 16,
     "star_icon_size": 16,
@@ -94,13 +94,13 @@ GAME_BASE_SIZES = {
     "audio_button_width": 30,
     "audio_button_height": 30,
     # Question container
-    "container_pad_x": 24,
-    "container_pad_y": 12,
-    "container_corner_radius": 16,
+    "container_pad_x": 20,
+    "container_pad_y": 8,
+    "container_corner_radius": 14,
     # Image
-    "image_base": 130,
-    "image_min": 80,
-    "image_max": 240,
+    "image_base": 120,
+    "image_min": 75,
+    "image_max": 220,
     # Definition
     "definition_wrap_base": 600,
     "definition_wrap_min": 320,
@@ -112,25 +112,25 @@ GAME_BASE_SIZES = {
     "answer_box_max": 64,
     "answer_box_gap": 3,
     # Keyboard
-    "key_base": 44,
-    "key_min": 32,
-    "key_max": 72,
-    "key_gap": 12,
-    "key_row_gap": 4,
+    "key_base": 40,
+    "key_min": 30,
+    "key_max": 68,
+    "key_gap": 10,
+    "key_row_gap": 3,
     "keyboard_pad_x": 256,
-    "keyboard_pad_y": 16,
+    "keyboard_pad_y": 10,
     "delete_icon_base": 26,
     # Action buttons
-    "action_button_width": 140,
-    "action_button_height": 42,
-    "action_button_gap": 16,
-    "action_corner_radius": 12,
+    "action_button_width": 130,
+    "action_button_height": 38,
+    "action_button_gap": 14,
+    "action_corner_radius": 10,
     # Wildcards
-    "wildcard_size": 48,
-    "wildcard_min": 36,
-    "wildcard_max": 72,
-    "wildcard_corner_radius": 24,
-    "wildcard_gap": 6,
+    "wildcard_size": 42,
+    "wildcard_min": 32,
+    "wildcard_max": 64,
+    "wildcard_corner_radius": 21,
+    "wildcard_gap": 4,
     "wildcard_font_size": 14,
     "charges_font_size": 12,
     "lightning_icon_size": 14,
@@ -157,17 +157,17 @@ GAME_FONT_SPECS = {
 }
 
 
-# Header height profile (increased for better visual balance)
+# Header height profile (reduced slightly at lower resolutions to fit content)
 GAME_HEADER_HEIGHT_PROFILE = [
-    (720, 72),
-    (900, 80),
-    (1080, 88),
-    (1280, 96),
-    (1600, 110),
-    (1920, 124),
-    (2560, 144),
-    (3200, 164),
-    (3840, 180),
+    (720, 56),
+    (900, 62),
+    (1080, 70),
+    (1280, 80),
+    (1600, 96),
+    (1920, 110),
+    (2560, 130),
+    (3200, 150),
+    (3840, 170),
 ]
 
 # Image size profile (aggressively reduced at low res)
@@ -387,7 +387,8 @@ class GameFontRegistry:
 class GameSizeCalculator:
 
     # Height threshold below which we apply compact sizing
-    HEIGHT_CONSTRAINED_THRESHOLD = 800
+    # Set low to disable the aggressive compact mode - use profile scaling instead
+    HEIGHT_CONSTRAINED_THRESHOLD = 700
 
     def __init__(self, scaler, profiles):
         self.scaler = scaler
@@ -406,13 +407,16 @@ class GameSizeCalculator:
         # For height-constrained screens, use the smaller dimension (height) for
         # profile lookups of elements that need to fit vertically
         # This ensures proper sizing at 720p (1280x720) where height is the constraint
-        vertical_dimension = min(window_width, window_height) if is_height_constrained else window_width
+        vertical_dimension = (
+            min(window_width, window_height) if is_height_constrained else window_width
+        )
 
-        # Header - always use width, but clamp for very low heights
-        sizes["header_height"] = ip(window_width, self.profiles["header_height"])
-        if is_height_constrained:
-            # Reduce header at low heights to give more space to content
-            sizes["header_height"] = min(sizes["header_height"], 64)
+        # Header - use height for lookup when height-constrained to scale naturally
+        # This gives gradual reduction instead of a sudden jump
+        header_lookup_dim = (
+            min(window_width, window_height) if is_height_constrained else window_width
+        )
+        sizes["header_height"] = ip(header_lookup_dim, self.profiles["header_height"])
         sizes["header_pad_x"] = s(GAME_BASE_SIZES["header_pad_x"], scale, 16, 72)
         sizes["header_pad_y"] = s(GAME_BASE_SIZES["header_pad_y"], scale, 12, 48)
 
