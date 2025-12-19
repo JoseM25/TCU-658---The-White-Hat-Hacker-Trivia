@@ -22,10 +22,12 @@ class GameScreenLogic(GameScreenBase):
             or self.viewing_history_index >= 0
         ):
             return
-        self.wildcard_manager.activate_double_points()
-        self.wildcard_x2_btn.configure(
-            text=f"X{self.wildcard_manager.get_points_multiplier()}", fg_color="#4CAF50"
-        )
+        stacks = self.wildcard_manager.activate_double_points()
+        if stacks > 0:
+            self.wildcard_x2_btn.configure(
+                text=f"X{self.wildcard_manager.get_points_multiplier()}"
+            )
+            self.update_wildcard_buttons_state()
 
     def on_wildcard_hint(self):
         if (
@@ -35,7 +37,7 @@ class GameScreenLogic(GameScreenBase):
         ):
             return
         title = self.current_question.get("title", "").replace(" ", "").upper()
-        result = self.wildcard_manager.get_random_unrevealed_position(
+        result = self.wildcard_manager.activate_reveal_letter(
             self.current_answer, title
         )
         if result is None:
@@ -47,6 +49,7 @@ class GameScreenLogic(GameScreenBase):
         ans[pos] = letter
         self.current_answer = "".join(ans).rstrip()
         self.update_answer_boxes_with_reveal(pos)
+        self.update_wildcard_buttons_state()
 
     def on_wildcard_freeze(self):
         if (
@@ -55,19 +58,18 @@ class GameScreenLogic(GameScreenBase):
             or self.viewing_history_index >= 0
         ):
             return
-        if self.wildcard_manager.is_timer_frozen():
+        if not self.wildcard_manager.activate_freeze():
             return
-        self.wildcard_manager.activate_freeze()
-        self.wildcard_freeze_btn.configure(fg_color="#4CAF50", state="disabled")
         self.apply_freeze_timer_visuals()
         self.stop_timer()
+        self.update_wildcard_buttons_state()
 
     def load_random_question(self):
         self.tts.stop()
         self.hide_feedback()
         self.processing_correct_answer = False
         self.wildcard_manager.reset_for_new_question()
-        self.reset_wildcard_button_colors()
+        self.update_wildcard_buttons_state()
         self.reset_timer_visuals()
 
         if not self.questions:
@@ -232,6 +234,12 @@ class GameScreenLogic(GameScreenBase):
             self.score = self.scoring_system.total_score
         else:
             self.questions_answered += 1
+
+        # Calculate charges for skip (for anti-frustration tracking)
+        charges_earned = self.wildcard_manager.calculate_earned_charges(
+            0, 1, 0, was_skipped=True
+        )
+
         self.score_label.configure(text=str(self.score))
         streak = self.scoring_system.clean_streak if self.scoring_system else 0
         streak_mult = (
@@ -251,6 +259,7 @@ class GameScreenLogic(GameScreenBase):
             "multiplier": 1,
             "streak": streak,
             "streak_multiplier": streak_mult,
+            "charges_earned": charges_earned,
         }
         self.show_feedback(skipped=True)
         self.show_summary_modal_for_state(self.stored_modal_data)
@@ -297,8 +306,17 @@ class GameScreenLogic(GameScreenBase):
             self.tts.stop()
             self.show_feedback(correct=True)
             pts = 0
+            raw_pts = 0
+            max_raw = 0
             mult = self.wildcard_manager.get_points_multiplier()
             if self.scoring_system:
+                # Calculate raw points for charge earning
+                effective_time = self.scoring_system.get_effective_time(
+                    self.question_timer
+                )
+                raw_pts = self.scoring_system.calculate_raw_points(effective_time)
+                max_raw = self.scoring_system.max_raw_per_question
+
                 res = self.scoring_system.process_correct_answer(
                     time_seconds=self.question_timer, mistakes=self.question_mistakes
                 )
@@ -310,8 +328,16 @@ class GameScreenLogic(GameScreenBase):
                 self.questions_answered = self.scoring_system.questions_answered
             else:
                 pts = 100 * mult
+                raw_pts = 100
+                max_raw = 150
                 self.score += pts
                 self.questions_answered += 1
+
+            # Calculate earned charges
+            charges_earned = self.wildcard_manager.calculate_earned_charges(
+                raw_pts, max_raw, self.question_mistakes, was_skipped=False
+            )
+
             self.score_label.configure(text=str(self.score))
             streak = self.scoring_system.clean_streak if self.scoring_system else 0
             streak_mult = (
@@ -331,6 +357,7 @@ class GameScreenLogic(GameScreenBase):
                 "multiplier": mult,
                 "streak": streak,
                 "streak_multiplier": streak_mult,
+                "charges_earned": charges_earned,
             }
             self.parent.after(
                 600, lambda: self.show_summary_modal_for_state(self.stored_modal_data)
@@ -371,6 +398,7 @@ class GameScreenLogic(GameScreenBase):
             self.on_modal_main_menu,
             state.get("streak", 0),
             state.get("streak_multiplier", 1.0),
+            state.get("charges_earned", 0),
         )
         self.summary_modal.show()
 

@@ -502,6 +502,7 @@ class QuestionSummaryModal(ModalBase):
         on_main_menu_callback=None,
         streak=0,
         streak_multiplier=1.0,
+        charges_earned=0,
     ):
         super().__init__(parent)
         self.correct_word = correct_word
@@ -516,6 +517,7 @@ class QuestionSummaryModal(ModalBase):
         self.on_main_menu_callback = on_main_menu_callback
         self.streak = streak
         self.streak_multiplier = streak_multiplier
+        self.charges_earned = charges_earned
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -526,10 +528,10 @@ class QuestionSummaryModal(ModalBase):
 
         if root and root.winfo_width() > 1 and root.winfo_height() > 1:
             width, height = int(root.winfo_width() * 0.38), int(
-                root.winfo_height() * 0.48
+                root.winfo_height() * 0.56
             )
         else:
-            width, height = 450, 360
+            width, height = 450, 420
 
         scale = min(width / 450, height / 340) * 0.75
         s = self._calc_sizes(scale)
@@ -559,12 +561,23 @@ class QuestionSummaryModal(ModalBase):
         # Format streak display with multiplier
         streak_display = f"{self.streak} ({self.streak_multiplier:.2f}x)"
 
+        # Format charges won display
+        charges_display = (
+            f"+{self.charges_earned} ⚡" if self.charges_earned > 0 else "0"
+        )
+        charges_color = (
+            self.COLORS["warning_yellow"]
+            if self.charges_earned > 0
+            else self.COLORS["text_medium"]
+        )
+
         rows = [
             ("Correct Word:", self.correct_word, self.COLORS["primary_blue"]),
             ("Time Taken:", f"{self.time_taken}s", self.COLORS["primary_blue"]),
             ("Points Awarded:", points_display, self.COLORS["primary_blue"]),
             ("Total Score:", str(self.total_score), self.COLORS["primary_blue"]),
             ("Streak:", streak_display, "#673AB7"),
+            ("Charges won:", charges_display, charges_color),
         ]
 
         self.animated_widgets.clear()
@@ -629,7 +642,7 @@ class QuestionSummaryModal(ModalBase):
                 self.animated_widgets.append((lw, vw))
 
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
-        btn_container.grid(row=10, column=0, pady=(s["pad"], 0))
+        btn_container.grid(row=12, column=0, pady=(s["pad"], 0))
         btn_container.grid_columnconfigure((0, 1, 2), weight=1)
 
         ctk.CTkButton(

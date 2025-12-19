@@ -131,6 +131,8 @@ class GameScreenBase:
         self.wildcard_x2_btn = None
         self.wildcard_hint_btn = None
         self.wildcard_freeze_btn = None
+        self.charges_frame = None
+        self.charges_label = None
         self.info_icon = None
         self.info_icon_label = None
         self.feedback_label = None
@@ -198,11 +200,14 @@ class GameScreenBase:
                 self.questions = data.get("questions", [])
                 self.available_questions = list(self.questions)
                 self.scoring_system = ScoringSystem(len(self.questions))
+                # Reset wildcard manager for new game
+                self.wildcard_manager.reset_game()
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Error loading questions: {e}")
             self.questions = []
             self.available_questions = []
             self.scoring_system = ScoringSystem(1)
+            self.wildcard_manager.reset_game()
 
     def build_ui(self):
         for widget in self.parent.winfo_children():
@@ -513,11 +518,24 @@ class GameScreenBase:
             row=0, column=1, rowspan=4, sticky="ns", padx=(0, 24), pady=24
         )
         self.wildcards_frame.grid_rowconfigure(0, weight=1)
-        self.wildcards_frame.grid_rowconfigure(4, weight=1)
+        self.wildcards_frame.grid_rowconfigure(5, weight=1)
 
         # Size to fit the largest content (snowflake emoji)
         wc_sz, wc_font = 64, 18
         font = ctk.CTkFont(family="Poppins ExtraBold", size=wc_font, weight="bold")
+        charges_font = ctk.CTkFont(family="Poppins SemiBold", size=14, weight="bold")
+
+        # Charges display
+        self.charges_frame = ctk.CTkFrame(self.wildcards_frame, fg_color="transparent")
+        self.charges_frame.grid(row=1, column=0, pady=(0, 12))
+
+        self.charges_label = ctk.CTkLabel(
+            self.charges_frame,
+            text=f"⚡ {self.wildcard_manager.get_charges()}",
+            font=charges_font,
+            text_color=self.COLORS["warning_yellow"],
+        )
+        self.charges_label.grid(row=0, column=0)
 
         self.wildcard_x2_btn = ctk.CTkButton(
             self.wildcards_frame,
@@ -531,7 +549,7 @@ class GameScreenBase:
             text_color="white",
             command=self.on_wildcard_x2,
         )
-        self.wildcard_x2_btn.grid(row=1, column=0, pady=8)
+        self.wildcard_x2_btn.grid(row=2, column=0, pady=8)
 
         self.wildcard_hint_btn = ctk.CTkButton(
             self.wildcards_frame,
@@ -545,7 +563,7 @@ class GameScreenBase:
             text_color="white",
             command=self.on_wildcard_hint,
         )
-        self.wildcard_hint_btn.grid(row=2, column=0, pady=8)
+        self.wildcard_hint_btn.grid(row=3, column=0, pady=8)
 
         self.wildcard_freeze_btn = ctk.CTkButton(
             self.wildcards_frame,
@@ -559,7 +577,10 @@ class GameScreenBase:
             text_color="white",
             command=self.on_wildcard_freeze,
         )
-        self.wildcard_freeze_btn.grid(row=3, column=0, pady=8)
+        self.wildcard_freeze_btn.grid(row=4, column=0, pady=8)
+
+        # Initial state update
+        self.update_wildcard_buttons_state()
 
     def on_wildcard_x2(self):
         pass
@@ -570,13 +591,103 @@ class GameScreenBase:
     def on_wildcard_freeze(self):
         pass
 
-    def reset_wildcard_button_colors(self):
+    def update_charges_display(self):
+        """Update the charges label to reflect current charges."""
+        if self.charges_label:
+            charges = self.wildcard_manager.get_charges()
+            self.charges_label.configure(text=f"⚡ {charges}")
+
+    def update_wildcard_buttons_state(self):
+        """Update wildcard button states based on available charges and blocking rules."""
+        charges = self.wildcard_manager.get_charges()
+        double_blocked = self.wildcard_manager.is_double_points_blocked()
+        others_blocked = self.wildcard_manager.are_other_wildcards_blocked()
+
+        # X2 Button (costs 2, blocked if other wildcards used first)
         if self.wildcard_x2_btn:
-            self.wildcard_x2_btn.configure(text="X2", fg_color="#FFC553")
+            can_use_x2 = (
+                charges >= self.wildcard_manager.COST_DOUBLE_POINTS
+                and not double_blocked
+            )
+            # Update button text based on current multiplier
+            mult = self.wildcard_manager.get_points_multiplier()
+            btn_text = f"X{mult}" if mult > 1 else "X2"
+
+            if can_use_x2:
+                # Check if already active (stacked)
+                if self.wildcard_manager.is_double_points_active():
+                    self.wildcard_x2_btn.configure(
+                        text=btn_text,
+                        fg_color="#4CAF50",
+                        hover_color="#45A049",
+                        state="normal",
+                    )
+                else:
+                    self.wildcard_x2_btn.configure(
+                        text=btn_text,
+                        fg_color="#FFC553",
+                        hover_color="#E5B04A",
+                        state="normal",
+                    )
+            else:
+                self.wildcard_x2_btn.configure(
+                    text=btn_text,
+                    fg_color="#999999",
+                    hover_color="#999999",
+                    state="disabled",
+                )
+
+        # Hint Button (costs 1, blocked if double points used)
         if self.wildcard_hint_btn:
-            self.wildcard_hint_btn.configure(fg_color="#00CFC5")
+            can_use_hint = (
+                charges >= self.wildcard_manager.COST_REVEAL_LETTER
+                and not others_blocked
+            )
+            if can_use_hint:
+                self.wildcard_hint_btn.configure(
+                    fg_color="#00CFC5",
+                    hover_color="#00B5AD",
+                    state="normal",
+                )
+            else:
+                self.wildcard_hint_btn.configure(
+                    fg_color="#999999",
+                    hover_color="#999999",
+                    state="disabled",
+                )
+
+        # Freeze Button (costs 1, blocked if double points used or already frozen)
         if self.wildcard_freeze_btn:
-            self.wildcard_freeze_btn.configure(fg_color="#005DFF", state="normal")
+            can_use_freeze = (
+                charges >= self.wildcard_manager.COST_FREEZE_TIMER
+                and not others_blocked
+                and not self.wildcard_manager.is_timer_frozen()
+            )
+            if self.wildcard_manager.is_timer_frozen():
+                # Already frozen, show active state
+                self.wildcard_freeze_btn.configure(
+                    fg_color="#4CAF50",
+                    hover_color="#4CAF50",
+                    state="disabled",
+                )
+            elif can_use_freeze:
+                self.wildcard_freeze_btn.configure(
+                    fg_color="#005DFF",
+                    hover_color="#0048CC",
+                    state="normal",
+                )
+            else:
+                self.wildcard_freeze_btn.configure(
+                    fg_color="#999999",
+                    hover_color="#999999",
+                    state="disabled",
+                )
+
+        self.update_charges_display()
+
+    def reset_wildcard_button_colors(self):
+        """Reset wildcard buttons for a new question."""
+        self.update_wildcard_buttons_state()
 
     def reset_timer_visuals(self):
         """Reset timer appearance to default (unfrozen state)."""
