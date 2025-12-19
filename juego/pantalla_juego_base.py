@@ -135,6 +135,7 @@ class GameScreenBase:
         self.charges_label = None
         self.lightning_icon = None
         self.lightning_icon_label = None
+        self.freeze_wildcard_icon = None
         self.info_icon = None
         self.info_icon_label = None
         self.feedback_label = None
@@ -442,6 +443,18 @@ class GameScreenBase:
         except (FileNotFoundError, OSError, ValueError):
             self.lightning_icon = None
 
+    def load_freeze_wildcard_icon(self, size=28):
+        try:
+            img = self.load_svg_image(
+                os.path.join(self.images_dir, "Freeze.svg"), self.SVG_RASTER_SCALE
+            )
+            if img:
+                self.freeze_wildcard_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(size, size)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.freeze_wildcard_icon = None
+
     def calculate_delete_icon_size(self, key_size):
         return int(
             max(16, min(40, key_size * self.DELETE_ICON_BASE_SIZE / self.BASE_KEY_SIZE))
@@ -587,9 +600,13 @@ class GameScreenBase:
         )
         self.wildcard_hint_btn.grid(row=3, column=0, pady=8)
 
+        # Load freeze icon
+        self.load_freeze_wildcard_icon(int(wc_sz * 0.5))
+
         self.wildcard_freeze_btn = ctk.CTkButton(
             self.wildcards_frame,
-            text="❄",
+            text="" if self.freeze_wildcard_icon else "❄",
+            image=self.freeze_wildcard_icon,
             font=font,
             width=wc_sz,
             height=wc_sz,
