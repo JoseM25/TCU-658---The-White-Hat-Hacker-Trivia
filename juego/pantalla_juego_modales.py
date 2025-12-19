@@ -562,9 +562,7 @@ class QuestionSummaryModal(ModalBase):
         streak_display = f"{self.streak} ({self.streak_multiplier:.2f}x)"
 
         # Format charges won display
-        charges_display = (
-            f"+{self.charges_earned} ⚡" if self.charges_earned > 0 else "0"
-        )
+        charges_display = f"+{self.charges_earned}" if self.charges_earned > 0 else "0"
         charges_color = (
             self.COLORS["warning_yellow"]
             if self.charges_earned > 0

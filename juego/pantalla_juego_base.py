@@ -133,6 +133,8 @@ class GameScreenBase:
         self.wildcard_freeze_btn = None
         self.charges_frame = None
         self.charges_label = None
+        self.lightning_icon = None
+        self.lightning_icon_label = None
         self.info_icon = None
         self.info_icon_label = None
         self.feedback_label = None
@@ -428,6 +430,18 @@ class GameScreenBase:
         except (FileNotFoundError, OSError, ValueError):
             self.delete_icon = None
 
+    def load_lightning_icon(self, size=18):
+        try:
+            img = self.load_svg_image(
+                os.path.join(self.images_dir, "lightning.svg"), self.SVG_RASTER_SCALE
+            )
+            if img:
+                self.lightning_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(size, size)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.lightning_icon = None
+
     def calculate_delete_icon_size(self, key_size):
         return int(
             max(16, min(40, key_size * self.DELETE_ICON_BASE_SIZE / self.BASE_KEY_SIZE))
@@ -529,13 +543,21 @@ class GameScreenBase:
         self.charges_frame = ctk.CTkFrame(self.wildcards_frame, fg_color="transparent")
         self.charges_frame.grid(row=1, column=0, pady=(0, 12))
 
+        # Load lightning icon
+        self.load_lightning_icon()
+        if self.lightning_icon:
+            self.lightning_icon_label = ctk.CTkLabel(
+                self.charges_frame, text="", image=self.lightning_icon
+            )
+            self.lightning_icon_label.grid(row=0, column=0, padx=(0, 4))
+
         self.charges_label = ctk.CTkLabel(
             self.charges_frame,
-            text=f"⚡ {self.wildcard_manager.get_charges()}",
+            text=str(self.wildcard_manager.get_charges()),
             font=charges_font,
             text_color=self.COLORS["warning_yellow"],
         )
-        self.charges_label.grid(row=0, column=0)
+        self.charges_label.grid(row=0, column=1)
 
         self.wildcard_x2_btn = ctk.CTkButton(
             self.wildcards_frame,
@@ -595,7 +617,7 @@ class GameScreenBase:
         """Update the charges label to reflect current charges."""
         if self.charges_label:
             charges = self.wildcard_manager.get_charges()
-            self.charges_label.configure(text=f"⚡ {charges}")
+            self.charges_label.configure(text=str(charges))
 
     def update_wildcard_buttons_state(self):
         """Update wildcard button states based on available charges and blocking rules."""
