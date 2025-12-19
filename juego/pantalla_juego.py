@@ -7,6 +7,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.comodines import WildcardManager
 from juego.logica import ScoringSystem
 from juego.tts_service import TTSService
 
@@ -395,7 +396,6 @@ class GameCompletionModal:
             self.star_icon = None
 
     def colorize_image(self, img, hex_color):
-        """Colorize a white/grayscale RGBA image with the given hex color."""
         # Parse hex color
         r = int(hex_color[1:3], 16)
         g = int(hex_color[3:5], 16)
@@ -406,12 +406,15 @@ class GameCompletionModal:
 
         # Create new colored channels by blending original luminance with target color
         # Since the star is white, we just replace RGB with our color and keep alpha
-        colored = Image.merge("RGBA", (
-            img_r.point(lambda x: int(x * r / 255)),
-            img_g.point(lambda x: int(x * g / 255)),
-            img_b.point(lambda x: int(x * b / 255)),
-            img_a
-        ))
+        colored = Image.merge(
+            "RGBA",
+            (
+                img_r.point(lambda x: int(x * r / 255)),
+                img_g.point(lambda x: int(x * g / 255)),
+                img_b.point(lambda x: int(x * b / 255)),
+                img_a,
+            ),
+        )
         return colored
 
     def load_svg_image(self, svg_path, scale=1.0):
@@ -1169,6 +1172,9 @@ class GameScreen:
         # Scoring system (initialized after questions are loaded)
         self.scoring_system = None
 
+        # Wildcard manager
+        self.wildcard_manager = WildcardManager()
+
         # Per-question tracking for scoring
         self.question_timer = 0  # Seconds spent on current question
         self.question_mistakes = 0  # Wrong attempts on current question
@@ -1729,13 +1735,87 @@ class GameScreen:
         self.wildcard_freeze_btn.grid(row=3, column=0, pady=8)
 
     def on_wildcard_x2(self):
-        print("X2 wildcard activated")
+        if not self.current_question:
+            return
+
+        # Block when awaiting modal or viewing history
+        if self.awaiting_modal_decision or self.viewing_history_index >= 0:
+            return
+
+        # Stack another multiplier
+        self.wildcard_manager.activate_double_points()
+        multiplier = self.wildcard_manager.get_points_multiplier()
+
+        # Update button to show current multiplier
+        self.wildcard_x2_btn.configure(
+            text=f"X{multiplier}", fg_color="#4CAF50"  # Active green
+        )
 
     def on_wildcard_hint(self):
-        print("Hint wildcard activated")
+        if not self.current_question:
+            return
+
+        # Block when awaiting modal or viewing history
+        if self.awaiting_modal_decision or self.viewing_history_index >= 0:
+            return
+
+        title = self.current_question.get("title", "")
+        clean_title = title.replace(" ", "").upper()
+
+        # Get a random unrevealed position
+        result = self.wildcard_manager.get_random_unrevealed_position(
+            self.current_answer, clean_title
+        )
+
+        if result is None:
+            # All letters already revealed or correct
+            return
+
+        position, letter = result
+
+        # Insert the letter into the current answer
+        # Convert current answer to a list, pad to full length if needed
+        answer_list = list(self.current_answer.upper())
+
+        # Pad with empty spaces if current answer is shorter than position
+        while len(answer_list) <= position:
+            answer_list.append(" ")
+
+        # Set the revealed letter
+        answer_list[position] = letter
+
+        # Convert back to string (remove trailing spaces but keep internal ones as letters)
+        self.current_answer = "".join(answer_list).rstrip()
+
+        # Update the visual display
+        self.update_answer_boxes_with_reveal(position)
 
     def on_wildcard_freeze(self):
-        print("Freeze wildcard activated")
+        if not self.current_question:
+            return
+
+        # Block when awaiting modal or viewing history
+        if self.awaiting_modal_decision or self.viewing_history_index >= 0:
+            return
+
+        # Already frozen - cannot be toggled (one-time per question)
+        if self.wildcard_manager.is_timer_frozen():
+            return
+
+        # Freeze - stop timer (one-way, stays frozen until next question)
+        self.wildcard_manager.activate_freeze()
+        self.wildcard_freeze_btn.configure(fg_color="#4CAF50")  # Active green
+        self.stop_timer()
+
+    def reset_wildcard_button_colors(self):
+        if self.wildcard_x2_btn:
+            self.wildcard_x2_btn.configure(
+                text="X2", fg_color="#FFC553"
+            )  # Default yellow
+        if self.wildcard_hint_btn:
+            self.wildcard_hint_btn.configure(fg_color="#00CFC5")  # Default teal
+        if self.wildcard_freeze_btn:
+            self.wildcard_freeze_btn.configure(fg_color="#005DFF")  # Default blue
 
     def build_keyboard(self):
         self.keyboard_frame = ctk.CTkFrame(
@@ -1854,9 +1934,32 @@ class GameScreen:
             self.answer_box_labels.append(box)
 
         # Show boxes needed for current word and reset their state
+        revealed_positions = self.wildcard_manager.get_revealed_positions()
         for i in range(word_length):
             box = self.answer_box_labels[i]
-            box.configure(text="", fg_color=self.COLORS["answer_box_empty"], width=box_size, height=box_size)
+            # Check if this position has content (from current answer or revealed)
+            if i < len(self.current_answer) and self.current_answer[i].strip():
+                if i in revealed_positions:
+                    box.configure(
+                        text=self.current_answer[i],
+                        fg_color=self.COLORS["success_green"],
+                        width=box_size,
+                        height=box_size,
+                    )
+                else:
+                    box.configure(
+                        text=self.current_answer[i],
+                        fg_color=self.COLORS["answer_box_filled"],
+                        width=box_size,
+                        height=box_size,
+                    )
+            else:
+                box.configure(
+                    text="",
+                    fg_color=self.COLORS["answer_box_empty"],
+                    width=box_size,
+                    height=box_size,
+                )
             box.grid(row=0, column=i, padx=3)
 
         # Hide excess boxes (don't destroy - keep for reuse)
@@ -1872,6 +1975,10 @@ class GameScreen:
         self.tts.stop()
         self.hide_feedback()
         self.processing_correct_answer = False  # Reset for new question
+
+        # Reset wildcards for new question
+        self.wildcard_manager.reset_for_new_question()
+        self.reset_wildcard_button_colors()
 
         # Check if there are no questions loaded at all
         if not self.questions:
@@ -1963,30 +2070,131 @@ class GameScreen:
         title = self.current_question.get("title", "")
         clean_title = title.replace(" ", "")
         max_length = len(clean_title)
+        revealed_positions = self.wildcard_manager.get_revealed_positions()
 
         if key == "⌫":
-
+            # Delete: remove the last user-typed character (not revealed ones)
             if self.current_answer:
-                self.current_answer = self.current_answer[:-1]
-        else:
+                # Convert to list padded to current length
+                answer_list = list(self.current_answer)
 
-            if len(self.current_answer) < max_length:
-                self.current_answer += key
+                # Find the last non-revealed, non-empty position to clear
+                deleted = False
+                for i in range(len(answer_list) - 1, -1, -1):
+                    # Skip revealed positions - they cannot be deleted
+                    if i in revealed_positions:
+                        continue
+                    # Skip empty positions
+                    if not answer_list[i] or answer_list[i] == " ":
+                        continue
+                    # Found a user-typed character - clear it (don't pop to keep indices stable)
+                    answer_list[i] = ""
+                    deleted = True
+                    break
+
+                if deleted:
+                    # Trim trailing empty characters while preserving revealed ones
+                    while answer_list:
+                        last_idx = len(answer_list) - 1
+                        if last_idx in revealed_positions:
+                            break  # Don't trim revealed positions
+                        if answer_list[last_idx] and answer_list[last_idx] != " ":
+                            break  # Don't trim non-empty characters
+                        answer_list.pop()
+                    self.current_answer = "".join(answer_list)
+        else:
+            # Add letter: find the next empty position (not revealed)
+            answer_list = list(self.current_answer)
+            # Pad to max length to check all positions
+            while len(answer_list) < max_length:
+                answer_list.append("")
+
+            # Find first empty non-revealed position
+            inserted = False
+            for i in range(max_length):
+                if i not in revealed_positions and (
+                    not answer_list[i] or answer_list[i] == " "
+                ):
+                    answer_list[i] = key
+                    inserted = True
+                    break
+
+            if inserted:
+                # Remove trailing empty strings
+                while answer_list and (answer_list[-1] == "" or answer_list[-1] == " "):
+                    answer_list.pop()
+                self.current_answer = "".join(answer_list)
 
         self.update_answer_boxes()
 
     def update_answer_boxes(self):
+        revealed_positions = self.wildcard_manager.get_revealed_positions()
         for i, box in enumerate(self.answer_box_labels):
-            if i < len(self.current_answer):
-                box.configure(
-                    text=self.current_answer[i],
-                    fg_color=self.COLORS["answer_box_filled"],
-                )
+            if i < len(self.current_answer) and self.current_answer[i].strip():
+                # Check if this position was revealed by wildcard
+                if i in revealed_positions:
+                    box.configure(
+                        text=self.current_answer[i],
+                        fg_color=self.COLORS["success_green"],  # Highlighted color
+                    )
+                else:
+                    box.configure(
+                        text=self.current_answer[i],
+                        fg_color=self.COLORS["answer_box_filled"],
+                    )
             else:
                 box.configure(
                     text="",
                     fg_color=self.COLORS["answer_box_empty"],
                 )
+
+    def update_answer_boxes_with_reveal(self, revealed_position):
+        revealed_positions = self.wildcard_manager.get_revealed_positions()
+
+        for i, box in enumerate(self.answer_box_labels):
+            if i < len(self.current_answer) and self.current_answer[i].strip():
+                if i in revealed_positions:
+                    # Revealed letter - use green highlight
+                    box.configure(
+                        text=self.current_answer[i],
+                        fg_color=self.COLORS["success_green"],
+                    )
+                else:
+                    box.configure(
+                        text=self.current_answer[i],
+                        fg_color=self.COLORS["answer_box_filled"],
+                    )
+            else:
+                box.configure(
+                    text="",
+                    fg_color=self.COLORS["answer_box_empty"],
+                )
+
+        # Animate the newly revealed box with a brief flash
+        if revealed_position < len(self.answer_box_labels):
+            self.animate_reveal_flash(revealed_position)
+
+    def animate_reveal_flash(self, position):
+        if position >= len(self.answer_box_labels):
+            return
+
+        box = self.answer_box_labels[position]
+
+        # Flash sequence: bright -> normal green
+        def flash_step_1():
+            try:
+                box.configure(fg_color="#00FFE5")  # Bright cyan flash
+            except tk.TclError:
+                pass
+
+        def flash_step_2():
+            try:
+                box.configure(fg_color=self.COLORS["success_green"])
+            except tk.TclError:
+                pass
+
+        flash_step_1()
+        self.parent.after(150, flash_step_2)
 
     def toggle_audio(self):
         self.audio_enabled = not self.audio_enabled
@@ -2119,11 +2327,21 @@ class GameScreen:
                     mistakes=self.question_mistakes,
                 )
                 points_earned = result.points_earned
+
+                # Apply double points multiplier if active
+                multiplier = self.wildcard_manager.get_points_multiplier()
+                if multiplier > 1:
+                    bonus_points = points_earned * (multiplier - 1)
+                    points_earned = points_earned * multiplier
+                    # Add bonus to total score (result.points_earned already added)
+                    self.scoring_system.total_score += bonus_points
+
                 self.score = self.scoring_system.total_score
                 self.questions_answered = self.scoring_system.questions_answered
             else:
-                points_earned = 100
-                self.score += 100
+                multiplier = self.wildcard_manager.get_points_multiplier()
+                points_earned = 100 * multiplier
+                self.score += points_earned
                 self.questions_answered += 1
 
             self.score_label.configure(text=str(self.score))
@@ -2496,23 +2714,30 @@ class GameScreen:
         self.timer_job = self.parent.after(1000, self.update_timer)
 
     def get_current_scale(self):
-        """Calculate the current UI scale factor based on window dimensions."""
         width = max(self.parent.winfo_width(), 1)
         height = max(self.parent.winfo_height(), 1)
         scale = min(width / self.BASE_DIMENSIONS[0], height / self.BASE_DIMENSIONS[1])
         return max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
 
     def get_scaled_image_size(self, scale=None):
-        """Get the image container size for the current scale."""
         if scale is None:
             scale = self.get_current_scale()
-        return int(max(self.IMAGE_MIN_SIZE, min(self.IMAGE_MAX_SIZE, self.BASE_IMAGE_SIZE * scale)))
+        return int(
+            max(
+                self.IMAGE_MIN_SIZE,
+                min(self.IMAGE_MAX_SIZE, self.BASE_IMAGE_SIZE * scale),
+            )
+        )
 
     def get_scaled_box_size(self, scale=None):
-        """Get the answer box size for the current scale."""
         if scale is None:
             scale = self.get_current_scale()
-        return int(max(self.ANSWER_BOX_MIN_SIZE, min(self.ANSWER_BOX_MAX_SIZE, self.BASE_ANSWER_BOX_SIZE * scale)))
+        return int(
+            max(
+                self.ANSWER_BOX_MIN_SIZE,
+                min(self.ANSWER_BOX_MAX_SIZE, self.BASE_ANSWER_BOX_SIZE * scale),
+            )
+        )
 
     def on_resize(self, event):
         if event.widget is not self.parent:
@@ -2667,7 +2892,7 @@ class GameScreen:
         self.parent.unbind("<Configure>")
         self.unbind_physical_keyboard()
 
-    # ==================== Physical Keyboard Support ====================
+    # Physical Keyboard Support
 
     def bind_physical_keyboard(self):
         root = self.parent.winfo_toplevel()
