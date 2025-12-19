@@ -159,13 +159,13 @@ class GameScreen(GameScreenLogic):
 
         if self.image_frame and self.image_frame.winfo_exists():
             self.image_frame.configure(height=img_sz)
-            # Scale image padding - reduce at low res
+            # Scale image padding - reduce at low res, expand at high res
             if is_compact:
                 pad_top = self.scale_value(12, scale, 6, 20)
                 pad_bottom = self.scale_value(6, scale, 3, 10)
             else:
-                pad_top = self.scale_value(20, scale, 10, 40)
-                pad_bottom = self.scale_value(10, scale, 6, 20)
+                pad_top = self.scale_value(24, scale, 12, 60)
+                pad_bottom = self.scale_value(12, scale, 6, 30)
             self.image_frame.grid_configure(pady=(pad_top, pad_bottom))
 
         if self.image_label and self.image_label.winfo_exists():
@@ -187,9 +187,9 @@ class GameScreen(GameScreenLogic):
                 pad_x = self.scale_value(20, scale, 10, 40)
                 pad_y = self.scale_value(6, scale, 3, 12)
             else:
-                # Normal padding for larger screens
-                pad_x = self.scale_value(30, scale, 16, 60)
-                pad_y = self.scale_value(10, scale, 6, 24)
+                # Normal padding for larger screens - expand more at high res
+                pad_x = self.scale_value(36, scale, 20, 80)
+                pad_y = self.scale_value(14, scale, 8, 36)
             self.definition_frame.grid_configure(padx=pad_x, pady=pad_y)
 
         if self.definition_label and self.definition_label.winfo_exists():
@@ -225,11 +225,11 @@ class GameScreen(GameScreenLogic):
             frame_width = len(visible_boxes) * (box_sz + gap * 2)
             frame_height = box_sz + 4
             self.answer_boxes_frame.configure(width=frame_width, height=frame_height)
-            # Update answer boxes frame padding - reduce at low res
+            # Update answer boxes frame padding - reduce at low res, expand at high res
             if is_compact:
                 pad_y = self.scale_value(8, scale, 4, 10)
             else:
-                pad_y = self.scale_value(10, scale, 6, 16)
+                pad_y = self.scale_value(14, scale, 8, 28)
             self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))
 
     def _update_feedback(self):
@@ -253,7 +253,9 @@ class GameScreen(GameScreenLogic):
         delete_width = int(key_sz * sizes["delete_key_width_ratio"])
 
         if self.keyboard_frame and self.keyboard_frame.winfo_exists():
-            self.keyboard_frame.grid_configure(padx=keyboard_pad, pady=(0, keyboard_pad_y))
+            self.keyboard_frame.grid_configure(
+                padx=keyboard_pad, pady=(0, keyboard_pad_y)
+            )
 
         # Update keyboard row gaps
         for row_frame in self.keyboard_frame.winfo_children():
@@ -299,7 +301,6 @@ class GameScreen(GameScreenLogic):
         is_compact = sizes.get("is_height_constrained", False)
         wc_sz = sizes["wildcard_size"]
         wc_corner = sizes["wildcard_corner_radius"]
-        wc_gap = sizes["wildcard_gap"]
         lightning_sz = sizes["lightning_icon"]
         freeze_sz = sizes["freeze_icon"]
         wc_font_size = sizes["wildcard_font"]
@@ -308,8 +309,11 @@ class GameScreen(GameScreenLogic):
         # Calculate button width to match build_wildcards_panel (1.5x height for pill shape)
         wc_btn_width = int(wc_sz * 1.5)
 
-        # Reduce button gap at low res
-        btn_gap = self.scale_value(8, scale, 3, 12) if is_compact else wc_gap
+        # Scale button gap - reduce at low res, expand at high res
+        if is_compact:
+            btn_gap = self.scale_value(6, scale, 3, 10)
+        else:
+            btn_gap = self.scale_value(10, scale, 6, 20)
 
         # Update wildcard buttons with consistent pill shape
         for btn in [
@@ -333,19 +337,23 @@ class GameScreen(GameScreenLogic):
         if self.freeze_wildcard_icon:
             self.freeze_wildcard_icon.configure(size=(freeze_sz, freeze_sz))
 
-        # Update wildcards frame padding - tighter at low res
+        # Update wildcards frame padding - tighter at low res, expand at high res
         if self.wildcards_frame and self.wildcards_frame.winfo_exists():
             if is_compact:
-                pad_x = self.scale_value(16, scale, 8, 24)
-                pad_y = self.scale_value(12, scale, 6, 24)
+                pad_x = self.scale_value(14, scale, 8, 20)
+                pad_y = self.scale_value(10, scale, 6, 18)
             else:
-                pad_x = self.scale_value(24, scale, 12, 48)
-                pad_y = self.scale_value(24, scale, 12, 48)
+                pad_x = self.scale_value(28, scale, 16, 56)
+                pad_y = self.scale_value(28, scale, 16, 56)
             self.wildcards_frame.grid_configure(padx=(0, pad_x), pady=pad_y)
 
         # Update charges frame padding
         if self.charges_frame and self.charges_frame.winfo_exists():
-            charges_pad = self.scale_value(12, scale, 4, 16) if is_compact else 12
+            charges_pad = (
+                self.scale_value(10, scale, 4, 14)
+                if is_compact
+                else self.scale_value(14, scale, 8, 24)
+            )
             self.charges_frame.grid_configure(pady=(0, charges_pad))
 
         # Update wildcard button fonts

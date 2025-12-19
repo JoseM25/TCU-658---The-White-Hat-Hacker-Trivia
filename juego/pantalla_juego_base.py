@@ -266,7 +266,7 @@ class GameScreenBase:
         self.parent.grid_columnconfigure(0, weight=1)
 
         # Main container
-        self.main = ctk.CTkFrame(self.parent, fg_color="transparent")
+        self.main = ctk.CTkFrame(self.parent, fg_color=self.COLORS["bg_light"])
         self.main.grid(row=0, column=0, sticky="nsew")
 
         # Main layout: header, question area, keyboard, action buttons
@@ -449,7 +449,7 @@ class GameScreenBase:
         self.image_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent", height=img_sz
         )
-        self.image_frame.grid(row=0, column=0, sticky="ew", pady=(12, 6))
+        self.image_frame.grid(row=0, column=0, pady=(12, 6))
         self.image_frame.grid_rowconfigure(0, weight=1)
         self.image_frame.grid_columnconfigure(0, weight=1)
 
@@ -504,7 +504,7 @@ class GameScreenBase:
             width=10 * (box_sz + 6),
             height=box_sz + 4,
         )
-        self.answer_boxes_frame.grid(row=2, column=0, pady=(6, 4))
+        self.answer_boxes_frame.grid(row=2, column=0, pady=(6, 4), padx=20)
         self.answer_boxes_frame.grid_propagate(False)
 
     def build_feedback_section(self):
@@ -514,17 +514,16 @@ class GameScreenBase:
             font=self.feedback_font,
             text_color=self.COLORS["feedback_correct"],
         )
-        self.feedback_label.grid(row=3, column=0, pady=(0, 10))
+        self.feedback_label.grid(row=3, column=0, pady=(0, 10), padx=20)
 
     def build_wildcards_panel(self):
         self.wildcards_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent"
         )
+        # Use sticky="" to let frame take natural content height (prevents clipping at low res)
         self.wildcards_frame.grid(
-            row=0, column=1, rowspan=4, sticky="ns", padx=(0, 16), pady=12
+            row=0, column=1, rowspan=4, sticky="", padx=(0, 16), pady=12
         )
-        self.wildcards_frame.grid_rowconfigure(0, weight=1)
-        self.wildcards_frame.grid_rowconfigure(5, weight=1)
 
         wc_sz = self.BASE_SIZES["wildcard_size"]
         wc_font = self.BASE_SIZES["wildcard_font_size"]

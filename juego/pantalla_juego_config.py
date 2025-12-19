@@ -494,7 +494,7 @@ class GameSizeCalculator:
 
         # Feedback
         sizes["feedback_pad_bottom"] = s(
-            GAME_BASE_SIZES["feedback_pad_bottom"], scale, 8, 32
+            GAME_BASE_SIZES["feedback_pad_bottom"], scale, 8, 48
         )
 
         # Store scale and dimensions
