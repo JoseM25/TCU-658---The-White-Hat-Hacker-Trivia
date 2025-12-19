@@ -7,74 +7,41 @@ from tksvg import SvgImage as TkSvgImage
 
 from juego.comodines import WildcardManager
 from juego.logica import ScoringSystem
+from juego.pantalla_juego_config import (
+    GAME_BASE_DIMENSIONS,
+    GAME_BASE_SIZES,
+    GAME_COLORS,
+    GAME_FONT_SPECS,
+    GAME_ICONS,
+    GAME_PROFILES,
+    GAME_RESIZE_DELAY,
+    GAME_SCALE_LIMITS,
+    KEYBOARD_LAYOUT,
+    GameFontRegistry,
+    GameSizeCalculator,
+)
+from juego.responsive_helpers import ResponsiveScaler
 from juego.tts_service import TTSService
 
 
 class GameScreenBase:
-    BASE_DIMENSIONS = (1280, 720)
-    BASE_FONT_SIZES = {
-        "timer": 24,
-        "score": 28,
-        "definition": 16,
-        "keyboard": 18,
-        "answer_box": 20,
-        "button": 20,
-        "header_label": 14,
-        "feedback": 14,
-    }
-    SCALE_LIMITS = (0.50, 1.60)
-    RESIZE_DELAY = 80
+    # Import constants from config
+    BASE_DIMENSIONS = GAME_BASE_DIMENSIONS
+    SCALE_LIMITS = GAME_SCALE_LIMITS
+    RESIZE_DELAY = GAME_RESIZE_DELAY
+    COLORS = GAME_COLORS
+    ICONS = GAME_ICONS
+    BASE_SIZES = GAME_BASE_SIZES
+    KEYBOARD_LAYOUT = KEYBOARD_LAYOUT
+
+    # SVG rendering scale
     SVG_RASTER_SCALE = 2.0
-    AUDIO_ICON_BASE_SIZE = 36
-    AUDIO_ICON_MIN_SIZE = 28
-    AUDIO_ICON_MAX_SIZE = 48
-    DELETE_ICON_BASE_SIZE = 26
-    BASE_IMAGE_SIZE = 180
-    IMAGE_MIN_SIZE = 100
-    IMAGE_MAX_SIZE = 280
-    BASE_KEY_SIZE = 44
-    KEY_MIN_SIZE = 32
-    KEY_MAX_SIZE = 60
-    BASE_ANSWER_BOX_SIZE = 40
-    ANSWER_BOX_MIN_SIZE = 28
-    ANSWER_BOX_MAX_SIZE = 56
-
-    COLORS = {
-        "primary_blue": "#005DFF",
-        "primary_hover": "#003BB8",
-        "success_green": "#00CFC5",
-        "success_hover": "#009B94",
-        "warning_yellow": "#FFC553",
-        "warning_hover": "#CC9A42",
-        "danger_red": "#FF4F60",
-        "danger_hover": "#CC3F4D",
-        "text_dark": "#202632",
-        "text_medium": "#3A3F4B",
-        "text_light": "#7A7A7A",
-        "bg_light": "#F5F7FA",
-        "bg_card": "#FFFFFF",
-        "border_light": "#E2E7F3",
-        "border_medium": "#D3DBEA",
-        "header_bg": "#202632",
-        "header_hover": "#273246",
-        "key_bg": "#E8ECF2",
-        "key_hover": "#D0D6E0",
-        "key_pressed": "#B8C0D0",
-        "answer_box_empty": "#E2E7F3",
-        "answer_box_filled": "#D0D6E0",
-        "feedback_correct": "#00CFC5",
-        "feedback_incorrect": "#FF4F60",
-    }
-
-    KEYBOARD_LAYOUT = [
-        ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-        ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-        ["Z", "X", "C", "V", "B", "N", "M", "⌫"],
-    ]
 
     def __init__(self, parent, on_return_callback=None, tts_service=None):
         self.parent = parent
         self.on_return_callback = on_return_callback
+
+        # Game state
         self.current_question = None
         self.questions = []
         self.available_questions = []
@@ -86,116 +53,187 @@ class GameScreenBase:
         self.timer_job = None
         self.questions_answered = 0
         self.game_completed = False
-        self.completion_modal = None
         self.scoring_system = None
         self.wildcard_manager = WildcardManager()
         self.question_timer = 0
         self.question_mistakes = 0
+
+        # Resize handling
         self.resize_job = None
+
+        # UI component references - Main layout
         self.main = None
         self.header_frame = None
         self.header_left_container = None
         self.header_center_container = None
         self.header_right_container = None
+
+        # Header components
         self.back_button = None
         self.back_arrow_icon = None
         self.timer_container = None
         self.score_container = None
         self.audio_container = None
         self.timer_label = None
+        self.timer_icon_label = None
         self.score_label = None
+        self.star_icon_label = None
+        self.multiplier_label = None
         self.audio_toggle_btn = None
+
+        # Question container components
         self.question_container = None
         self.image_frame = None
         self.image_label = None
         self.definition_label = None
         self.answer_boxes_frame = None
         self.answer_box_labels = []
+
+        # Keyboard components
         self.keyboard_frame = None
         self.keyboard_buttons = []
         self.delete_button = None
+        self.key_button_map = {}
+
+        # Action buttons
         self.action_buttons_frame = None
         self.skip_button = None
         self.check_button = None
+
+        # Image references
         self.current_image = None
+
+        # Icon references
         self.audio_icon_on = None
         self.audio_icon_off = None
         self.clock_icon = None
         self.star_icon = None
         self.delete_icon = None
-        self.timer_icon_label = None
-        self.star_icon_label = None
-        self.multiplier_label = None
         self.freeze_icon = None
+        self.info_icon = None
+        self.info_icon_label = None
+        self.lightning_icon = None
+        self.lightning_icon_label = None
+        self.freeze_wildcard_icon = None
+
+        # Visual state tracking
         self.timer_frozen_visually = False
         self.double_points_visually_active = False
+
+        # Wildcards panel components
         self.wildcards_frame = None
         self.wildcard_x2_btn = None
         self.wildcard_hint_btn = None
         self.wildcard_freeze_btn = None
         self.charges_frame = None
         self.charges_label = None
-        self.lightning_icon = None
-        self.lightning_icon_label = None
-        self.freeze_wildcard_icon = None
-        self.info_icon = None
-        self.info_icon_label = None
+
+        # Feedback components
         self.feedback_label = None
         self.feedback_animation_job = None
-        self.skip_modal = None
+
+        # Modal references
+        self.completion_modal = None
         self.summary_modal = None
+        self.skip_modal = None
+
+        # Game flow state
         self.processing_correct_answer = False
         self.awaiting_modal_decision = False
         self.stored_modal_data = None
         self.question_history = []
         self.viewing_history_index = -1
+
+        # Paths
         self.images_dir = os.path.join("recursos", "imagenes")
         self.audio_dir = os.path.join("recursos", "audio")
         self.questions_path = os.path.join("datos", "preguntas.json")
+
+        # TTS service
         self.tts = tts_service or TTSService(self.audio_dir)
-        self.key_button_map = {}
+
+        # Physical keyboard handling
         self.physical_key_pressed = None
         self.key_feedback_job = None
 
-        self.create_fonts()
+        # Font attributes (set by font_registry.attach_attributes)
+        self.timer_font = None
+        self.score_font = None
+        self.definition_font = None
+        self.keyboard_font = None
+        self.answer_box_font = None
+        self.button_font = None
+        self.header_button_font = None
+        self.header_label_font = None
+        self.feedback_font = None
+        self.wildcard_font = None
+        self.charges_font = None
+        self.multiplier_font = None
+
+        # Initialize responsive system
+        self.init_responsive_system()
+
+        # Load data and build UI
         self.load_questions()
         self.build_ui()
 
-    def create_fonts(self):
-        self.timer_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=self.BASE_FONT_SIZES["timer"], weight="bold"
+    def init_responsive_system(self):
+        # Create scaler
+        self.scaler = ResponsiveScaler(
+            self.BASE_DIMENSIONS,
+            self.SCALE_LIMITS,
+            global_scale_factor=1.0,
         )
-        self.score_font = ctk.CTkFont(
-            family="Poppins ExtraBold",
-            size=self.BASE_FONT_SIZES["score"],
-            weight="bold",
+
+        # Create size calculator
+        self.size_calc = GameSizeCalculator(self.scaler, GAME_PROFILES)
+
+        # Create font registry and attach fonts as attributes
+        self.font_registry = GameFontRegistry(GAME_FONT_SPECS)
+        self.font_registry.attach_attributes(self)
+
+        # Store base and min sizes for font scaling
+        self.font_base_sizes = self.font_registry.base_sizes
+        self.font_min_sizes = self.font_registry.min_sizes
+
+        # State tracking
+        self.current_scale = 1.0
+        self.current_window_width = self.BASE_DIMENSIONS[0]
+        self.current_window_height = self.BASE_DIMENSIONS[1]
+        self.size_state = {}
+
+        # Icon cache for efficient resizing
+        self.icon_cache = {}
+
+    def get_current_scale(self):
+        w = max(self.parent.winfo_width(), 1)
+        h = max(self.parent.winfo_height(), 1)
+        low_res_profile = GAME_PROFILES.get("low_res")
+        return self.scaler.calculate_scale(w, h, low_res_profile)
+
+    def scale_value(self, base, scale, min_value=None, max_value=None):
+        return self.scaler.scale_value(base, scale, min_value, max_value)
+
+    def get_scaled_image_size(self, scale=None):
+        if self.size_state and "image_size" in self.size_state:
+            return self.size_state["image_size"]
+        s = scale or self.get_current_scale()
+        return self.scale_value(
+            self.BASE_SIZES["image_base"],
+            s,
+            self.BASE_SIZES["image_min"],
+            self.BASE_SIZES["image_max"],
         )
-        self.definition_font = ctk.CTkFont(
-            family="Open Sans Regular", size=self.BASE_FONT_SIZES["definition"]
-        )
-        self.keyboard_font = ctk.CTkFont(
-            family="Poppins SemiBold",
-            size=self.BASE_FONT_SIZES["keyboard"],
-            weight="bold",
-        )
-        self.answer_box_font = ctk.CTkFont(
-            family="Poppins ExtraBold",
-            size=self.BASE_FONT_SIZES["answer_box"],
-            weight="bold",
-        )
-        self.button_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=self.BASE_FONT_SIZES["button"]
-        )
-        self.header_button_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=20, weight="bold"
-        )
-        self.header_label_font = ctk.CTkFont(
-            family="Poppins SemiBold", size=self.BASE_FONT_SIZES["header_label"]
-        )
-        self.feedback_font = ctk.CTkFont(
-            family="Poppins SemiBold",
-            size=self.BASE_FONT_SIZES["feedback"],
-            weight="bold",
+
+    def get_scaled_box_size(self, scale=None):
+        if self.size_state and "answer_box" in self.size_state:
+            return self.size_state["answer_box"]
+        s = scale or self.get_current_scale()
+        return self.scale_value(
+            self.BASE_SIZES["answer_box_base"],
+            s,
+            self.BASE_SIZES["answer_box_min"],
+            self.BASE_SIZES["answer_box_max"],
         )
 
     def load_questions(self):
@@ -205,7 +243,6 @@ class GameScreenBase:
                 self.questions = data.get("questions", [])
                 self.available_questions = list(self.questions)
                 self.scoring_system = ScoringSystem(len(self.questions))
-                # Reset wildcard manager for new game
                 self.wildcard_manager.reset_game()
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Error loading questions: {e}")
@@ -215,82 +252,108 @@ class GameScreenBase:
             self.wildcard_manager.reset_game()
 
     def build_ui(self):
+        # Clear existing widgets
         for widget in self.parent.winfo_children():
             widget.destroy()
 
+        # Configure parent grid
         self.parent.grid_rowconfigure(0, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
 
+        # Main container
         self.main = ctk.CTkFrame(self.parent, fg_color="transparent")
         self.main.grid(row=0, column=0, sticky="nsew")
-        self.main.grid_rowconfigure(0, weight=0)
-        self.main.grid_rowconfigure(1, weight=1)
-        self.main.grid_rowconfigure(2, weight=0)
-        self.main.grid_rowconfigure(3, weight=0)
+
+        # Main layout: header, question area, keyboard, action buttons
+        self.main.grid_rowconfigure(0, weight=0)  # Header
+        self.main.grid_rowconfigure(1, weight=1)  # Question container
+        self.main.grid_rowconfigure(2, weight=0)  # Keyboard
+        self.main.grid_rowconfigure(3, weight=0)  # Action buttons
         self.main.grid_columnconfigure(0, weight=1)
 
+        # Build sections
         self.build_header()
         self.build_question_container()
         self.build_keyboard()
         self.build_action_buttons()
 
     def build_header(self):
+        header_height = self.BASE_SIZES["header_height"]
+
         self.header_frame = ctk.CTkFrame(
-            self.main, fg_color=self.COLORS["header_bg"], height=60, corner_radius=0
+            self.main,
+            fg_color=self.COLORS["header_bg"],
+            height=header_height,
+            corner_radius=0,
         )
         self.header_frame.grid(row=0, column=0, sticky="ew")
         self.header_frame.grid_propagate(False)
-        # Spanned header layout:
-        # - left: timer
-        # - center: score (visually centered)
-        # - right: mute toggle
-        #
-        # Use `uniform` so left/right columns share the same base width, keeping the
-        # center column perfectly centered even if timer/mute have different widths.
+
+        # Spanned layout: timer left, score center, mute right
         self.header_frame.grid_columnconfigure(0, weight=1, uniform="header_side")
         self.header_frame.grid_columnconfigure(1, weight=0)
         self.header_frame.grid_columnconfigure(2, weight=1, uniform="header_side")
         self.header_frame.grid_rowconfigure(0, weight=1)
 
+        # Load header icons
         self.load_header_icons()
 
-        # The Menu/back button is intentionally not shown on game screens.
-        self.back_button = None
-
+        # Left container (timer)
         self.header_left_container = ctk.CTkFrame(
             self.header_frame, fg_color="transparent"
         )
-        self.header_left_container.grid(row=0, column=0, sticky="w", padx=(24, 0))
+        self.header_left_container.grid(
+            row=0, column=0, sticky="w", padx=(self.BASE_SIZES["header_pad_x"], 0)
+        )
 
+        # Center container (score)
         self.header_center_container = ctk.CTkFrame(
             self.header_frame, fg_color="transparent"
         )
         self.header_center_container.grid(row=0, column=1)
 
+        # Right container (audio toggle)
         self.header_right_container = ctk.CTkFrame(
             self.header_frame, fg_color="transparent"
         )
-        self.header_right_container.grid(row=0, column=2, sticky="e", padx=(0, 24))
+        self.header_right_container.grid(
+            row=0, column=2, sticky="e", padx=(0, self.BASE_SIZES["header_pad_x"])
+        )
 
-        # Left: timer
+        # Build timer section
+        self.build_timer_section()
+
+        # Build score section
+        self.build_score_section()
+
+        # Build audio toggle
+        self.build_audio_section()
+
+    def build_timer_section(self):
         self.timer_container = ctk.CTkFrame(
             self.header_left_container, fg_color="transparent"
         )
         self.timer_container.grid(row=0, column=0)
+
         self.timer_icon_label = ctk.CTkLabel(
             self.timer_container, text="", image=self.clock_icon
         )
         self.timer_icon_label.grid(row=0, column=0, padx=(0, 8))
+
         self.timer_label = ctk.CTkLabel(
-            self.timer_container, text="00:00", font=self.timer_font, text_color="white"
+            self.timer_container,
+            text="00:00",
+            font=self.timer_font,
+            text_color="white",
         )
         self.timer_label.grid(row=0, column=1)
 
-        # Center: score (balanced so the number remains centered even with an icon)
+    def build_score_section(self):
         self.score_container = ctk.CTkFrame(
             self.header_center_container, fg_color="transparent"
         )
         self.score_container.grid(row=0, column=0)
+
         star_sz = 24
         self.star_icon_label = ctk.CTkLabel(
             self.score_container,
@@ -300,34 +363,41 @@ class GameScreenBase:
             height=star_sz,
         )
         self.star_icon_label.grid(row=0, column=0, padx=(0, 8))
+
         self.score_label = ctk.CTkLabel(
-            self.score_container, text="0", font=self.score_font, text_color="white"
+            self.score_container,
+            text="0",
+            font=self.score_font,
+            text_color="white",
         )
         self.score_label.grid(row=0, column=1)
-        # Multiplier label on the right (hidden by default, shown when double points active)
+
+        # Multiplier label (hidden by default)
         self.multiplier_label = ctk.CTkLabel(
             self.score_container,
             text="",
-            font=ctk.CTkFont(family="Poppins ExtraBold", size=20, weight="bold"),
+            font=self.multiplier_font,
             text_color=self.COLORS["warning_yellow"],
             width=star_sz + 8,
         )
         self.multiplier_label.grid(row=0, column=2, padx=(8, 0))
-        self.multiplier_label.grid_remove()  # Hidden by default
+        self.multiplier_label.grid_remove()
 
-        # Right: mute toggle
+    def build_audio_section(self):
         self.audio_container = ctk.CTkFrame(
             self.header_right_container, fg_color="transparent"
         )
         self.audio_container.grid(row=0, column=0)
+
         self.load_audio_icons()
+
         self.audio_toggle_btn = ctk.CTkButton(
             self.audio_container,
             text="",
             image=self.audio_icon_on,
             font=self.timer_font,
-            width=48,
-            height=40,
+            width=self.BASE_SIZES["audio_button_width"],
+            height=self.BASE_SIZES["audio_button_height"],
             fg_color="transparent",
             hover_color=self.COLORS["header_hover"],
             text_color="white",
@@ -337,163 +407,45 @@ class GameScreenBase:
         self.audio_toggle_btn.grid(row=0, column=0)
         self.update_audio_button_icon()
 
-    def load_header_icons(self):
-        for attr, fname, sz in [
-            ("back_arrow_icon", "arrow.svg", 20),
-            ("clock_icon", "clock.svg", 24),
-            ("star_icon", "star.svg", 24),
-            ("freeze_icon", "freeze.svg", 24),
-        ]:
-            try:
-                img = self.load_svg_image(
-                    os.path.join(self.images_dir, fname), self.SVG_RASTER_SCALE
-                )
-                if img:
-                    setattr(
-                        self,
-                        attr,
-                        ctk.CTkImage(light_image=img, dark_image=img, size=(sz, sz)),
-                    )
-            except (FileNotFoundError, OSError, ValueError):
-                setattr(self, attr, None)
-
-    def load_audio_icons(self):
-        self.audio_icon_on = self.audio_icon_off = None
-        sz = self.calculate_audio_icon_size(1.0)
-        for attr, fname in [
-            ("audio_icon_on", "volume-white.svg"),
-            ("audio_icon_off", "volume-mute.svg"),
-        ]:
-            try:
-                img = self.load_svg_image(
-                    os.path.join(self.images_dir, fname), self.SVG_RASTER_SCALE
-                )
-                if img:
-                    setattr(
-                        self,
-                        attr,
-                        ctk.CTkImage(light_image=img, dark_image=img, size=(sz, sz)),
-                    )
-            except (FileNotFoundError, OSError, ValueError):
-                setattr(self, attr, None)
-
-    def calculate_audio_icon_size(self, scale, back_height=None):
-        targets = [
-            self.AUDIO_ICON_BASE_SIZE * scale,
-            self.timer_font.cget("size"),
-            self.score_font.cget("size"),
-        ]
-        if back_height:
-            targets.append(back_height * 0.85)
-        return int(
-            max(self.AUDIO_ICON_MIN_SIZE, min(self.AUDIO_ICON_MAX_SIZE, max(targets)))
-        )
-
-    def update_audio_icon_size(self, sz, back_height=None, corner_radius=None):
-        for icon in (self.audio_icon_on, self.audio_icon_off):
-            if icon:
-                icon.configure(size=(sz, sz))
-        if self.audio_toggle_btn:
-            h = max(
-                int(self.audio_toggle_btn.cget("height")), sz + 8, int(back_height or 0)
-            )
-            w = max(int(self.audio_toggle_btn.cget("width")), sz + 12, h)
-            kw = {"width": w, "height": h}
-            if corner_radius is not None:
-                kw["corner_radius"] = corner_radius
-            self.audio_toggle_btn.configure(**kw)
-
-    def update_audio_button_icon(self):
-        if not self.audio_toggle_btn:
-            return
-        icon = self.audio_icon_on if self.audio_enabled else self.audio_icon_off
-        if icon:
-            self.audio_toggle_btn.configure(image=icon, text="")
-        else:
-            self.audio_toggle_btn.configure(
-                image=None, text="On" if self.audio_enabled else "Off"
-            )
-
-    def load_info_icon(self):
-        try:
-            img = self.load_svg_image(
-                os.path.join(self.images_dir, "info.svg"), self.SVG_RASTER_SCALE
-            )
-            if img:
-                self.info_icon = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(24, 24)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.info_icon = None
-
-    def load_delete_icon(self):
-        try:
-            img = self.load_svg_image(
-                os.path.join(self.images_dir, "delete.svg"), self.SVG_RASTER_SCALE
-            )
-            if img:
-                sz = self.calculate_delete_icon_size(self.BASE_KEY_SIZE)
-                self.delete_icon = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(sz, sz)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.delete_icon = None
-
-    def load_lightning_icon(self, size=18):
-        try:
-            img = self.load_svg_image(
-                os.path.join(self.images_dir, "lightning.svg"), self.SVG_RASTER_SCALE
-            )
-            if img:
-                self.lightning_icon = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(size, size)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.lightning_icon = None
-
-    def load_freeze_wildcard_icon(self, size=28):
-        try:
-            img = self.load_svg_image(
-                os.path.join(self.images_dir, "Freeze.svg"), self.SVG_RASTER_SCALE
-            )
-            if img:
-                self.freeze_wildcard_icon = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(size, size)
-                )
-        except (FileNotFoundError, OSError, ValueError):
-            self.freeze_wildcard_icon = None
-
-    def calculate_delete_icon_size(self, key_size):
-        return int(
-            max(16, min(40, key_size * self.DELETE_ICON_BASE_SIZE / self.BASE_KEY_SIZE))
-        )
-
-    def update_delete_icon_size(self, key_size):
-        if self.delete_icon:
-            sz = self.calculate_delete_icon_size(key_size)
-            self.delete_icon.configure(size=(sz, sz))
-
     def build_question_container(self):
         self.question_container = ctk.CTkFrame(
             self.main,
             fg_color=self.COLORS["bg_card"],
-            corner_radius=20,
+            corner_radius=self.BASE_SIZES["container_corner_radius"],
             border_width=2,
             border_color=self.COLORS["border_light"],
         )
-        self.question_container.grid(row=1, column=0, sticky="nsew", padx=40, pady=20)
+        self.question_container.grid(
+            row=1,
+            column=0,
+            sticky="nsew",
+            padx=self.BASE_SIZES["container_pad_x"],
+            pady=self.BASE_SIZES["container_pad_y"],
+        )
+
+        # Grid configuration for question container
         self.question_container.grid_columnconfigure(0, weight=1)
         self.question_container.grid_columnconfigure(1, weight=0)
         for r in range(4):
             self.question_container.grid_rowconfigure(r, weight=1 if r == 1 else 0)
 
+        # Build sections
+        self.build_image_section()
+        self.build_definition_section()
+        self.build_answer_boxes_section()
+        self.build_feedback_section()
+        self.build_wildcards_panel()
+
+    def build_image_section(self):
         img_sz = self.get_scaled_image_size()
+
         self.image_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent", height=img_sz
         )
         self.image_frame.grid(row=0, column=0, sticky="ew", pady=(20, 10))
         self.image_frame.grid_rowconfigure(0, weight=1)
         self.image_frame.grid_columnconfigure(0, weight=1)
+
         self.image_label = ctk.CTkLabel(
             self.image_frame,
             text="",
@@ -504,28 +456,34 @@ class GameScreenBase:
         )
         self.image_label.grid(row=0, column=0)
 
+    def build_definition_section(self):
         def_frame = ctk.CTkFrame(self.question_container, fg_color="transparent")
         def_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=10)
         def_frame.grid_columnconfigure(0, weight=1)
         def_frame.grid_rowconfigure(0, weight=1)
 
         self.load_info_icon()
+
         def_inner = ctk.CTkFrame(def_frame, fg_color="transparent")
         def_inner.grid(row=0, column=0, sticky="")
+
         self.info_icon_label = ctk.CTkLabel(def_inner, text="", image=self.info_icon)
         self.info_icon_label.grid(row=0, column=0, sticky="n", padx=(0, 8), pady=(2, 0))
+
         self.definition_label = ctk.CTkLabel(
             def_inner,
             text="Loading question...",
             font=self.definition_font,
             text_color=self.COLORS["text_medium"],
-            wraplength=600,
+            wraplength=self.BASE_SIZES["definition_wrap_base"],
             justify="left",
             anchor="w",
         )
         self.definition_label.grid(row=0, column=1, sticky="w")
 
+    def build_answer_boxes_section(self):
         box_sz = self.get_scaled_box_size()
+
         self.answer_boxes_frame = ctk.CTkFrame(
             self.question_container,
             fg_color="transparent",
@@ -535,6 +493,7 @@ class GameScreenBase:
         self.answer_boxes_frame.grid(row=2, column=0, pady=(10, 8))
         self.answer_boxes_frame.grid_propagate(False)
 
+    def build_feedback_section(self):
         self.feedback_label = ctk.CTkLabel(
             self.question_container,
             text="",
@@ -542,8 +501,6 @@ class GameScreenBase:
             text_color=self.COLORS["feedback_correct"],
         )
         self.feedback_label.grid(row=3, column=0, pady=(0, 16))
-
-        self.build_wildcards_panel()
 
     def build_wildcards_panel(self):
         self.wildcards_frame = ctk.CTkFrame(
@@ -555,8 +512,8 @@ class GameScreenBase:
         self.wildcards_frame.grid_rowconfigure(0, weight=1)
         self.wildcards_frame.grid_rowconfigure(5, weight=1)
 
-        # Size to fit the largest content (snowflake emoji)
-        wc_sz, wc_font = 64, 18
+        wc_sz = self.BASE_SIZES["wildcard_size"]
+        wc_font = self.BASE_SIZES["wildcard_font_size"]
         font = ctk.CTkFont(family="Poppins ExtraBold", size=wc_font, weight="bold")
         charges_font = ctk.CTkFont(family="Poppins SemiBold", size=14, weight="bold")
 
@@ -564,7 +521,6 @@ class GameScreenBase:
         self.charges_frame = ctk.CTkFrame(self.wildcards_frame, fg_color="transparent")
         self.charges_frame.grid(row=1, column=0, pady=(0, 12))
 
-        # Load lightning icon
         self.load_lightning_icon()
         if self.lightning_icon:
             self.lightning_icon_label = ctk.CTkLabel(
@@ -580,6 +536,7 @@ class GameScreenBase:
         )
         self.charges_label.grid(row=0, column=1)
 
+        # X2 button
         self.wildcard_x2_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="X2",
@@ -587,13 +544,14 @@ class GameScreenBase:
             width=wc_sz,
             height=wc_sz,
             corner_radius=wc_sz // 2,
-            fg_color="#FFC553",
-            hover_color="#E5B04A",
+            fg_color=self.COLORS["wildcard_x2"],
+            hover_color=self.COLORS["wildcard_x2_hover"],
             text_color="white",
             command=self.on_wildcard_x2,
         )
         self.wildcard_x2_btn.grid(row=2, column=0, pady=8)
 
+        # Hint button
         self.wildcard_hint_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="A",
@@ -601,14 +559,14 @@ class GameScreenBase:
             width=wc_sz,
             height=wc_sz,
             corner_radius=wc_sz // 2,
-            fg_color="#00CFC5",
-            hover_color="#00B5AD",
+            fg_color=self.COLORS["wildcard_hint"],
+            hover_color=self.COLORS["wildcard_hint_hover"],
             text_color="white",
             command=self.on_wildcard_hint,
         )
         self.wildcard_hint_btn.grid(row=3, column=0, pady=8)
 
-        # Load freeze icon
+        # Freeze button
         self.load_freeze_wildcard_icon(int(wc_sz * 0.5))
 
         self.wildcard_freeze_btn = ctk.CTkButton(
@@ -619,159 +577,24 @@ class GameScreenBase:
             width=wc_sz,
             height=wc_sz,
             corner_radius=wc_sz // 2,
-            fg_color="#005DFF",
-            hover_color="#0048CC",
+            fg_color=self.COLORS["wildcard_freeze"],
+            hover_color=self.COLORS["wildcard_freeze_hover"],
             text_color="white",
             command=self.on_wildcard_freeze,
         )
         self.wildcard_freeze_btn.grid(row=4, column=0, pady=8)
 
-        # Initial state update
         self.update_wildcard_buttons_state()
-
-    def on_wildcard_x2(self):
-        pass
-
-    def on_wildcard_hint(self):
-        pass
-
-    def on_wildcard_freeze(self):
-        pass
-
-    def update_charges_display(self):
-        """Update the charges label to reflect current charges."""
-        if self.charges_label:
-            charges = self.wildcard_manager.get_charges()
-            self.charges_label.configure(text=str(charges))
-
-    def update_wildcard_buttons_state(self):
-        """Update wildcard button states based on available charges and blocking rules."""
-        charges = self.wildcard_manager.get_charges()
-        double_blocked = self.wildcard_manager.is_double_points_blocked()
-        others_blocked = self.wildcard_manager.are_other_wildcards_blocked()
-
-        # X2 Button (costs 2, blocked if other wildcards used first)
-        if self.wildcard_x2_btn:
-            can_use_x2 = (
-                charges >= self.wildcard_manager.COST_DOUBLE_POINTS
-                and not double_blocked
-            )
-            # Update button text based on current multiplier
-            mult = self.wildcard_manager.get_points_multiplier()
-            btn_text = f"X{mult}" if mult > 1 else "X2"
-
-            if can_use_x2:
-                # Check if already active (stacked)
-                if self.wildcard_manager.is_double_points_active():
-                    self.wildcard_x2_btn.configure(
-                        text=btn_text,
-                        fg_color="#4CAF50",
-                        hover_color="#45A049",
-                        state="normal",
-                    )
-                else:
-                    self.wildcard_x2_btn.configure(
-                        text=btn_text,
-                        fg_color="#FFC553",
-                        hover_color="#E5B04A",
-                        state="normal",
-                    )
-            else:
-                self.wildcard_x2_btn.configure(
-                    text=btn_text,
-                    fg_color="#999999",
-                    hover_color="#999999",
-                    state="disabled",
-                )
-
-        # Hint Button (costs 1, blocked if double points used)
-        if self.wildcard_hint_btn:
-            can_use_hint = (
-                charges >= self.wildcard_manager.COST_REVEAL_LETTER
-                and not others_blocked
-            )
-            if can_use_hint:
-                self.wildcard_hint_btn.configure(
-                    fg_color="#00CFC5",
-                    hover_color="#00B5AD",
-                    state="normal",
-                )
-            else:
-                self.wildcard_hint_btn.configure(
-                    fg_color="#999999",
-                    hover_color="#999999",
-                    state="disabled",
-                )
-
-        # Freeze Button (costs 1, blocked if double points used or already frozen)
-        if self.wildcard_freeze_btn:
-            can_use_freeze = (
-                charges >= self.wildcard_manager.COST_FREEZE_TIMER
-                and not others_blocked
-                and not self.wildcard_manager.is_timer_frozen()
-            )
-            if self.wildcard_manager.is_timer_frozen():
-                # Already frozen, show active state
-                self.wildcard_freeze_btn.configure(
-                    fg_color="#4CAF50",
-                    hover_color="#4CAF50",
-                    state="disabled",
-                )
-            elif can_use_freeze:
-                self.wildcard_freeze_btn.configure(
-                    fg_color="#005DFF",
-                    hover_color="#0048CC",
-                    state="normal",
-                )
-            else:
-                self.wildcard_freeze_btn.configure(
-                    fg_color="#999999",
-                    hover_color="#999999",
-                    state="disabled",
-                )
-
-        self.update_charges_display()
-
-    def reset_wildcard_button_colors(self):
-        """Reset wildcard buttons for a new question."""
-        self.update_wildcard_buttons_state()
-
-    def reset_timer_visuals(self):
-        """Reset timer appearance to default (unfrozen state)."""
-        self.timer_frozen_visually = False
-        if self.timer_label:
-            self.timer_label.configure(text_color="white")
-        if self.timer_icon_label and self.clock_icon:
-            self.timer_icon_label.configure(image=self.clock_icon)
-
-    def apply_freeze_timer_visuals(self):
-        """Apply frozen visual state to timer (blue color and freeze icon)."""
-        self.timer_frozen_visually = True
-        if self.timer_label:
-            self.timer_label.configure(text_color="#D0E7FF")
-        if self.timer_icon_label and self.freeze_icon:
-            self.timer_icon_label.configure(image=self.freeze_icon)
-
-    def apply_double_points_visuals(self, multiplier=2):
-        """Apply double points visual state to score (yellow color and multiplier on right)."""
-        self.double_points_visually_active = True
-        if self.score_label:
-            self.score_label.configure(text_color=self.COLORS["warning_yellow"])
-        if self.multiplier_label:
-            self.multiplier_label.configure(text=f"X{multiplier}")
-            self.multiplier_label.grid()  # Show the multiplier label
-
-    def reset_double_points_visuals(self):
-        """Reset score appearance to default (white color and hide multiplier)."""
-        self.double_points_visually_active = False
-        if self.score_label:
-            self.score_label.configure(text_color="white")
-        if self.multiplier_label:
-            self.multiplier_label.grid_remove()  # Hide the multiplier label
 
     def build_keyboard(self):
         self.keyboard_frame = ctk.CTkFrame(self.main, fg_color="transparent")
-        self.keyboard_frame.grid(row=2, column=0, pady=(0, 16), padx=256, sticky="ew")
+        self.keyboard_frame.grid(
+            row=2,
+            column=0,
+            pady=(0, 16),
+            padx=self.BASE_SIZES["keyboard_pad_x"],
+            sticky="ew",
+        )
         self.keyboard_frame.grid_columnconfigure(0, weight=1)
 
         self.keyboard_buttons.clear()
@@ -779,17 +602,21 @@ class GameScreenBase:
         self.delete_button = None
         self.load_delete_icon()
 
+        key_sz = self.BASE_SIZES["key_base"]
+        key_gap = self.BASE_SIZES["key_gap"]
+
         for row_idx, row_keys in enumerate(self.KEYBOARD_LAYOUT):
             row_frame = ctk.CTkFrame(self.keyboard_frame, fg_color="transparent")
             row_frame.grid(row=row_idx, column=0, pady=4, sticky="ew")
             row_frame.grid_columnconfigure(0, weight=1)
             row_frame.grid_columnconfigure(2, weight=1)
+
             inner = ctk.CTkFrame(row_frame, fg_color="transparent")
             inner.grid(row=0, column=1)
 
             for col, key in enumerate(row_keys):
                 is_del = key == "⌫"
-                w = int(self.BASE_KEY_SIZE * 1.8) if is_del else self.BASE_KEY_SIZE
+                w = int(key_sz * 1.8) if is_del else key_sz
                 fg = self.COLORS["danger_red"] if is_del else self.COLORS["key_bg"]
                 hv = self.COLORS["danger_hover"] if is_del else self.COLORS["key_hover"]
                 tc = "white" if is_del else self.COLORS["text_dark"]
@@ -802,7 +629,7 @@ class GameScreenBase:
                     image=img,
                     font=self.keyboard_font,
                     width=w,
-                    height=self.BASE_KEY_SIZE,
+                    height=key_sz,
                     fg_color=fg,
                     hover_color=hv,
                     text_color=tc,
@@ -811,7 +638,7 @@ class GameScreenBase:
                     corner_radius=8,
                     command=lambda k=key: self.on_key_press(k),
                 )
-                btn.grid(row=0, column=col, padx=12)
+                btn.grid(row=0, column=col, padx=key_gap // 2)
                 self.keyboard_buttons.append(btn)
                 self.key_button_map[key] = btn
                 if is_del:
@@ -821,38 +648,162 @@ class GameScreenBase:
         self.action_buttons_frame = ctk.CTkFrame(self.main, fg_color="transparent")
         self.action_buttons_frame.grid(row=3, column=0, pady=(0, 24))
 
+        btn_width = self.BASE_SIZES["action_button_width"]
+        btn_height = self.BASE_SIZES["action_button_height"]
+        btn_gap = self.BASE_SIZES["action_button_gap"]
+        corner_r = self.BASE_SIZES["action_corner_radius"]
+
         self.skip_button = ctk.CTkButton(
             self.action_buttons_frame,
             text="Skip",
             font=self.button_font,
-            width=140,
-            height=48,
+            width=btn_width,
+            height=btn_height,
             fg_color=self.COLORS["bg_light"],
             hover_color=self.COLORS["border_medium"],
             text_color="black",
             border_width=2,
             border_color="black",
-            corner_radius=12,
+            corner_radius=corner_r,
             command=self.on_skip,
         )
-        self.skip_button.grid(row=0, column=0, padx=16)
+        self.skip_button.grid(row=0, column=0, padx=btn_gap // 2)
 
         self.check_button = ctk.CTkButton(
             self.action_buttons_frame,
             text="Check",
             font=self.button_font,
-            width=140,
-            height=48,
-            fg_color="#005DFF",
-            hover_color="#003BB8",
+            width=btn_width,
+            height=btn_height,
+            fg_color=self.COLORS["primary_blue"],
+            hover_color=self.COLORS["primary_hover"],
             text_color="white",
-            corner_radius=12,
+            corner_radius=corner_r,
             command=self.on_check,
         )
-        self.check_button.grid(row=0, column=1, padx=16)
+        self.check_button.grid(row=0, column=1, padx=btn_gap // 2)
+
+    def load_svg_image(self, svg_path, scale=1.0):
+        try:
+            svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
+            return ImageTk.getimage(svg_photo).convert("RGBA")
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Error loading SVG image '{svg_path}': {e}")
+            return None
+
+    def load_header_icons(self):
+        icon_specs = [
+            ("clock_icon", self.ICONS["clock"], 24),
+            ("star_icon", self.ICONS["star"], 24),
+            ("freeze_icon", self.ICONS["freeze"], 24),
+        ]
+
+        for attr, fname, sz in icon_specs:
+            try:
+                img = self.load_svg_image(
+                    os.path.join(self.images_dir, fname), self.SVG_RASTER_SCALE
+                )
+                if img:
+                    setattr(
+                        self,
+                        attr,
+                        ctk.CTkImage(light_image=img, dark_image=img, size=(sz, sz)),
+                    )
+            except (FileNotFoundError, OSError, ValueError):
+                setattr(self, attr, None)
+
+    def load_audio_icons(self):
+        self.audio_icon_on = None
+        self.audio_icon_off = None
+        sz = self.BASE_SIZES["audio_icon_base"]
+
+        icon_specs = [
+            ("audio_icon_on", self.ICONS["volume_on"]),
+            ("audio_icon_off", self.ICONS["volume_off"]),
+        ]
+
+        for attr, fname in icon_specs:
+            try:
+                img = self.load_svg_image(
+                    os.path.join(self.images_dir, fname), self.SVG_RASTER_SCALE
+                )
+                if img:
+                    setattr(
+                        self,
+                        attr,
+                        ctk.CTkImage(light_image=img, dark_image=img, size=(sz, sz)),
+                    )
+            except (FileNotFoundError, OSError, ValueError):
+                setattr(self, attr, None)
+
+    def load_info_icon(self):
+        try:
+            img = self.load_svg_image(
+                os.path.join(self.images_dir, self.ICONS["info"]), self.SVG_RASTER_SCALE
+            )
+            if img:
+                self.info_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(24, 24)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.info_icon = None
+
+    def load_delete_icon(self):
+        try:
+            img = self.load_svg_image(
+                os.path.join(self.images_dir, self.ICONS["delete"]),
+                self.SVG_RASTER_SCALE,
+            )
+            if img:
+                sz = self.BASE_SIZES["delete_icon_base"]
+                self.delete_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(sz, sz)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.delete_icon = None
+
+    def load_lightning_icon(self, size=18):
+        try:
+            img = self.load_svg_image(
+                os.path.join(self.images_dir, self.ICONS["lightning"]),
+                self.SVG_RASTER_SCALE,
+            )
+            if img:
+                self.lightning_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(size, size)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.lightning_icon = None
+
+    def load_freeze_wildcard_icon(self, size=28):
+        try:
+            img = self.load_svg_image(
+                os.path.join(self.images_dir, self.ICONS["freeze"]),
+                self.SVG_RASTER_SCALE,
+            )
+            if img:
+                self.freeze_wildcard_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(size, size)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.freeze_wildcard_icon = None
+
+    def update_audio_button_icon(self):
+        if not self.audio_toggle_btn:
+            return
+        icon = self.audio_icon_on if self.audio_enabled else self.audio_icon_off
+        if icon:
+            self.audio_toggle_btn.configure(image=icon, text="")
+        else:
+            self.audio_toggle_btn.configure(
+                image=None, text="On" if self.audio_enabled else "Off"
+            )
 
     def create_answer_boxes(self, word_length):
         box_sz = self.get_scaled_box_size()
+        gap = self.size_state.get("answer_box_gap", 3)
+
+        # Create new boxes if needed
         for i in range(len(self.answer_box_labels), word_length):
             box = ctk.CTkLabel(
                 self.answer_boxes_frame,
@@ -867,6 +818,8 @@ class GameScreenBase:
             self.answer_box_labels.append(box)
 
         revealed = self.wildcard_manager.get_revealed_positions()
+
+        # Configure visible boxes
         for i in range(word_length):
             box = self.answer_box_labels[i]
             has_char = i < len(self.current_answer) and self.current_answer[i].strip()
@@ -889,42 +842,147 @@ class GameScreenBase:
                     width=box_sz,
                     height=box_sz,
                 )
-            box.grid(row=0, column=i, padx=3)
+            box.grid(row=0, column=i, padx=gap)
 
+        # Hide extra boxes
         for i in range(word_length, len(self.answer_box_labels)):
             self.answer_box_labels[i].grid_remove()
 
+        # Update frame size
         self.answer_boxes_frame.configure(
-            width=max(box_sz, word_length * (box_sz + 6)), height=box_sz + 4
+            width=max(box_sz, word_length * (box_sz + gap * 2)),
+            height=box_sz + 4,
         )
 
-    def get_current_scale(self):
-        w, h = max(self.parent.winfo_width(), 1), max(self.parent.winfo_height(), 1)
-        s = min(w / self.BASE_DIMENSIONS[0], h / self.BASE_DIMENSIONS[1])
-        return max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], s))
+    def on_wildcard_x2(self):
+        pass  # Override in logic class
 
-    def get_scaled_image_size(self, scale=None):
-        s = scale or self.get_current_scale()
-        return int(
-            max(self.IMAGE_MIN_SIZE, min(self.IMAGE_MAX_SIZE, self.BASE_IMAGE_SIZE * s))
-        )
+    def on_wildcard_hint(self):
+        pass  # Override in logic class
 
-    def get_scaled_box_size(self, scale=None):
-        s = scale or self.get_current_scale()
-        return int(
-            max(
-                self.ANSWER_BOX_MIN_SIZE,
-                min(self.ANSWER_BOX_MAX_SIZE, self.BASE_ANSWER_BOX_SIZE * s),
+    def on_wildcard_freeze(self):
+        pass  # Override in logic class
+
+    def update_charges_display(self):
+        if self.charges_label:
+            charges = self.wildcard_manager.get_charges()
+            self.charges_label.configure(text=str(charges))
+
+    def update_wildcard_buttons_state(self):
+        charges = self.wildcard_manager.get_charges()
+        double_blocked = self.wildcard_manager.is_double_points_blocked()
+        others_blocked = self.wildcard_manager.are_other_wildcards_blocked()
+
+        # X2 Button
+        if self.wildcard_x2_btn:
+            can_use_x2 = (
+                charges >= self.wildcard_manager.COST_DOUBLE_POINTS
+                and not double_blocked
             )
-        )
+            mult = self.wildcard_manager.get_points_multiplier()
+            btn_text = f"X{mult}" if mult > 1 else "X2"
 
-    def load_svg_image(self, svg_path, scale=1.0):
-        try:
-            svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
-            return ImageTk.getimage(svg_photo).convert("RGBA")
-        except (FileNotFoundError, ValueError) as e:
-            print(f"Error loading SVG image '{svg_path}': {e}")
-            return None
+            if can_use_x2:
+                if self.wildcard_manager.is_double_points_active():
+                    self.wildcard_x2_btn.configure(
+                        text=btn_text,
+                        fg_color=self.COLORS["wildcard_x2_active"],
+                        hover_color="#45A049",
+                        state="normal",
+                    )
+                else:
+                    self.wildcard_x2_btn.configure(
+                        text=btn_text,
+                        fg_color=self.COLORS["wildcard_x2"],
+                        hover_color=self.COLORS["wildcard_x2_hover"],
+                        state="normal",
+                    )
+            else:
+                self.wildcard_x2_btn.configure(
+                    text=btn_text,
+                    fg_color=self.COLORS["wildcard_disabled"],
+                    hover_color=self.COLORS["wildcard_disabled"],
+                    state="disabled",
+                )
+
+        # Hint Button
+        if self.wildcard_hint_btn:
+            can_use_hint = (
+                charges >= self.wildcard_manager.COST_REVEAL_LETTER
+                and not others_blocked
+            )
+            if can_use_hint:
+                self.wildcard_hint_btn.configure(
+                    fg_color=self.COLORS["wildcard_hint"],
+                    hover_color=self.COLORS["wildcard_hint_hover"],
+                    state="normal",
+                )
+            else:
+                self.wildcard_hint_btn.configure(
+                    fg_color=self.COLORS["wildcard_disabled"],
+                    hover_color=self.COLORS["wildcard_disabled"],
+                    state="disabled",
+                )
+
+        # Freeze Button
+        if self.wildcard_freeze_btn:
+            can_use_freeze = (
+                charges >= self.wildcard_manager.COST_FREEZE_TIMER
+                and not others_blocked
+                and not self.wildcard_manager.is_timer_frozen()
+            )
+            if self.wildcard_manager.is_timer_frozen():
+                self.wildcard_freeze_btn.configure(
+                    fg_color=self.COLORS["wildcard_x2_active"],
+                    hover_color=self.COLORS["wildcard_x2_active"],
+                    state="disabled",
+                )
+            elif can_use_freeze:
+                self.wildcard_freeze_btn.configure(
+                    fg_color=self.COLORS["wildcard_freeze"],
+                    hover_color=self.COLORS["wildcard_freeze_hover"],
+                    state="normal",
+                )
+            else:
+                self.wildcard_freeze_btn.configure(
+                    fg_color=self.COLORS["wildcard_disabled"],
+                    hover_color=self.COLORS["wildcard_disabled"],
+                    state="disabled",
+                )
+
+        self.update_charges_display()
+
+    def reset_wildcard_button_colors(self):
+        self.update_wildcard_buttons_state()
+
+    def reset_timer_visuals(self):
+        self.timer_frozen_visually = False
+        if self.timer_label:
+            self.timer_label.configure(text_color="white")
+        if self.timer_icon_label and self.clock_icon:
+            self.timer_icon_label.configure(image=self.clock_icon)
+
+    def apply_freeze_timer_visuals(self):
+        self.timer_frozen_visually = True
+        if self.timer_label:
+            self.timer_label.configure(text_color="#D0E7FF")
+        if self.timer_icon_label and self.freeze_icon:
+            self.timer_icon_label.configure(image=self.freeze_icon)
+
+    def apply_double_points_visuals(self, multiplier=2):
+        self.double_points_visually_active = True
+        if self.score_label:
+            self.score_label.configure(text_color=self.COLORS["warning_yellow"])
+        if self.multiplier_label:
+            self.multiplier_label.configure(text=f"X{multiplier}")
+            self.multiplier_label.grid()
+
+    def reset_double_points_visuals(self):
+        self.double_points_visually_active = False
+        if self.score_label:
+            self.score_label.configure(text_color="white")
+        if self.multiplier_label:
+            self.multiplier_label.grid_remove()
 
     def on_key_press(self, key):
         pass

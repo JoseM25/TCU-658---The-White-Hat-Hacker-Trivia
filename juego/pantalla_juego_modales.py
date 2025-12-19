@@ -5,42 +5,58 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.pantalla_juego_config import (
+    GAME_COLORS,
+    LEVEL_BADGE_COLORS,
+    MODAL_ANIMATION,
+    MODAL_BASE_SIZES,
+    MODAL_FONT_SPECS,
+)
+
 
 class ModalBase:
-    COLORS = {
-        "bg_light": "#F5F7FA",
-        "header_bg": "#202632",
-        "text_white": "#FFFFFF",
-        "text_dark": "#3A3F4B",
-        "text_medium": "#7A7A7A",
-        "primary_blue": "#005DFF",
-        "primary_hover": "#003BB8",
-        "success_green": "#00CFC5",
-        "warning_yellow": "#FFC553",
-        "danger_red": "#FF4F60",
-        "border_blue": "#1D6CFF",
-        "card_bg": "#FFFFFF",
-        "border_light": "#E2E7F3",
-        "master_purple": "#7C3AED",
-        "cancel_bg": "#D0D6E0",
-        "cancel_hover": "#B8C0D0",
-        "skip_bg": "#FF4F60",
-        "skip_hover": "#CC3F4D",
-    }
 
+    COLORS = GAME_COLORS
     IMAGES_DIR = os.path.join("recursos", "imagenes")
     SVG_RASTER_SCALE = 2.0
-    ANIMATION_DELAY_MS = 160
-    FADE_STEPS = 12
-    FADE_STEP_MS = 30
 
-    def __init__(self, parent):
+    # Animation settings
+    ANIMATION_DELAY_MS = MODAL_ANIMATION["delay_ms"]
+    FADE_STEPS = MODAL_ANIMATION["fade_steps"]
+    FADE_STEP_MS = MODAL_ANIMATION["fade_step_ms"]
+
+    def __init__(self, parent, initial_scale=1.0):
         self.parent = parent
         self.modal = None
         self.root = None
         self.animation_jobs = []
         self.animated_widgets = []
         self.widget_target_colors = {}
+        self.current_scale = initial_scale
+
+        # Widget references for resizing
+        self.resizable_widgets = {}
+        self.resizable_fonts = {}
+
+    def calculate_scale_factor(self, root):
+        if not root or not root.winfo_exists():
+            return 1.0
+
+        try:
+            width = root.winfo_width()
+            height = root.winfo_height()
+        except tk.TclError:
+            return 1.0
+
+        if width <= 1 or height <= 1:
+            return 1.0
+
+        # Base dimensions
+        base_w, base_h = 1280, 720
+
+        # Calculate scale
+        scale = min(width / base_w, height / base_h)
+        return max(0.5, min(2.2, scale))
 
     def create_modal(self, width, height, title):
         root = self.parent.winfo_toplevel() if self.parent else None
@@ -50,11 +66,13 @@ class ModalBase:
         self.modal.after_cancel(self.modal.after(0, lambda: None))
         self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))
 
+        # Get scaling for position calculation
         try:
             scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
         except (AttributeError, KeyError):
             scaling = 1.0
 
+        # Calculate position
         if root and root.winfo_width() > 1 and root.winfo_height() > 1:
             pos_x = root.winfo_rootx() + (root.winfo_width() - width) // 2
             pos_y = root.winfo_rooty() + (root.winfo_height() - height) // 2
@@ -72,6 +90,7 @@ class ModalBase:
         if root:
             self.modal.transient(root)
             self.modal.grab_set()
+
         self.modal.resizable(False, False)
         self.modal.configure(fg_color=self.COLORS["bg_light"])
         self.modal.grid_rowconfigure(0, weight=1)
@@ -79,13 +98,22 @@ class ModalBase:
 
         return root
 
+    def scale_value(self, base, scale=None, min_val=None, max_val=None):
+        s = scale or self.current_scale
+        value = base * s
+        if min_val is not None:
+            value = max(min_val, value)
+        if max_val is not None:
+            value = min(max_val, value)
+        return int(round(value))
+
     def create_container(self, corner_r, border_w):
         container = ctk.CTkFrame(
             self.modal,
             fg_color=self.COLORS["bg_light"],
             corner_radius=corner_r,
             border_width=border_w,
-            border_color=self.COLORS["border_blue"],
+            border_color="#1D6CFF",
         )
         container.grid(row=0, column=0, sticky="nsew")
         container.grid_rowconfigure(0, weight=0)
@@ -105,23 +133,28 @@ class ModalBase:
         header.grid_columnconfigure(0, weight=1)
         header.grid_rowconfigure(0, weight=1)
 
-        ctk.CTkLabel(
+        label = ctk.CTkLabel(
             header,
             text=title,
             font=title_font,
             text_color=self.COLORS["text_white"],
             anchor="center",
-        ).grid(row=0, column=0, sticky="nsew", padx=pad)
+        )
+        label.grid(row=0, column=0, sticky="nsew", padx=pad)
+
+        self.resizable_widgets["header"] = header
+        self.resizable_widgets["header_title"] = label
+        self.resizable_fonts["header_title"] = title_font
 
         return header
 
     def interpolate_color(self, start_hex, end_hex, progress):
-        sr, sg, sb = (
-            int(start_hex[1:3], 16),
-            int(start_hex[3:5], 16),
-            int(start_hex[5:7], 16),
-        )
-        er, eg, eb = int(end_hex[1:3], 16), int(end_hex[3:5], 16), int(end_hex[5:7], 16)
+        sr = int(start_hex[1:3], 16)
+        sg = int(start_hex[3:5], 16)
+        sb = int(start_hex[5:7], 16)
+        er = int(end_hex[1:3], 16)
+        eg = int(end_hex[3:5], 16)
+        eb = int(end_hex[5:7], 16)
         r = int(sr + (er - sr) * progress)
         g = int(sg + (eg - sg) * progress)
         b = int(sb + (eb - sb) * progress)
@@ -186,6 +219,7 @@ class ModalBase:
                     self.safe_try(modal.destroy)
             except tk.TclError:
                 pass
+
         self.modal = None
         self.root = None
 
@@ -195,16 +229,11 @@ class ModalBase:
         except tk.TclError:
             pass
 
+    def resize(self, scale):
+        self.current_scale = scale
+
 
 class GameCompletionModal(ModalBase):
-
-    LEVEL_BADGE_COLORS = {
-        "Beginner": ModalBase.COLORS["danger_red"],
-        "Student": ModalBase.COLORS["primary_blue"],
-        "Professional": ModalBase.COLORS["success_green"],
-        "Expert": "#CC9A42",
-        "Master": ModalBase.COLORS["master_purple"],
-    }
 
     def __init__(
         self,
@@ -215,8 +244,9 @@ class GameCompletionModal(ModalBase):
         on_previous_callback=None,
         has_previous=False,
         on_close_callback=None,
+        initial_scale=1.0,
     ):
-        super().__init__(parent)
+        super().__init__(parent, initial_scale)
         self.final_score = final_score
         self.total_questions = total_questions
         self.session_stats = session_stats or {}
@@ -231,15 +261,30 @@ class GameCompletionModal(ModalBase):
             return
 
         root = self.parent.winfo_toplevel() if self.parent else None
-        base_w, base_h = 560, 520
 
-        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            width = max(int(root.winfo_width() * 0.42), 480)
-            height = max(int(root.winfo_height() * 0.52), 400)
+        # Calculate scale from root
+        self.current_scale = self.calculate_scale_factor(root)
+        scale = self.current_scale
+
+        # Calculate dimensions based on scale
+        base_w, base_h = (
+            MODAL_BASE_SIZES["completion_width"],
+            MODAL_BASE_SIZES["completion_height"],
+        )
+
+        if root and root.winfo_width() > 1:
+            width = max(
+                int(root.winfo_width() * MODAL_BASE_SIZES["completion_width_ratio"]),
+                480,
+            )
+            height = max(
+                int(root.winfo_height() * MODAL_BASE_SIZES["completion_height_ratio"]),
+                400,
+            )
         else:
             width, height = base_w, base_h
 
-        scale = min(width / base_w, height / base_h) * 0.90
+        # Calculate sizes
         sizes = self._calc_sizes(scale)
 
         self.create_modal(width, height, "Game Complete")
@@ -272,39 +317,53 @@ class GameCompletionModal(ModalBase):
     def _calc_sizes(self, scale):
         return {
             "title_font": ctk.CTkFont(
-                family="Poppins ExtraBold", size=max(int(28 * scale), 18), weight="bold"
+                family="Poppins ExtraBold",
+                size=self.scale_value(28, scale, 18, 48),
+                weight="bold",
             ),
             "message_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(16 * scale), 12), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(16, scale, 12, 28),
+                weight="bold",
             ),
             "score_font": ctk.CTkFont(
-                family="Poppins ExtraBold", size=max(int(54 * scale), 32), weight="bold"
+                family="Poppins ExtraBold",
+                size=self.scale_value(54, scale, 32, 96),
+                weight="bold",
             ),
             "label_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(15, scale, 11, 26),
+                weight="bold",
             ),
             "value_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(15, scale, 11, 26),
+                weight="bold",
             ),
             "badge_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(14 * scale), 10), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(14, scale, 10, 24),
+                weight="bold",
             ),
             "footnote_font": ctk.CTkFont(
-                family="Open Sans Regular", size=max(int(13 * scale), 10)
+                family="Open Sans Regular", size=self.scale_value(13, scale, 10, 22)
             ),
             "button_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(17 * scale), 13), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(17, scale, 13, 28),
+                weight="bold",
             ),
-            "header_h": max(int(72 * scale), 48),
-            "btn_w": max(int(180 * scale), 120),
-            "btn_h": max(int(46 * scale), 34),
-            "btn_r": max(int(12 * scale), 8),
-            "pad": max(int(24 * scale), 14),
-            "row_pad": max(int(10 * scale), 6),
-            "corner_r": max(int(16 * scale), 12),
-            "border_w": max(int(3 * scale), 2),
-            "card_corner_r": max(int(14 * scale), 10),
-            "star_size": max(int(32 * scale), 20),
+            "header_h": self.scale_value(72, scale, 48, 120),
+            "btn_w": self.scale_value(180, scale, 120, 300),
+            "btn_h": self.scale_value(46, scale, 34, 76),
+            "btn_r": self.scale_value(12, scale, 8, 20),
+            "pad": self.scale_value(24, scale, 14, 40),
+            "row_pad": self.scale_value(10, scale, 6, 18),
+            "corner_r": self.scale_value(16, scale, 12, 28),
+            "border_w": self.scale_value(3, scale, 2, 5),
+            "card_corner_r": self.scale_value(14, scale, 10, 24),
+            "star_size": self.scale_value(32, scale, 20, 56),
             "scale": scale,
         }
 
@@ -333,27 +392,27 @@ class GameCompletionModal(ModalBase):
         streak = to_int(stats.get("highest_streak", stats.get("clean_streak")), 0)
         grace = to_int(stats.get("grace_period_seconds", 5), 5)
 
-        # Get mastery percentage and knowledge level
         mastery_pct = stats.get("mastery_pct", 0.0)
         try:
             mastery_pct = float(mastery_pct)
         except (TypeError, ValueError):
             mastery_pct = 0.0
+
         knowledge_level = stats.get(
             "knowledge_level", self._knowledge_level_from_pct(mastery_pct)
         )
-        level_color = self.LEVEL_BADGE_COLORS.get(
-            knowledge_level, self.COLORS["text_medium"]
-        )
+        level_color = LEVEL_BADGE_COLORS.get(knowledge_level, self.COLORS["text_light"])
 
+        # Completion message
         ctk.CTkLabel(
             content,
             text="You've completed all questions!",
             font=s["message_font"],
-            text_color=self.COLORS["text_medium"],
+            text_color=self.COLORS["text_light"],
             anchor="center",
         ).grid(row=0, column=0, pady=(0, s["row_pad"]))
 
+        # Score display
         score_frame = ctk.CTkFrame(content, fg_color="transparent")
         score_frame.grid(row=1, column=0, pady=(0, s["row_pad"]))
 
@@ -365,20 +424,22 @@ class GameCompletionModal(ModalBase):
             font=ctk.CTkFont(family="Segoe UI Symbol", size=s["star_size"]),
             text_color=self.COLORS["warning_yellow"],
         ).grid(row=0, column=0, padx=(0, 12))
+
         ctk.CTkLabel(
             score_frame,
             text=str(self.final_score),
             font=s["score_font"],
             text_color=self.COLORS["success_green"],
         ).grid(row=0, column=1)
+
         ctk.CTkLabel(
             score_frame,
             text="points",
             font=s["message_font"],
-            text_color=self.COLORS["text_medium"],
+            text_color=self.COLORS["text_light"],
         ).grid(row=0, column=2, padx=(8, 0), sticky="s", pady=(0, 6))
 
-        # Knowledge Level Badge (after score)
+        # Knowledge level badge
         badge_frame = ctk.CTkFrame(content, fg_color="transparent")
         badge_frame.grid(row=2, column=0, pady=(0, s["row_pad"]))
 
@@ -402,12 +463,13 @@ class GameCompletionModal(ModalBase):
             badge_frame,
             text=f"({mastery_pct:.1f}%)",
             font=s["badge_font"],
-            text_color=self.COLORS["text_medium"],
+            text_color=self.COLORS["text_light"],
         ).grid(row=0, column=2)
 
+        # Stats card
         stats_card = ctk.CTkFrame(
             content,
-            fg_color=self.COLORS["card_bg"],
+            fg_color=self.COLORS["bg_card"],
             corner_radius=s["card_corner_r"],
             border_width=1,
             border_color=self.COLORS["border_light"],
@@ -426,7 +488,7 @@ class GameCompletionModal(ModalBase):
             ("Correct", str(correct), self.COLORS["success_green"]),
             ("Skipped", str(skipped), self.COLORS["warning_yellow"]),
             ("Errors", str(errors), self.COLORS["danger_red"]),
-            ("Highest streak", str(streak), self.COLORS["master_purple"]),
+            ("Highest streak", str(streak), self.COLORS["level_master"]),
         ]
 
         self.animated_widgets.clear()
@@ -453,6 +515,7 @@ class GameCompletionModal(ModalBase):
 
             self.animated_widgets.append((lw, vw))
 
+        # Grace period note
         grace_text = (
             f"You get the first {grace} seconds free to read the clue. "
             "Time-based scoring starts after that."
@@ -461,12 +524,13 @@ class GameCompletionModal(ModalBase):
             content,
             text=grace_text,
             font=s["footnote_font"],
-            text_color=self.COLORS["text_medium"],
+            text_color=self.COLORS["text_light"],
             justify="center",
             anchor="center",
             wraplength=int(width * 0.82),
         ).grid(row=4, column=0, pady=(0, s["pad"] // 2))
 
+        # Buttons
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
         btn_container.grid(row=5, column=0, pady=(s["pad"] // 2, 0))
 
@@ -506,11 +570,9 @@ class GameCompletionModal(ModalBase):
             os.path.join(self.IMAGES_DIR, "star.svg"), self.SVG_RASTER_SCALE
         )
         if img:
-            r, g, b = (
-                int(self.COLORS["warning_yellow"][1:3], 16),
-                int(self.COLORS["warning_yellow"][3:5], 16),
-                int(self.COLORS["warning_yellow"][5:7], 16),
-            )
+            r = int(self.COLORS["warning_yellow"][1:3], 16)
+            g = int(self.COLORS["warning_yellow"][3:5], 16)
+            b = int(self.COLORS["warning_yellow"][5:7], 16)
             ir, ig, ib, ia = img.split()
             img = Image.merge(
                 "RGBA",
@@ -526,7 +588,6 @@ class GameCompletionModal(ModalBase):
             )
 
     def _knowledge_level_from_pct(self, mastery_pct):
-        """Determine knowledge level from mastery percentage (fallback if not in stats)."""
         pct = max(0.0, min(100.0, float(mastery_pct)))
         if pct < 40:
             return "Beginner"
@@ -548,6 +609,10 @@ class GameCompletionModal(ModalBase):
         if self.on_close_callback:
             self.on_close_callback()
 
+    def resize(self, scale):
+        super().resize(scale)
+        # Modal is recreated on next show, no live resize needed
+
 
 class QuestionSummaryModal(ModalBase):
 
@@ -568,8 +633,9 @@ class QuestionSummaryModal(ModalBase):
         streak_multiplier=1.0,
         charges_earned=0,
         charges_max_reached=False,
+        initial_scale=1.0,
     ):
-        super().__init__(parent)
+        super().__init__(parent, initial_scale)
         self.correct_word = correct_word
         self.time_taken = time_taken
         self.points_awarded = points_awarded
@@ -592,20 +658,24 @@ class QuestionSummaryModal(ModalBase):
 
         root = self.parent.winfo_toplevel() if self.parent else None
 
-        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            width, height = int(root.winfo_width() * 0.38), int(
-                root.winfo_height() * 0.56
-            )
-        else:
-            width, height = 450, 420
+        # Calculate scale
+        self.current_scale = self.calculate_scale_factor(root)
+        scale = self.current_scale
 
-        scale = min(width / 450, height / 340) * 0.75
-        s = self._calc_sizes(scale)
+        # Calculate dimensions
+        if root and root.winfo_width() > 1:
+            width = int(root.winfo_width() * MODAL_BASE_SIZES["summary_width_ratio"])
+            height = int(root.winfo_height() * MODAL_BASE_SIZES["summary_height_ratio"])
+        else:
+            width = MODAL_BASE_SIZES["summary_width"]
+            height = MODAL_BASE_SIZES["summary_height"]
+
+        sizes = self._calc_sizes(scale)
 
         self.create_modal(width, height, "Summary")
-        container = self.create_container(s["corner_r"], s["border_w"])
+        container = self.create_container(sizes["corner_r"], sizes["border_w"])
         self.create_header(
-            container, "Summary", s["title_font"], s["header_h"], s["pad"]
+            container, "Summary", sizes["title_font"], sizes["header_h"], sizes["pad"]
         )
 
         content_wrapper = ctk.CTkFrame(
@@ -619,31 +689,26 @@ class QuestionSummaryModal(ModalBase):
         content.grid(row=0, column=0, sticky="")
         content.grid_columnconfigure(0, weight=1)
 
-        # Build points display with optional multiplier
+        # Build data rows
         points_display = str(self.points_awarded)
-        if self.multiplier > 1:
-            points_display = f"{self.points_awarded}"
-
-        # Format streak display with multiplier
         streak_display = f"{self.streak} ({self.streak_multiplier:.2f}x)"
 
-        # Format charges won display
         if self.charges_earned > 0:
             charges_display = f"+{self.charges_earned}"
             charges_color = self.COLORS["warning_yellow"]
         elif self.charges_max_reached:
             charges_display = "0 (max reached)"
-            charges_color = self.COLORS["text_medium"]
+            charges_color = self.COLORS["text_light"]
         else:
             charges_display = "0"
-            charges_color = self.COLORS["text_medium"]
+            charges_color = self.COLORS["text_light"]
 
         rows = [
             ("Correct Word:", self.correct_word, self.COLORS["primary_blue"]),
             ("Time Taken:", f"{self.time_taken}s", self.COLORS["primary_blue"]),
             ("Points Awarded:", points_display, self.COLORS["primary_blue"]),
             ("Total Score:", str(self.total_score), self.COLORS["primary_blue"]),
-            ("Streak:", streak_display, "#673AB7"),
+            ("Streak:", streak_display, self.COLORS["level_master"]),
             ("Charges won:", charges_display, charges_color),
         ]
 
@@ -653,30 +718,33 @@ class QuestionSummaryModal(ModalBase):
 
         for i, (lbl, val, clr) in enumerate(rows):
             lw = ctk.CTkLabel(
-                content, text=lbl, font=s["label_font"], text_color=bg, anchor="center"
+                content,
+                text=lbl,
+                font=sizes["label_font"],
+                text_color=bg,
+                anchor="center",
             )
-            lw.grid(row=i * 2, column=0, pady=(s["row_pad"], 0))
+            lw.grid(row=i * 2, column=0, pady=(sizes["row_pad"], 0))
             self.widget_target_colors[id(lw)] = self.COLORS["text_dark"]
 
-            # Special handling for Points Awarded row to show multiplier badge
+            # Special handling for Points Awarded with multiplier
             if lbl == "Points Awarded:" and self.multiplier > 1:
                 value_frame = ctk.CTkFrame(content, fg_color="transparent")
-                value_frame.grid(row=i * 2 + 1, column=0, pady=(0, s["row_pad"]))
+                value_frame.grid(row=i * 2 + 1, column=0, pady=(0, sizes["row_pad"]))
 
                 vw = ctk.CTkLabel(
                     value_frame,
                     text=val,
-                    font=s["value_font"],
+                    font=sizes["value_font"],
                     text_color=bg,
                     anchor="center",
                 )
                 vw.grid(row=0, column=0)
                 self.widget_target_colors[id(vw)] = clr
 
-                # Multiplier badge
                 mult_font = ctk.CTkFont(
                     family="Poppins ExtraBold",
-                    size=max(int(13 * s.get("scale", 1)), 10),
+                    size=self.scale_value(13, scale, 10, 22),
                     weight="bold",
                 )
                 mult_label = ctk.CTkLabel(
@@ -691,79 +759,78 @@ class QuestionSummaryModal(ModalBase):
                     "warning_yellow"
                 ]
 
-                # Add multiplier label to animation (paired with value widget)
                 self.animated_widgets.append((lw, vw))
-                # Animate multiplier separately with a dummy pair
                 self.animated_widgets.append((mult_label, mult_label))
             else:
                 vw = ctk.CTkLabel(
                     content,
                     text=val,
-                    font=s["value_font"],
+                    font=sizes["value_font"],
                     text_color=bg,
                     anchor="center",
                 )
-                vw.grid(row=i * 2 + 1, column=0, pady=(0, s["row_pad"]))
+                vw.grid(row=i * 2 + 1, column=0, pady=(0, sizes["row_pad"]))
                 self.widget_target_colors[id(vw)] = clr
 
                 self.animated_widgets.append((lw, vw))
 
+        # Buttons
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
-        btn_container.grid(row=12, column=0, pady=(s["pad"], 0))
+        btn_container.grid(row=12, column=0, pady=(sizes["pad"], 0))
         btn_container.grid_columnconfigure((0, 1, 2), weight=1)
 
         ctk.CTkButton(
             btn_container,
             text="Previous",
-            font=s["button_font"],
+            font=sizes["button_font"],
             fg_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
             hover_color=self.COLORS["header_bg"] if self.has_previous else "#E8E8E8",
             text_color=self.COLORS["text_white"] if self.has_previous else "#AAAAAA",
             command=self.handle_previous if self.has_previous else None,
             state="normal" if self.has_previous else "disabled",
-            width=s["btn_w"],
-            height=s["btn_h"],
-            corner_radius=s["btn_r"],
-        ).grid(row=0, column=0, padx=(0, s["pad"] // 2))
+            width=sizes["btn_w"],
+            height=sizes["btn_h"],
+            corner_radius=sizes["btn_r"],
+        ).grid(row=0, column=0, padx=(0, sizes["pad"] // 2))
 
         ctk.CTkButton(
             btn_container,
             text="Close",
-            font=s["button_font"],
+            font=sizes["button_font"],
             fg_color="#D0D6E0",
             hover_color="#B8C0D0",
             text_color=self.COLORS["text_white"],
             command=self.handle_close,
-            width=s["btn_w"],
-            height=s["btn_h"],
-            corner_radius=s["btn_r"],
-        ).grid(row=0, column=1, padx=(s["pad"] // 2, s["pad"] // 2))
+            width=sizes["btn_w"],
+            height=sizes["btn_h"],
+            corner_radius=sizes["btn_r"],
+        ).grid(row=0, column=1, padx=sizes["pad"] // 2)
 
         ctk.CTkButton(
             btn_container,
             text="Next Question",
-            font=s["button_font"],
+            font=sizes["button_font"],
             fg_color=self.COLORS["primary_blue"],
             hover_color=self.COLORS["primary_hover"],
             text_color=self.COLORS["text_white"],
             command=self.handle_next,
-            width=s["btn_w"],
-            height=s["btn_h"],
-            corner_radius=s["btn_r"],
-        ).grid(row=0, column=2, padx=(s["pad"] // 2, 0))
+            width=sizes["btn_w"],
+            height=sizes["btn_h"],
+            corner_radius=sizes["btn_r"],
+        ).grid(row=0, column=2, padx=(sizes["pad"] // 2, 0))
 
         ctk.CTkButton(
             btn_container,
             text="Main Menu",
-            font=s["button_font"],
-            fg_color="#202632",
+            font=sizes["button_font"],
+            fg_color=self.COLORS["header_bg"],
             hover_color="#2D3444",
             text_color=self.COLORS["text_white"],
             command=self.handle_main_menu,
-            width=s["btn_w"],
-            height=s["btn_h"],
-            corner_radius=s["btn_r"],
-        ).grid(row=1, column=0, columnspan=3, pady=(s["pad"] // 2, 0))
+            width=sizes["btn_w"],
+            height=sizes["btn_h"],
+            corner_radius=sizes["btn_r"],
+        ).grid(row=1, column=0, columnspan=3, pady=(sizes["pad"] // 2, 0))
 
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
         self.modal.bind("<Escape>", lambda e: self.handle_close())
@@ -774,25 +841,33 @@ class QuestionSummaryModal(ModalBase):
     def _calc_sizes(self, scale):
         return {
             "title_font": ctk.CTkFont(
-                family="Poppins ExtraBold", size=max(int(26 * scale), 16), weight="bold"
+                family="Poppins ExtraBold",
+                size=self.scale_value(26, scale, 16, 44),
+                weight="bold",
             ),
             "label_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(15, scale, 11, 26),
+                weight="bold",
             ),
             "value_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(15 * scale), 11), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(15, scale, 11, 26),
+                weight="bold",
             ),
             "button_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(16 * scale), 12), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(16, scale, 12, 28),
+                weight="bold",
             ),
-            "header_h": max(int(66 * scale), 44),
-            "btn_w": max(int(150 * scale), 100),
-            "btn_h": max(int(44 * scale), 32),
-            "btn_r": max(int(12 * scale), 8),
-            "pad": max(int(20 * scale), 12),
-            "row_pad": max(int(6 * scale), 4),
-            "corner_r": max(int(16 * scale), 12),
-            "border_w": max(int(3 * scale), 2),
+            "header_h": self.scale_value(66, scale, 44, 110),
+            "btn_w": self.scale_value(150, scale, 100, 250),
+            "btn_h": self.scale_value(44, scale, 32, 72),
+            "btn_r": self.scale_value(12, scale, 8, 20),
+            "pad": self.scale_value(20, scale, 12, 36),
+            "row_pad": self.scale_value(6, scale, 4, 12),
+            "corner_r": self.scale_value(16, scale, 12, 28),
+            "border_w": self.scale_value(3, scale, 2, 5),
             "scale": scale,
         }
 
@@ -819,8 +894,8 @@ class QuestionSummaryModal(ModalBase):
 
 class SkipConfirmationModal(ModalBase):
 
-    def __init__(self, parent, on_skip_callback):
-        super().__init__(parent)
+    def __init__(self, parent, on_skip_callback, initial_scale=1.0):
+        super().__init__(parent, initial_scale)
         self.on_skip_callback = on_skip_callback
 
     def show(self):
@@ -830,20 +905,28 @@ class SkipConfirmationModal(ModalBase):
 
         root = self.parent.winfo_toplevel() if self.parent else None
 
-        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            width, height = int(root.winfo_width() * 0.35), int(
-                root.winfo_height() * 0.35
-            )
-        else:
-            width, height = 400, 200
+        # Calculate scale
+        self.current_scale = self.calculate_scale_factor(root)
+        scale = self.current_scale
 
-        scale = min(width / 400, height / 200) * 0.6
-        s = self._calc_sizes(scale)
+        # Calculate dimensions
+        if root and root.winfo_width() > 1:
+            width = int(root.winfo_width() * MODAL_BASE_SIZES["skip_width_ratio"])
+            height = int(root.winfo_height() * MODAL_BASE_SIZES["skip_height_ratio"])
+        else:
+            width = MODAL_BASE_SIZES["skip_width"]
+            height = MODAL_BASE_SIZES["skip_height"]
+
+        sizes = self._calc_sizes(scale)
 
         self.create_modal(width, height, "Skip Question")
-        container = self.create_container(s["corner_r"], s["border_w"])
+        container = self.create_container(sizes["corner_r"], sizes["border_w"])
         self.create_header(
-            container, "Skip Question", s["title_font"], s["header_h"], s["pad"]
+            container,
+            "Skip Question",
+            sizes["title_font"],
+            sizes["header_h"],
+            sizes["pad"],
         )
 
         content_wrapper = ctk.CTkFrame(
@@ -857,41 +940,41 @@ class SkipConfirmationModal(ModalBase):
         ctk.CTkLabel(
             content_wrapper,
             text="Are you sure you want to skip the question? No points will be awarded.",
-            font=s["body_font"],
+            font=sizes["body_font"],
             text_color=self.COLORS["text_dark"],
             justify="center",
             anchor="center",
             wraplength=int(width * 0.8),
-        ).grid(row=0, column=0, sticky="nsew", pady=s["pad"], padx=s["pad"])
+        ).grid(row=0, column=0, sticky="nsew", pady=sizes["pad"], padx=sizes["pad"])
 
         btn_frame = ctk.CTkFrame(content_wrapper, fg_color="transparent")
-        btn_frame.grid(row=1, column=0, pady=(0, s["pad"]))
+        btn_frame.grid(row=1, column=0, pady=(0, sizes["pad"]))
 
         ctk.CTkButton(
             btn_frame,
             text="Cancel",
-            font=s["button_font"],
-            fg_color=self.COLORS["cancel_bg"],
-            hover_color=self.COLORS["cancel_hover"],
+            font=sizes["button_font"],
+            fg_color="#D0D6E0",
+            hover_color="#B8C0D0",
             text_color=self.COLORS["text_white"],
             command=self.close,
-            width=s["btn_w"],
-            height=s["btn_h"],
-            corner_radius=s["btn_r"],
-        ).grid(row=0, column=0, padx=(0, s["pad"]))
+            width=sizes["btn_w"],
+            height=sizes["btn_h"],
+            corner_radius=sizes["btn_r"],
+        ).grid(row=0, column=0, padx=(0, sizes["pad"]))
 
         ctk.CTkButton(
             btn_frame,
             text="Skip",
-            font=s["button_font"],
-            fg_color=self.COLORS["skip_bg"],
-            hover_color=self.COLORS["skip_hover"],
+            font=sizes["button_font"],
+            fg_color=self.COLORS["danger_red"],
+            hover_color=self.COLORS["danger_hover"],
             text_color=self.COLORS["text_white"],
             command=self.handle_skip,
-            width=s["btn_w"],
-            height=s["btn_h"],
-            corner_radius=s["btn_r"],
-        ).grid(row=0, column=1, padx=(s["pad"], 0))
+            width=sizes["btn_w"],
+            height=sizes["btn_h"],
+            corner_radius=sizes["btn_r"],
+        ).grid(row=0, column=1, padx=(sizes["pad"], 0))
 
         self.modal.protocol("WM_DELETE_WINDOW", self.close)
         self.modal.bind("<Escape>", lambda e: self.close())
@@ -899,21 +982,27 @@ class SkipConfirmationModal(ModalBase):
     def _calc_sizes(self, scale):
         return {
             "title_font": ctk.CTkFont(
-                family="Poppins ExtraBold", size=max(int(24 * scale), 16), weight="bold"
+                family="Poppins ExtraBold",
+                size=self.scale_value(24, scale, 16, 40),
+                weight="bold",
             ),
             "body_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(16 * scale), 12), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(16, scale, 12, 28),
+                weight="bold",
             ),
             "button_font": ctk.CTkFont(
-                family="Poppins SemiBold", size=max(int(16 * scale), 12), weight="bold"
+                family="Poppins SemiBold",
+                size=self.scale_value(16, scale, 12, 28),
+                weight="bold",
             ),
-            "header_h": max(int(72 * scale), 48),
-            "btn_w": max(int(120 * scale), 80),
-            "btn_h": max(int(44 * scale), 32),
-            "btn_r": max(int(12 * scale), 8),
-            "pad": max(int(24 * scale), 16),
-            "corner_r": max(int(16 * scale), 12),
-            "border_w": max(int(3 * scale), 2),
+            "header_h": self.scale_value(72, scale, 48, 120),
+            "btn_w": self.scale_value(120, scale, 80, 200),
+            "btn_h": self.scale_value(44, scale, 32, 72),
+            "btn_r": self.scale_value(12, scale, 8, 20),
+            "pad": self.scale_value(24, scale, 16, 40),
+            "corner_r": self.scale_value(16, scale, 12, 28),
+            "border_w": self.scale_value(3, scale, 2, 5),
         }
 
     def handle_skip(self):
