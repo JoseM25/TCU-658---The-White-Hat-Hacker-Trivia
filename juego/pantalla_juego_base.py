@@ -125,6 +125,7 @@ class GameScreenBase:
         self.delete_icon = None
         self.timer_icon_label = None
         self.star_icon_label = None
+        self.multiplier_label = None
         self.freeze_icon = None
         self.timer_frozen_visually = False
         self.double_points_visually_active = False
@@ -303,10 +304,16 @@ class GameScreenBase:
             self.score_container, text="0", font=self.score_font, text_color="white"
         )
         self.score_label.grid(row=0, column=1)
-        # Spacer mirrors the icon+gap so the score text stays visually centered.
-        ctk.CTkLabel(self.score_container, text="", width=star_sz + 8).grid(
-            row=0, column=2
+        # Multiplier label on the right (hidden by default, shown when double points active)
+        self.multiplier_label = ctk.CTkLabel(
+            self.score_container,
+            text="",
+            font=ctk.CTkFont(family="Poppins ExtraBold", size=20, weight="bold"),
+            text_color=self.COLORS["warning_yellow"],
+            width=star_sz + 8,
         )
+        self.multiplier_label.grid(row=0, column=2, padx=(8, 0))
+        self.multiplier_label.grid_remove()  # Hidden by default
 
         # Right: mute toggle
         self.audio_container = ctk.CTkFrame(
@@ -746,28 +753,21 @@ class GameScreenBase:
             self.timer_icon_label.configure(image=self.freeze_icon)
 
     def apply_double_points_visuals(self, multiplier=2):
-        """Apply double points visual state to score (yellow color and multiplier text)."""
+        """Apply double points visual state to score (yellow color and multiplier on right)."""
         self.double_points_visually_active = True
         if self.score_label:
             self.score_label.configure(text_color=self.COLORS["warning_yellow"])
-        if self.star_icon_label:
-            self.star_icon_label.configure(
-                image=None,
-                text=f"X{multiplier}",
-                font=ctk.CTkFont(family="Poppins ExtraBold", size=20, weight="bold"),
-                text_color=self.COLORS["warning_yellow"],
-            )
+        if self.multiplier_label:
+            self.multiplier_label.configure(text=f"X{multiplier}")
+            self.multiplier_label.grid()  # Show the multiplier label
 
     def reset_double_points_visuals(self):
-        """Reset score appearance to default (white color and star icon)."""
+        """Reset score appearance to default (white color and hide multiplier)."""
         self.double_points_visually_active = False
         if self.score_label:
             self.score_label.configure(text_color="white")
-        if self.star_icon_label and self.star_icon:
-            self.star_icon_label.configure(
-                image=self.star_icon,
-                text="",
-            )
+        if self.multiplier_label:
+            self.multiplier_label.grid_remove()  # Hide the multiplier label
 
     def build_keyboard(self):
         self.keyboard_frame = ctk.CTkFrame(self.main, fg_color="transparent")
