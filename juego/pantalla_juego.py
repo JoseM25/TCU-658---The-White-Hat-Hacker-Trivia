@@ -46,6 +46,7 @@ class GameScreen(GameScreenLogic):
 
         # Update size state
         self.size_state = self.size_calc.calculate_sizes(scale, width, height)
+        self._apply_keyboard_scale_profile(height)
         needed_height = self._estimate_layout_height(self.size_state)
         if needed_height > height:
             fit_ratio = height / needed_height
@@ -53,6 +54,7 @@ class GameScreen(GameScreenLogic):
                 self.scaler.min_scale, min(self.scaler.max_scale, scale * fit_ratio)
             )
             self.size_state = self.size_calc.calculate_sizes(fit_scale, width, height)
+            self._apply_keyboard_scale_profile(height)
             scale = fit_scale
             needed_height = self._estimate_layout_height(self.size_state)
         self._apply_keyboard_squeeze(needed_height, height)
@@ -133,19 +135,39 @@ class GameScreen(GameScreenLogic):
 
         question_height = max(left_height, wildcards_height)
 
-        keyboard_height = 3 * (
-            sizes["key_size"] + sizes["key_row_gap"] * 2
-        ) + sizes["keyboard_pad_y"]
+        keyboard_scale = sizes.get("keyboard_scale", 1.0)
+        key_size = max(1, int(round(sizes["key_size"] * keyboard_scale)))
+        key_row_gap = max(0, int(round(sizes["key_row_gap"] * keyboard_scale)))
+        keyboard_pad_y = max(0, int(round(sizes["keyboard_pad_y"] * keyboard_scale)))
+        keyboard_height = 3 * (key_size + key_row_gap * 2) + keyboard_pad_y
         action_height = sizes["action_button_height"] + self.scale_value(
             24, scale, 12, 48
         )
 
-        return header_h + container_pad + question_height + keyboard_height + action_height
+        return (
+            header_h + container_pad + question_height + keyboard_height + action_height
+        )
 
     def _estimate_keyboard_height(self, sizes):
-        return 3 * (
-            sizes["key_size"] + sizes["key_row_gap"] * 2
-        ) + sizes["keyboard_pad_y"]
+        keyboard_scale = sizes.get("keyboard_scale", 1.0)
+        key_size = max(1, int(round(sizes["key_size"] * keyboard_scale)))
+        key_row_gap = max(0, int(round(sizes["key_row_gap"] * keyboard_scale)))
+        keyboard_pad_y = max(0, int(round(sizes["keyboard_pad_y"] * keyboard_scale)))
+        return 3 * (key_size + key_row_gap * 2) + keyboard_pad_y
+
+    def _apply_keyboard_scale_profile(self, height):
+        try:
+            scaling = float(self.parent.tk.call("tk", "scaling"))
+        except (tk.TclError, TypeError, ValueError):
+            scaling = 1.0
+        if scaling <= 0:
+            scaling = 1.0
+        logical_height = int(round(height / scaling))
+        profile = GAME_PROFILES.get("keyboard_scale", [])
+        keyboard_scale = self.scaler.interpolate_profile(logical_height, profile)
+        keyboard_scale = self.scaler.clamp_value(keyboard_scale, 0.5, 1.0)
+        if self.size_state is not None:
+            self.size_state["keyboard_scale"] = keyboard_scale
 
     def _apply_keyboard_squeeze(self, needed_height, height):
         if not self.size_state:
@@ -156,21 +178,14 @@ class GameScreen(GameScreenLogic):
         if kb_height <= 0:
             return
 
+        overflow = needed_height - height
+        if overflow <= 0:
+            return
+
         is_compact = sizes.get("is_height_constrained", False)
-        overflow = max(0, needed_height - height)
-
-        # Always shrink keyboard a bit on height-constrained screens (720p class)
-        base_squeeze = 1.0
-        if is_compact:
-            base_squeeze = 0.88 if height <= 720 else 0.92
-
-        squeeze = base_squeeze
-        if overflow > 0:
-            min_ratio = 0.72 if is_compact else 0.8
-            target_height = max(kb_height - overflow, kb_height * min_ratio)
-            overflow_squeeze = max(min_ratio, min(1.0, target_height / kb_height))
-            squeeze = min(squeeze, overflow_squeeze)
-
+        min_ratio = 0.72 if is_compact else 0.8
+        target_height = max(kb_height - overflow, kb_height * min_ratio)
+        squeeze = max(min_ratio, min(1.0, target_height / kb_height))
         if squeeze >= 0.999:
             return
 
@@ -381,27 +396,22 @@ class GameScreen(GameScreenLogic):
         key_row_gap = sizes["key_row_gap"]
         keyboard_pad = sizes["keyboard_pad"]
         keyboard_pad_y = sizes["keyboard_pad_y"]
-
-        # Force an obvious keyboard shrink on small screens.
-        height = self.current_window_height
-        keyboard_scale = 0.85 if height <= 1200 else 1.0
+        keyboard_scale = sizes.get("keyboard_scale", 1.0)
 
         if keyboard_scale < 1.0:
-            key_sz = max(6, int(round(key_sz * keyboard_scale)))
-            key_gap = max(0, int(round(key_gap * keyboard_scale)))
-            key_row_gap = max(0, int(round(key_row_gap * keyboard_scale)))
+            key_sz = max(10, int(round(key_sz * keyboard_scale)))
+            key_gap = max(1, int(round(key_gap * keyboard_scale)))
+            key_row_gap = max(1, int(round(key_row_gap * keyboard_scale)))
             keyboard_pad = max(0, int(round(keyboard_pad * keyboard_scale)))
-            keyboard_pad_y = max(0, int(round(keyboard_pad_y * keyboard_scale)))
-            delete_scale = keyboard_scale
-            sizes["delete_icon"] = max(
-                6, int(round(sizes["delete_icon"] * delete_scale))
-            )
-
+            keyboard_pad_y = max(2, int(round(keyboard_pad_y * keyboard_scale)))
             scale = sizes.get("scale", 1.0)
             base_size = self.font_base_sizes.get("keyboard", 18)
             min_size = self.font_min_sizes.get("keyboard", 10)
-            new_size = max(6, int(round(base_size * scale * keyboard_scale)))
+            new_size = max(min_size, int(round(base_size * scale * keyboard_scale)))
             self.keyboard_font.configure(size=new_size)
+            delete_icon_sz = max(8, int(round(sizes["delete_icon"] * keyboard_scale)))
+        else:
+            delete_icon_sz = sizes["delete_icon"]
         delete_width = int(key_sz * sizes["delete_key_width_ratio"])
 
         if self.keyboard_frame and self.keyboard_frame.winfo_exists():
@@ -424,8 +434,7 @@ class GameScreen(GameScreenLogic):
 
         # Update delete icon size
         if self.delete_icon:
-            del_sz = sizes["delete_icon"]
-            self.delete_icon.configure(size=(del_sz, del_sz))
+            self.delete_icon.configure(size=(delete_icon_sz, delete_icon_sz))
 
     def _update_action_buttons(self, scale):
         sizes = self.size_state

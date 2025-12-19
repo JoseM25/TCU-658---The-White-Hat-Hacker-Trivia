@@ -209,6 +209,15 @@ GAME_KEY_SIZE_PROFILE = [
     (3840, 90),
 ]
 
+# Keyboard scale profile (height-based) to keep the keyboard compact on smaller screens
+GAME_KEYBOARD_SCALE_PROFILE = [
+    (720, 0.85),
+    (900, 0.92),
+    (1080, 1.00),
+    (1440, 1.00),
+    (2160, 1.00),
+]
+
 # Keyboard horizontal padding profile
 GAME_KEYBOARD_PAD_PROFILE = [
     (720, 80),
@@ -557,6 +566,7 @@ GAME_PROFILES = {
     "image_size": GAME_IMAGE_SIZE_PROFILE,
     "answer_box": GAME_ANSWER_BOX_PROFILE,
     "key_size": GAME_KEY_SIZE_PROFILE,
+    "keyboard_scale": GAME_KEYBOARD_SCALE_PROFILE,
     "keyboard_pad": GAME_KEYBOARD_PAD_PROFILE,
     "definition_wrap": GAME_DEFINITION_WRAP_PROFILE,
     "action_button": GAME_ACTION_BUTTON_PROFILE,
