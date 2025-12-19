@@ -238,8 +238,8 @@ class GameScreenLogic(GameScreenBase):
             self.questions_answered += 1
 
         # Calculate charges for skip (for anti-frustration tracking)
-        charges_earned = self.wildcard_manager.calculate_earned_charges(
-            0, 1, 0, was_skipped=True
+        charges_earned, charges_max_reached = (
+            self.wildcard_manager.calculate_earned_charges(0, 1, 0, was_skipped=True)
         )
 
         self.score_label.configure(text=str(self.score))
@@ -262,6 +262,7 @@ class GameScreenLogic(GameScreenBase):
             "streak": streak,
             "streak_multiplier": streak_mult,
             "charges_earned": charges_earned,
+            "charges_max_reached": charges_max_reached,
         }
         self.show_feedback(skipped=True)
         self.show_summary_modal_for_state(self.stored_modal_data)
@@ -336,8 +337,10 @@ class GameScreenLogic(GameScreenBase):
                 self.questions_answered += 1
 
             # Calculate earned charges
-            charges_earned = self.wildcard_manager.calculate_earned_charges(
-                raw_pts, max_raw, self.question_mistakes, was_skipped=False
+            charges_earned, charges_max_reached = (
+                self.wildcard_manager.calculate_earned_charges(
+                    raw_pts, max_raw, self.question_mistakes, was_skipped=False
+                )
             )
 
             self.score_label.configure(text=str(self.score))
@@ -360,6 +363,7 @@ class GameScreenLogic(GameScreenBase):
                 "streak": streak,
                 "streak_multiplier": streak_mult,
                 "charges_earned": charges_earned,
+                "charges_max_reached": charges_max_reached,
             }
             self.parent.after(
                 600, lambda: self.show_summary_modal_for_state(self.stored_modal_data)
@@ -401,6 +405,7 @@ class GameScreenLogic(GameScreenBase):
             state.get("streak", 0),
             state.get("streak_multiplier", 1.0),
             state.get("charges_earned", 0),
+            state.get("charges_max_reached", False),
         )
         self.summary_modal.show()
 

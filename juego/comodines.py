@@ -64,23 +64,17 @@ class WildcardManager:
         return self._wildcard_used_this_question
 
     def is_double_points_blocked(self):
-        """Check if double points is blocked (another wildcard was used)."""
-        # Double points can't be used if reveal or freeze was already used
-        return (
-            self._wildcard_used_this_question
-            and not self._double_points_used_this_question
-        )
+        """Check if double points is blocked. Always returns False (no blocking)."""
+        return False
 
     def are_other_wildcards_blocked(self):
-        """Check if reveal/freeze are blocked (double points was used)."""
-        return self._double_points_used_this_question
+        """Check if reveal/freeze are blocked. Always returns False (no blocking)."""
+        return False
 
     # Freeze Wildcard
 
     def activate_freeze(self):
         """Activate freeze timer. Returns True if successful."""
-        if self.are_other_wildcards_blocked():
-            return False
         if not self.can_afford(self.COST_FREEZE_TIMER):
             return False
         if self._freeze_active:
@@ -101,12 +95,6 @@ class WildcardManager:
 
     def activate_double_points(self):
         """Activate double points. Returns number of stacks if successful, 0 if failed."""
-        # Can't use if reveal or freeze was already used
-        if (
-            self._wildcard_used_this_question
-            and not self._double_points_used_this_question
-        ):
-            return 0
         if not self.can_afford(self.COST_DOUBLE_POINTS):
             return 0
 
@@ -130,8 +118,6 @@ class WildcardManager:
 
     def activate_reveal_letter(self, current_answer, correct_answer):
         """Reveal a random letter. Returns (position, letter) if successful, None if failed."""
-        if self.are_other_wildcards_blocked():
-            return None
         if not self.can_afford(self.COST_REVEAL_LETTER):
             return None
 
@@ -197,38 +183,45 @@ class WildcardManager:
     ):
         """
         Calculate charges earned after completing a question.
-        Returns the number of charges earned (0, 1, or 2).
+        Returns tuple (actual_charges_added, max_reached) where:
+        - actual_charges_added: charges actually added to storage
+        - max_reached: True if player would have earned charges but was at max
         """
         if was_skipped:
             # No charges on skip, but increment anti-frustration counter
             self._questions_without_charge += 1
-            return self._check_anti_frustration()
+            actual = self._check_anti_frustration()
+            return (actual, False)
 
         if mistakes > 0:
             # No rank bonus with mistakes
             self._questions_without_charge += 1
-            return self._check_anti_frustration()
+            actual = self._check_anti_frustration()
+            return (actual, False)
 
         # Perfect answer (0 mistakes)
-        charges_earned = 0
+        potential_charges = 0
         ratio = raw_points / max_raw if max_raw > 0 else 0
 
         # A Rank: correct with 0 mistakes AND raw >= 0.80 * maxRaw
         if ratio >= self.A_RANK_THRESHOLD:
-            charges_earned += 1
+            potential_charges += 1
 
         # S Rank: A Rank conditions + no wildcards used AND raw >= 0.90 * maxRaw
         if ratio >= self.S_RANK_THRESHOLD and not self._wildcard_used_this_question:
-            charges_earned += 1
+            potential_charges += 1
 
-        if charges_earned > 0:
+        if potential_charges > 0:
             self._questions_without_charge = 0
-            self.add_charge(charges_earned)
+            old_charges = self._charges
+            self.add_charge(potential_charges)
+            actual_added = self._charges - old_charges
+            max_reached = actual_added < potential_charges
+            return (actual_added, max_reached)
         else:
             self._questions_without_charge += 1
-            charges_earned = self._check_anti_frustration()
-
-        return charges_earned
+            actual = self._check_anti_frustration()
+            return (actual, False)
 
     def _check_anti_frustration(self):
         """Check and apply anti-frustration bonus if needed."""

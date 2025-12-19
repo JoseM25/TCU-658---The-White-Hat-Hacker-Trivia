@@ -567,6 +567,7 @@ class QuestionSummaryModal(ModalBase):
         streak=0,
         streak_multiplier=1.0,
         charges_earned=0,
+        charges_max_reached=False,
     ):
         super().__init__(parent)
         self.correct_word = correct_word
@@ -582,6 +583,7 @@ class QuestionSummaryModal(ModalBase):
         self.streak = streak
         self.streak_multiplier = streak_multiplier
         self.charges_earned = charges_earned
+        self.charges_max_reached = charges_max_reached
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -626,12 +628,15 @@ class QuestionSummaryModal(ModalBase):
         streak_display = f"{self.streak} ({self.streak_multiplier:.2f}x)"
 
         # Format charges won display
-        charges_display = f"+{self.charges_earned}" if self.charges_earned > 0 else "0"
-        charges_color = (
-            self.COLORS["warning_yellow"]
-            if self.charges_earned > 0
-            else self.COLORS["text_medium"]
-        )
+        if self.charges_earned > 0:
+            charges_display = f"+{self.charges_earned}"
+            charges_color = self.COLORS["warning_yellow"]
+        elif self.charges_max_reached:
+            charges_display = "0 (max reached)"
+            charges_color = self.COLORS["text_medium"]
+        else:
+            charges_display = "0"
+            charges_color = self.COLORS["text_medium"]
 
         rows = [
             ("Correct Word:", self.correct_word, self.COLORS["primary_blue"]),
