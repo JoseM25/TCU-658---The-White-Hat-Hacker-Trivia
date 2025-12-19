@@ -119,6 +119,9 @@ class GameScreenBase:
         self.delete_icon = None
         self.timer_icon_label = None
         self.star_icon_label = None
+        self.freeze_icon = None
+        self.wildcard_freeze_icon = None
+        self.timer_frozen_visually = False
         self.wildcards_frame = None
         self.wildcard_x2_btn = None
         self.wildcard_hint_btn = None
@@ -295,6 +298,7 @@ class GameScreenBase:
             ("back_arrow_icon", "arrow.svg", 20),
             ("clock_icon", "clock.svg", 24),
             ("star_icon", "star.svg", 24),
+            ("freeze_icon", "freeze.svg", 24),
         ]:
             try:
                 img = self.load_svg_image(
@@ -473,6 +477,19 @@ class GameScreenBase:
 
         self.build_wildcards_panel()
 
+    def load_wildcard_freeze_icon(self, size=24):
+        """Load the freeze icon for the wildcard button."""
+        try:
+            img = self.load_svg_image(
+                os.path.join(self.images_dir, "freeze.svg"), self.SVG_RASTER_SCALE
+            )
+            if img:
+                self.wildcard_freeze_icon = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(size, size)
+                )
+        except (FileNotFoundError, OSError, ValueError):
+            self.wildcard_freeze_icon = None
+
     def build_wildcards_panel(self):
         self.wildcards_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent"
@@ -484,7 +501,9 @@ class GameScreenBase:
         self.wildcards_frame.grid_rowconfigure(4, weight=1)
 
         wc_sz, wc_font = 56, 18
+        wc_icon_sz = 24
         font = ctk.CTkFont(family="Poppins ExtraBold", size=wc_font, weight="bold")
+
         self.wildcard_x2_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="X2",
@@ -513,9 +532,13 @@ class GameScreenBase:
         )
         self.wildcard_hint_btn.grid(row=2, column=0, pady=8)
 
+        # Load freeze icon for wildcard button
+        self.load_wildcard_freeze_icon(wc_icon_sz)
+
         self.wildcard_freeze_btn = ctk.CTkButton(
             self.wildcards_frame,
-            text="❄",
+            text="" if self.wildcard_freeze_icon else "❄",
+            image=self.wildcard_freeze_icon,
             font=ctk.CTkFont(family="Segoe UI Emoji", size=wc_font),
             width=wc_sz,
             height=wc_sz,
@@ -543,6 +566,22 @@ class GameScreenBase:
             self.wildcard_hint_btn.configure(fg_color="#00CFC5")
         if self.wildcard_freeze_btn:
             self.wildcard_freeze_btn.configure(fg_color="#005DFF")
+
+    def reset_timer_visuals(self):
+        """Reset timer appearance to default (unfrozen state)."""
+        self.timer_frozen_visually = False
+        if self.timer_label:
+            self.timer_label.configure(text_color="white")
+        if self.timer_icon_label and self.clock_icon:
+            self.timer_icon_label.configure(image=self.clock_icon)
+
+    def apply_freeze_timer_visuals(self):
+        """Apply frozen visual state to timer (blue color and freeze icon)."""
+        self.timer_frozen_visually = True
+        if self.timer_label:
+            self.timer_label.configure(text_color="#D0E7FF")
+        if self.timer_icon_label and self.freeze_icon:
+            self.timer_icon_label.configure(image=self.freeze_icon)
 
     def build_keyboard(self):
         self.keyboard_frame = ctk.CTkFrame(self.main, fg_color="transparent")

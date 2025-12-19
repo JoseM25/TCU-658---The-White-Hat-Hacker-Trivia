@@ -59,6 +59,7 @@ class GameScreenLogic(GameScreenBase):
             return
         self.wildcard_manager.activate_freeze()
         self.wildcard_freeze_btn.configure(fg_color="#4CAF50")
+        self.apply_freeze_timer_visuals()
         self.stop_timer()
 
     def load_random_question(self):
@@ -67,6 +68,7 @@ class GameScreenLogic(GameScreenBase):
         self.processing_correct_answer = False
         self.wildcard_manager.reset_for_new_question()
         self.reset_wildcard_button_colors()
+        self.reset_timer_visuals()
 
         if not self.questions:
             self.definition_label.configure(text="No questions available!")
@@ -240,6 +242,7 @@ class GameScreenLogic(GameScreenBase):
             "answer": self.current_answer,
             "current_image": self.current_image,
             "was_skipped": True,
+            "multiplier": 1,
         }
         self.show_feedback(skipped=True)
         self.show_summary_modal_for_state(self.stored_modal_data)
@@ -286,19 +289,19 @@ class GameScreenLogic(GameScreenBase):
             self.tts.stop()
             self.show_feedback(correct=True)
             pts = 0
+            mult = self.wildcard_manager.get_points_multiplier()
             if self.scoring_system:
                 res = self.scoring_system.process_correct_answer(
                     time_seconds=self.question_timer, mistakes=self.question_mistakes
                 )
                 pts = res.points_earned
-                mult = self.wildcard_manager.get_points_multiplier()
                 if mult > 1:
                     self.scoring_system.total_score += pts * (mult - 1)
                     pts *= mult
                 self.score = self.scoring_system.total_score
                 self.questions_answered = self.scoring_system.questions_answered
             else:
-                pts = 100 * self.wildcard_manager.get_points_multiplier()
+                pts = 100 * mult
                 self.score += pts
                 self.questions_answered += 1
             self.score_label.configure(text=str(self.score))
@@ -311,6 +314,7 @@ class GameScreenLogic(GameScreenBase):
                 "answer": self.current_answer,
                 "current_image": self.current_image,
                 "was_skipped": False,
+                "multiplier": mult,
             }
             self.parent.after(
                 600, lambda: self.show_summary_modal_for_state(self.stored_modal_data)
@@ -347,6 +351,7 @@ class GameScreenLogic(GameScreenBase):
             on_close,
             on_prev,
             has_prev,
+            state.get("multiplier", 1),
         )
         self.summary_modal.show()
 
@@ -516,7 +521,10 @@ class GameScreenLogic(GameScreenBase):
     def _interp_color(self, c1, c2, f):
         r1, g1, b1 = int(c1[1:3], 16), int(c1[3:5], 16), int(c1[5:7], 16)
         r2, g2, b2 = int(c2[1:3], 16), int(c2[3:5], 16), int(c2[5:7], 16)
-        return f"#{int(r1 + (r2 - r1) * f):02x}{int(g1 + (g2 - g1) * f):02x}{int(b1 + (b2 - b1) * f):02x}"
+        r = int(r1 + (r2 - r1) * f)
+        g = int(g1 + (g2 - g1) * f)
+        b = int(b1 + (b2 - b1) * f)
+        return f"#{r:02x}{g:02x}{b:02x}"
 
     def hide_feedback(self):
         if self.feedback_animation_job:

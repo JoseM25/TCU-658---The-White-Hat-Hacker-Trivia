@@ -402,9 +402,13 @@ class GameCompletionModal(ModalBase):
 
             self.animated_widgets.append((lw, vw))
 
+        grace_text = (
+            f"You get the first {grace} seconds free to read the clue. "
+            "Time-based scoring starts after that."
+        )
         ctk.CTkLabel(
             content,
-            text=f"You get the first {grace} seconds free to read the clue. Time-based scoring starts after that.",
+            text=grace_text,
             font=s["footnote_font"],
             text_color=self.COLORS["text_medium"],
             justify="center",
@@ -494,6 +498,7 @@ class QuestionSummaryModal(ModalBase):
         on_close_callback=None,
         on_previous_callback=None,
         has_previous=False,
+        multiplier=1,
     ):
         super().__init__(parent)
         self.correct_word = correct_word
@@ -504,6 +509,7 @@ class QuestionSummaryModal(ModalBase):
         self.on_close_callback = on_close_callback
         self.on_previous_callback = on_previous_callback
         self.has_previous = has_previous
+        self.multiplier = multiplier
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -539,10 +545,15 @@ class QuestionSummaryModal(ModalBase):
         content.grid(row=0, column=0, sticky="")
         content.grid_columnconfigure(0, weight=1)
 
+        # Build points display with optional multiplier
+        points_display = str(self.points_awarded)
+        if self.multiplier > 1:
+            points_display = f"{self.points_awarded}"
+
         rows = [
             ("Correct Word:", self.correct_word, self.COLORS["primary_blue"]),
             ("Time Taken:", f"{self.time_taken}s", self.COLORS["primary_blue"]),
-            ("Points Awarded:", str(self.points_awarded), self.COLORS["primary_blue"]),
+            ("Points Awarded:", points_display, self.COLORS["primary_blue"]),
             ("Total Score:", str(self.total_score), self.COLORS["primary_blue"]),
         ]
 
@@ -557,13 +568,55 @@ class QuestionSummaryModal(ModalBase):
             lw.grid(row=i * 2, column=0, pady=(s["row_pad"], 0))
             self.widget_target_colors[id(lw)] = self.COLORS["text_dark"]
 
-            vw = ctk.CTkLabel(
-                content, text=val, font=s["value_font"], text_color=bg, anchor="center"
-            )
-            vw.grid(row=i * 2 + 1, column=0, pady=(0, s["row_pad"]))
-            self.widget_target_colors[id(vw)] = clr
+            # Special handling for Points Awarded row to show multiplier badge
+            if lbl == "Points Awarded:" and self.multiplier > 1:
+                value_frame = ctk.CTkFrame(content, fg_color="transparent")
+                value_frame.grid(row=i * 2 + 1, column=0, pady=(0, s["row_pad"]))
 
-            self.animated_widgets.append((lw, vw))
+                vw = ctk.CTkLabel(
+                    value_frame,
+                    text=val,
+                    font=s["value_font"],
+                    text_color=bg,
+                    anchor="center",
+                )
+                vw.grid(row=0, column=0)
+                self.widget_target_colors[id(vw)] = clr
+
+                # Multiplier badge
+                mult_font = ctk.CTkFont(
+                    family="Poppins ExtraBold",
+                    size=max(int(13 * s.get("scale", 1)), 10),
+                    weight="bold",
+                )
+                mult_label = ctk.CTkLabel(
+                    value_frame,
+                    text=f"x{self.multiplier}",
+                    font=mult_font,
+                    text_color=bg,
+                    anchor="center",
+                )
+                mult_label.grid(row=0, column=1, padx=(6, 0))
+                self.widget_target_colors[id(mult_label)] = self.COLORS[
+                    "warning_yellow"
+                ]
+
+                # Add multiplier label to animation (paired with value widget)
+                self.animated_widgets.append((lw, vw))
+                # Animate multiplier separately with a dummy pair
+                self.animated_widgets.append((mult_label, mult_label))
+            else:
+                vw = ctk.CTkLabel(
+                    content,
+                    text=val,
+                    font=s["value_font"],
+                    text_color=bg,
+                    anchor="center",
+                )
+                vw.grid(row=i * 2 + 1, column=0, pady=(0, s["row_pad"]))
+                self.widget_target_colors[id(vw)] = clr
+
+                self.animated_widgets.append((lw, vw))
 
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
         btn_container.grid(row=8, column=0, pady=(s["pad"], 0))
@@ -636,6 +689,7 @@ class QuestionSummaryModal(ModalBase):
             "row_pad": max(int(6 * scale), 4),
             "corner_r": max(int(16 * scale), 12),
             "border_w": max(int(3 * scale), 2),
+            "scale": scale,
         }
 
     def handle_next(self):
