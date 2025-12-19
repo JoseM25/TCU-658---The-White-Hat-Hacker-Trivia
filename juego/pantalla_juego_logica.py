@@ -24,9 +24,9 @@ class GameScreenLogic(GameScreenBase):
             return
         stacks = self.wildcard_manager.activate_double_points()
         if stacks > 0:
-            self.wildcard_x2_btn.configure(
-                text=f"X{self.wildcard_manager.get_points_multiplier()}"
-            )
+            multiplier = self.wildcard_manager.get_points_multiplier()
+            self.wildcard_x2_btn.configure(text=f"X{multiplier}")
+            self.apply_double_points_visuals(multiplier)
             self.update_wildcard_buttons_state()
 
     def on_wildcard_hint(self):
@@ -71,6 +71,7 @@ class GameScreenLogic(GameScreenBase):
         self.wildcard_manager.reset_for_new_question()
         self.update_wildcard_buttons_state()
         self.reset_timer_visuals()
+        self.reset_double_points_visuals()
 
         if not self.questions:
             self.definition_label.configure(text="No questions available!")

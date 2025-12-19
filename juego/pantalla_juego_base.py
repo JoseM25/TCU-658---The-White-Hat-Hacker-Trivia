@@ -127,6 +127,7 @@ class GameScreenBase:
         self.star_icon_label = None
         self.freeze_icon = None
         self.timer_frozen_visually = False
+        self.double_points_visually_active = False
         self.wildcards_frame = None
         self.wildcard_x2_btn = None
         self.wildcard_hint_btn = None
@@ -743,6 +744,30 @@ class GameScreenBase:
             self.timer_label.configure(text_color="#D0E7FF")
         if self.timer_icon_label and self.freeze_icon:
             self.timer_icon_label.configure(image=self.freeze_icon)
+
+    def apply_double_points_visuals(self, multiplier=2):
+        """Apply double points visual state to score (yellow color and multiplier text)."""
+        self.double_points_visually_active = True
+        if self.score_label:
+            self.score_label.configure(text_color=self.COLORS["warning_yellow"])
+        if self.star_icon_label:
+            self.star_icon_label.configure(
+                image=None,
+                text=f"X{multiplier}",
+                font=ctk.CTkFont(family="Poppins ExtraBold", size=20, weight="bold"),
+                text_color=self.COLORS["warning_yellow"],
+            )
+
+    def reset_double_points_visuals(self):
+        """Reset score appearance to default (white color and star icon)."""
+        self.double_points_visually_active = False
+        if self.score_label:
+            self.score_label.configure(text_color="white")
+        if self.star_icon_label and self.star_icon:
+            self.star_icon_label.configure(
+                image=self.star_icon,
+                text="",
+            )
 
     def build_keyboard(self):
         self.keyboard_frame = ctk.CTkFrame(self.main, fg_color="transparent")
