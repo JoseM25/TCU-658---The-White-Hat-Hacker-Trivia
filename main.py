@@ -3,6 +3,7 @@ from pathlib import Path
 import customtkinter as ctk
 
 from juego.interfaz import AppController
+from juego.sfx_service import HoverSoundBinder, SFXService
 from juego.tts_service import TTSService
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -28,6 +29,10 @@ root.configure(fg_color="#F5F7FA")
 
 tts_service = TTSService(AUDIO_DIR)
 tts_service.preload()
+
+sfx_service = SFXService(AUDIO_DIR)
+sfx_service.preload()
+hover_binder = HoverSoundBinder(root, sfx_service)
 
 app = AppController(root, tts_service=tts_service)
 
