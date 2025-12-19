@@ -80,10 +80,10 @@ GAME_ICONS = {
 
 
 GAME_BASE_SIZES = {
-    # Header
-    "header_height": 60,
-    "header_pad_x": 24,
-    "header_pad_y": 10,
+    # Header (increased for better visual balance with other screens)
+    "header_height": 96,
+    "header_pad_x": 28,
+    "header_pad_y": 20,
     # Timer and score
     "timer_icon_size": 16,
     "star_icon_size": 16,
@@ -116,11 +116,13 @@ GAME_BASE_SIZES = {
     "key_min": 32,
     "key_max": 72,
     "key_gap": 12,
+    "key_row_gap": 4,
     "keyboard_pad_x": 256,
+    "keyboard_pad_y": 16,
     "delete_icon_base": 26,
     # Action buttons
     "action_button_width": 140,
-    "action_button_height": 48,
+    "action_button_height": 42,
     "action_button_gap": 16,
     "action_corner_radius": 12,
     # Wildcards
@@ -142,7 +144,7 @@ GAME_FONT_SPECS = {
     # (family, base_size, weight, min_size)
     "timer": ("Poppins SemiBold", 24, "bold", 14),
     "score": ("Poppins ExtraBold", 28, "bold", 16),
-    "definition": ("Open Sans Regular", 16, None, 11),
+    "definition": ("Open Sans Regular", 15, None, 13),
     "keyboard": ("Poppins SemiBold", 18, "bold", 12),
     "answer_box": ("Poppins ExtraBold", 20, "bold", 14),
     "button": ("Poppins SemiBold", 20, None, 12),
@@ -155,24 +157,24 @@ GAME_FONT_SPECS = {
 }
 
 
-# Header height profile
+# Header height profile (increased for better visual balance)
 GAME_HEADER_HEIGHT_PROFILE = [
-    (720, 48),
-    (900, 52),
-    (1080, 56),
-    (1280, 60),
-    (1600, 68),
-    (1920, 76),
-    (2560, 88),
-    (3200, 100),
-    (3840, 110),
+    (720, 72),
+    (900, 80),
+    (1080, 88),
+    (1280, 96),
+    (1600, 110),
+    (1920, 124),
+    (2560, 144),
+    (3200, 164),
+    (3840, 180),
 ]
 
-# Image size profile
+# Image size profile (aggressively reduced at low res)
 GAME_IMAGE_SIZE_PROFILE = [
-    (720, 90),
-    (900, 100),
-    (1080, 115),
+    (720, 100),
+    (900, 110),
+    (1080, 120),
     (1280, 130),
     (1600, 160),
     (1920, 190),
@@ -181,10 +183,10 @@ GAME_IMAGE_SIZE_PROFILE = [
     (3840, 300),
 ]
 
-# Answer box size profile
+# Answer box size profile (slightly reduced at low res)
 GAME_ANSWER_BOX_PROFILE = [
-    (720, 30),
-    (900, 34),
+    (720, 28),
+    (900, 32),
     (1080, 38),
     (1280, 42),
     (1600, 50),
@@ -194,11 +196,11 @@ GAME_ANSWER_BOX_PROFILE = [
     (3840, 80),
 ]
 
-# Keyboard key size profile
+# Keyboard key size profile (aggressively reduced at low res)
 GAME_KEY_SIZE_PROFILE = [
-    (720, 34),
-    (900, 38),
-    (1080, 42),
+    (720, 24),
+    (900, 28),
+    (1080, 36),
     (1280, 46),
     (1600, 54),
     (1920, 62),
@@ -223,21 +225,21 @@ GAME_KEYBOARD_PAD_PROFILE = [
 # Definition wrap length profile - capped to ensure text wraps nicely
 # Larger wraplength at high res causes single-line text that clips
 GAME_DEFINITION_WRAP_PROFILE = [
-    (720, 380),
-    (900, 480),
-    (1080, 540),
-    (1280, 620),
+    (720, 320),
+    (900, 400),
+    (1080, 480),
+    (1280, 560),
     (1600, 700),
-    (1920, 780),
-    (2560, 860),
-    (3200, 920),
-    (3840, 980),
+    (1920, 840),
+    (2560, 1120),
+    (3200, 1400),
+    (3840, 1680),
 ]
 
-# Action button width profile
+# Action button width profile (reduced at low res for more content space)
 GAME_ACTION_BUTTON_PROFILE = [
-    (720, 110),
-    (900, 120),
+    (720, 100),
+    (900, 115),
     (1080, 130),
     (1280, 140),
     (1600, 165),
@@ -247,11 +249,11 @@ GAME_ACTION_BUTTON_PROFILE = [
     (3840, 300),
 ]
 
-# Wildcard size profile
+# Wildcard size profile (reduced at low res)
 GAME_WILDCARD_SIZE_PROFILE = [
-    (720, 36),
-    (900, 40),
-    (1080, 44),
+    (720, 32),
+    (900, 36),
+    (1080, 42),
     (1280, 48),
     (1600, 56),
     (1920, 64),
@@ -274,11 +276,12 @@ GAME_CONTAINER_PAD_PROFILE = [
 ]
 
 # Low resolution scale penalty profile
+# Only penalize resolutions BELOW the base 720p height
 GAME_LOW_RES_SCALE_PROFILE = [
-    (720, 0.92),
-    (800, 0.95),
-    (900, 0.98),
-    (1080, 1.00),
+    (480, 0.70),
+    (540, 0.80),
+    (600, 0.90),
+    (720, 1.00),
 ]
 
 
@@ -290,9 +293,9 @@ MODAL_BASE_SIZES = {
     "skip_height_ratio": 0.35,
     # Question summary modal
     "summary_width": 450,
-    "summary_height": 420,
-    "summary_width_ratio": 0.38,
-    "summary_height_ratio": 0.56,
+    "summary_height": 380,
+    "summary_width_ratio": 0.35,
+    "summary_height_ratio": 0.48,
     # Game completion modal
     "completion_width": 560,
     "completion_height": 520,
@@ -400,19 +403,18 @@ class GameSizeCalculator:
         # Only apply compact sizing when height is actually limited
         is_height_constrained = window_height <= self.HEIGHT_CONSTRAINED_THRESHOLD
 
-        # For height-constrained layouts, use height for vertical elements
-        # Otherwise use width as the profiles were designed
-        vertical_dimension = (
-            window_height if is_height_constrained else window_width
-        )
+        # For height-constrained screens, use the smaller dimension (height) for
+        # profile lookups of elements that need to fit vertically
+        # This ensures proper sizing at 720p (1280x720) where height is the constraint
+        vertical_dimension = min(window_width, window_height) if is_height_constrained else window_width
 
         # Header - always use width, but clamp for very low heights
         sizes["header_height"] = ip(window_width, self.profiles["header_height"])
         if is_height_constrained:
-            # Reduce header at low heights
-            sizes["header_height"] = min(sizes["header_height"], 52)
-        sizes["header_pad_x"] = s(GAME_BASE_SIZES["header_pad_x"], scale, 12, 60)
-        sizes["header_pad_y"] = s(GAME_BASE_SIZES["header_pad_y"], scale, 6, 24)
+            # Reduce header at low heights to give more space to content
+            sizes["header_height"] = min(sizes["header_height"], 64)
+        sizes["header_pad_x"] = s(GAME_BASE_SIZES["header_pad_x"], scale, 16, 72)
+        sizes["header_pad_y"] = s(GAME_BASE_SIZES["header_pad_y"], scale, 12, 48)
 
         # Timer and score icons
         sizes["timer_icon"] = s(GAME_BASE_SIZES["timer_icon_size"], scale, 16, 40)
@@ -452,8 +454,10 @@ class GameSizeCalculator:
 
         # Keyboard - key sizes use vertical_dimension, padding uses width
         sizes["key_size"] = ip(vertical_dimension, self.profiles["key_size"])
-        sizes["key_gap"] = s(GAME_BASE_SIZES["key_gap"], scale, 6, 24)
+        sizes["key_gap"] = s(GAME_BASE_SIZES["key_gap"], scale, 4, 24)
+        sizes["key_row_gap"] = s(GAME_BASE_SIZES["key_row_gap"], scale, 2, 8)
         sizes["keyboard_pad"] = ip(window_width, self.profiles["keyboard_pad"])
+        sizes["keyboard_pad_y"] = s(GAME_BASE_SIZES["keyboard_pad_y"], scale, 8, 32)
         sizes["delete_key_width_ratio"] = 1.8
         sizes["delete_icon"] = s(GAME_BASE_SIZES["delete_icon_base"], scale, 16, 48)
 
@@ -462,7 +466,7 @@ class GameSizeCalculator:
             vertical_dimension, self.profiles["action_button"]
         )
         sizes["action_button_height"] = s(
-            GAME_BASE_SIZES["action_button_height"], scale, 36, 80
+            GAME_BASE_SIZES["action_button_height"], scale, 32, 80
         )
         sizes["action_button_gap"] = s(
             GAME_BASE_SIZES["action_button_gap"], scale, 8, 32

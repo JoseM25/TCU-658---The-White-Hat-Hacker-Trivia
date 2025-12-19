@@ -153,10 +153,20 @@ class GameScreen(GameScreenLogic):
 
     def _update_image(self):
         sizes = self.size_state
+        scale = sizes.get("scale", 1.0)
+        is_compact = sizes.get("is_height_constrained", False)
         img_sz = sizes["image_size"]
 
         if self.image_frame and self.image_frame.winfo_exists():
             self.image_frame.configure(height=img_sz)
+            # Scale image padding - reduce at low res
+            if is_compact:
+                pad_top = self.scale_value(12, scale, 6, 20)
+                pad_bottom = self.scale_value(6, scale, 3, 10)
+            else:
+                pad_top = self.scale_value(20, scale, 10, 40)
+                pad_bottom = self.scale_value(10, scale, 6, 20)
+            self.image_frame.grid_configure(pady=(pad_top, pad_bottom))
 
         if self.image_label and self.image_label.winfo_exists():
             self.image_label.configure(width=img_sz, height=img_sz)
@@ -193,6 +203,8 @@ class GameScreen(GameScreenLogic):
 
     def _update_answer_boxes(self):
         sizes = self.size_state
+        scale = sizes.get("scale", 1.0)
+        is_compact = sizes.get("is_height_constrained", False)
         box_sz = sizes["answer_box"]
         gap = sizes["answer_box_gap"]
 
@@ -213,23 +225,40 @@ class GameScreen(GameScreenLogic):
             frame_width = len(visible_boxes) * (box_sz + gap * 2)
             frame_height = box_sz + 4
             self.answer_boxes_frame.configure(width=frame_width, height=frame_height)
+            # Update answer boxes frame padding - reduce at low res
+            if is_compact:
+                pad_y = self.scale_value(8, scale, 4, 10)
+            else:
+                pad_y = self.scale_value(10, scale, 6, 16)
+            self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))
 
     def _update_feedback(self):
         sizes = self.size_state
+        is_compact = sizes.get("is_height_constrained", False)
 
         if self.feedback_label and self.feedback_label.winfo_exists():
             pad_bottom = sizes["feedback_pad_bottom"]
+            # Reduce feedback padding at low res
+            if is_compact:
+                pad_bottom = max(6, pad_bottom // 2)
             self.feedback_label.grid_configure(pady=(0, pad_bottom))
 
     def _update_keyboard(self):
         sizes = self.size_state
         key_sz = sizes["key_size"]
         key_gap = sizes["key_gap"]
+        key_row_gap = sizes["key_row_gap"]
         keyboard_pad = sizes["keyboard_pad"]
+        keyboard_pad_y = sizes["keyboard_pad_y"]
         delete_width = int(key_sz * sizes["delete_key_width_ratio"])
 
         if self.keyboard_frame and self.keyboard_frame.winfo_exists():
-            self.keyboard_frame.grid_configure(padx=keyboard_pad)
+            self.keyboard_frame.grid_configure(padx=keyboard_pad, pady=(0, keyboard_pad_y))
+
+        # Update keyboard row gaps
+        for row_frame in self.keyboard_frame.winfo_children():
+            if row_frame and row_frame.winfo_exists():
+                row_frame.grid_configure(pady=key_row_gap)
 
         # Update all keyboard buttons
         for btn in self.keyboard_buttons:
@@ -267,6 +296,7 @@ class GameScreen(GameScreenLogic):
 
     def _update_wildcards(self, scale):
         sizes = self.size_state
+        is_compact = sizes.get("is_height_constrained", False)
         wc_sz = sizes["wildcard_size"]
         wc_corner = sizes["wildcard_corner_radius"]
         wc_gap = sizes["wildcard_gap"]
@@ -275,7 +305,13 @@ class GameScreen(GameScreenLogic):
         wc_font_size = sizes["wildcard_font"]
         charges_font_size = sizes["charges_font"]
 
-        # Update wildcard buttons
+        # Calculate button width to match build_wildcards_panel (1.5x height for pill shape)
+        wc_btn_width = int(wc_sz * 1.5)
+
+        # Reduce button gap at low res
+        btn_gap = self.scale_value(8, scale, 3, 12) if is_compact else wc_gap
+
+        # Update wildcard buttons with consistent pill shape
         for btn in [
             self.wildcard_x2_btn,
             self.wildcard_hint_btn,
@@ -283,11 +319,11 @@ class GameScreen(GameScreenLogic):
         ]:
             if btn and btn.winfo_exists():
                 btn.configure(
-                    width=wc_sz,
+                    width=wc_btn_width,
                     height=wc_sz,
                     corner_radius=wc_corner,
                 )
-                btn.grid_configure(pady=wc_gap)
+                btn.grid_configure(pady=btn_gap)
 
         # Update lightning icon
         if self.lightning_icon:
@@ -297,11 +333,20 @@ class GameScreen(GameScreenLogic):
         if self.freeze_wildcard_icon:
             self.freeze_wildcard_icon.configure(size=(freeze_sz, freeze_sz))
 
-        # Update wildcards frame padding
+        # Update wildcards frame padding - tighter at low res
         if self.wildcards_frame and self.wildcards_frame.winfo_exists():
-            pad_x = self.scale_value(24, scale, 12, 48)
-            pad_y = self.scale_value(24, scale, 12, 48)
+            if is_compact:
+                pad_x = self.scale_value(16, scale, 8, 24)
+                pad_y = self.scale_value(12, scale, 6, 24)
+            else:
+                pad_x = self.scale_value(24, scale, 12, 48)
+                pad_y = self.scale_value(24, scale, 12, 48)
             self.wildcards_frame.grid_configure(padx=(0, pad_x), pady=pad_y)
+
+        # Update charges frame padding
+        if self.charges_frame and self.charges_frame.winfo_exists():
+            charges_pad = self.scale_value(12, scale, 4, 16) if is_compact else 12
+            self.charges_frame.grid_configure(pady=(0, charges_pad))
 
         # Update wildcard button fonts
         try:

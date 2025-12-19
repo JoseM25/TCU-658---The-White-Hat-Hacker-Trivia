@@ -429,10 +429,12 @@ class GameScreenBase:
         )
 
         # Grid configuration for question container
+        # All rows have weight=0 so they take natural heights based on content
+        # This prevents the definition row from being squeezed out at low resolutions
         self.question_container.grid_columnconfigure(0, weight=1)
         self.question_container.grid_columnconfigure(1, weight=0)
         for r in range(4):
-            self.question_container.grid_rowconfigure(r, weight=1 if r == 1 else 0)
+            self.question_container.grid_rowconfigure(r, weight=0)
 
         # Build sections
         self.build_image_section()
@@ -529,6 +531,11 @@ class GameScreenBase:
         font = ctk.CTkFont(family="Poppins ExtraBold", size=wc_font, weight="bold")
         charges_font = ctk.CTkFont(family="Poppins SemiBold", size=14, weight="bold")
 
+        # Calculate button width to accommodate text like "X16" (stacked multipliers)
+        # Use 1.5x the height for a nice pill shape that fits all text
+        wc_btn_width = int(wc_sz * 1.5)
+        wc_corner = wc_sz // 2  # Keep corner radius based on height for pill shape
+
         # Charges display
         self.charges_frame = ctk.CTkFrame(self.wildcards_frame, fg_color="transparent")
         self.charges_frame.grid(row=1, column=0, pady=(0, 12))
@@ -548,14 +555,14 @@ class GameScreenBase:
         )
         self.charges_label.grid(row=0, column=1)
 
-        # X2 button
+        # X2 button - use consistent width for all buttons
         self.wildcard_x2_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="X2",
             font=font,
-            width=wc_sz,
+            width=wc_btn_width,
             height=wc_sz,
-            corner_radius=wc_sz // 2,
+            corner_radius=wc_corner,
             fg_color=self.COLORS["wildcard_x2"],
             hover_color=self.COLORS["wildcard_x2_hover"],
             text_color="white",
@@ -563,14 +570,14 @@ class GameScreenBase:
         )
         self.wildcard_x2_btn.grid(row=2, column=0, pady=8)
 
-        # Hint button
+        # Hint button - same width as X2 for consistency
         self.wildcard_hint_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="A",
             font=font,
-            width=wc_sz,
+            width=wc_btn_width,
             height=wc_sz,
-            corner_radius=wc_sz // 2,
+            corner_radius=wc_corner,
             fg_color=self.COLORS["wildcard_hint"],
             hover_color=self.COLORS["wildcard_hint_hover"],
             text_color="white",
@@ -578,7 +585,7 @@ class GameScreenBase:
         )
         self.wildcard_hint_btn.grid(row=3, column=0, pady=8)
 
-        # Freeze button
+        # Freeze button - same width as others for consistency
         self.load_freeze_wildcard_icon(int(wc_sz * 0.5))
 
         self.wildcard_freeze_btn = ctk.CTkButton(
@@ -586,9 +593,9 @@ class GameScreenBase:
             text="" if self.freeze_wildcard_icon else "❄",
             image=self.freeze_wildcard_icon,
             font=font,
-            width=wc_sz,
+            width=wc_btn_width,
             height=wc_sz,
-            corner_radius=wc_sz // 2,
+            corner_radius=wc_corner,
             fg_color=self.COLORS["wildcard_freeze"],
             hover_color=self.COLORS["wildcard_freeze_hover"],
             text_color="white",

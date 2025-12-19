@@ -45,8 +45,21 @@ class ModalBase:
             return 1.0
         if width <= 1 or height <= 1:
             return 1.0
-        # Clamp scale lower (max 1.4) so modals fit on screen
-        return max(0.5, min(1.4, width / 1280, height / 720))
+        
+        # Base scale from dimensions
+        base_scale = min(width / 1280, height / 720)
+        
+        # Apply low-res penalty similar to game screen
+        min_dim = min(width, height)
+        if min_dim <= 720:
+            base_scale *= 0.50
+        elif min_dim <= 800:
+            base_scale *= 0.65
+        elif min_dim <= 900:
+            base_scale *= 0.80
+        
+        # Clamp scale
+        return max(0.4, min(1.4, base_scale))
 
     def create_modal(self, width, height, title):
         root = self.parent.winfo_toplevel() if self.parent else None
@@ -641,19 +654,27 @@ class QuestionSummaryModal(ModalBase):
 
         root = self.parent.winfo_toplevel() if self.parent else None
 
+        # Get actual window dimensions
+        win_width = root.winfo_width() if root else 1280
+        win_height = root.winfo_height() if root else 720
+
         # Calculate scale
         self.current_scale = self.calculate_scale_factor(root)
         scale = self.current_scale
 
-        # Calculate dimensions
+        # ALWAYS use same percentage of parent window
+        width_ratio = MODAL_BASE_SIZES["summary_width_ratio"]  # 0.35
+        height_ratio = MODAL_BASE_SIZES["summary_height_ratio"]  # 0.48
+        
         if root and root.winfo_width() > 1:
-            width = int(root.winfo_width() * MODAL_BASE_SIZES["summary_width_ratio"])
-            height = int(root.winfo_height() * MODAL_BASE_SIZES["summary_height_ratio"])
+            width = int(root.winfo_width() * width_ratio)
+            height = int(root.winfo_height() * height_ratio)
         else:
             width = MODAL_BASE_SIZES["summary_width"]
             height = MODAL_BASE_SIZES["summary_height"]
 
-        sizes = self._calc_sizes(scale)
+        # Content scales based on modal size, not screen size
+        sizes = self._calc_sizes(scale, width, height)
 
         self.create_modal(width, height, "Summary")
         container = self.create_container(sizes["corner_r"], sizes["border_w"])
@@ -669,8 +690,9 @@ class QuestionSummaryModal(ModalBase):
         content_wrapper.grid_columnconfigure(0, weight=1)
 
         content = ctk.CTkFrame(content_wrapper, fg_color="transparent")
-        content.grid(row=0, column=0, sticky="")
+        content.grid(row=0, column=0, sticky="", padx=sizes["pad"], pady=sizes["pad"] // 2)
         content.grid_columnconfigure(0, weight=1)
+        content.grid_columnconfigure(1, weight=1)
 
         # Build data rows
         points_display = str(self.points_awarded)
@@ -680,54 +702,60 @@ class QuestionSummaryModal(ModalBase):
             charges_display = f"+{self.charges_earned}"
             charges_color = self.COLORS["warning_yellow"]
         elif self.charges_max_reached:
-            charges_display = "0 (max reached)"
+            charges_display = "0 (max)"
             charges_color = self.COLORS["text_light"]
         else:
             charges_display = "0"
             charges_color = self.COLORS["text_light"]
 
         rows = [
-            ("Correct Word:", self.correct_word, self.COLORS["primary_blue"]),
-            ("Time Taken:", f"{self.time_taken}s", self.COLORS["primary_blue"]),
-            ("Points Awarded:", points_display, self.COLORS["primary_blue"]),
-            ("Total Score:", str(self.total_score), self.COLORS["primary_blue"]),
+            ("Word:", self.correct_word, self.COLORS["primary_blue"]),
+            ("Time:", f"{self.time_taken}s", self.COLORS["primary_blue"]),
+            ("Points:", points_display, self.COLORS["primary_blue"]),
+            ("Total:", str(self.total_score), self.COLORS["primary_blue"]),
             ("Streak:", streak_display, self.COLORS["level_master"]),
-            ("Charges won:", charges_display, charges_color),
+            ("Charges:", charges_display, charges_color),
         ]
 
         self.animated_widgets.clear()
         self.widget_target_colors.clear()
         bg = self.COLORS["bg_light"]
 
+        # Use horizontal layout - label and value on SAME row
         for i, (lbl, val, clr) in enumerate(rows):
+            row_frame = ctk.CTkFrame(content, fg_color="transparent")
+            row_frame.grid(row=i, column=0, columnspan=2, sticky="ew", pady=sizes["row_pad"])
+            row_frame.grid_columnconfigure(0, weight=1)
+            row_frame.grid_columnconfigure(1, weight=1)
+            
             lw = ctk.CTkLabel(
-                content,
+                row_frame,
                 text=lbl,
                 font=sizes["label_font"],
                 text_color=bg,
-                anchor="center",
+                anchor="e",
             )
-            lw.grid(row=i * 2, column=0, pady=(sizes["row_pad"], 0))
+            lw.grid(row=0, column=0, sticky="e", padx=(0, 4))
             self.widget_target_colors[id(lw)] = self.COLORS["text_dark"]
 
             # Special handling for Points Awarded with multiplier
-            if lbl == "Points Awarded:" and self.multiplier > 1:
-                value_frame = ctk.CTkFrame(content, fg_color="transparent")
-                value_frame.grid(row=i * 2 + 1, column=0, pady=(0, sizes["row_pad"]))
+            if lbl == "Points:" and self.multiplier > 1:
+                value_frame = ctk.CTkFrame(row_frame, fg_color="transparent")
+                value_frame.grid(row=0, column=1, sticky="w")
 
                 vw = ctk.CTkLabel(
                     value_frame,
                     text=val,
                     font=sizes["value_font"],
                     text_color=bg,
-                    anchor="center",
+                    anchor="w",
                 )
-                vw.grid(row=0, column=0)
+                vw.grid(row=0, column=0, sticky="w")
                 self.widget_target_colors[id(vw)] = clr
 
                 mult_font = ctk.CTkFont(
                     family="Poppins ExtraBold",
-                    size=self.scale_value(13, scale, 10, 22),
+                    size=max(8, sizes["value_font"].cget("size") - 2),
                     weight="bold",
                 )
                 mult_label = ctk.CTkLabel(
@@ -735,32 +763,32 @@ class QuestionSummaryModal(ModalBase):
                     text=f"x{self.multiplier}",
                     font=mult_font,
                     text_color=bg,
-                    anchor="center",
+                    anchor="w",
                 )
-                mult_label.grid(row=0, column=1, padx=(6, 0))
-                self.widget_target_colors[id(mult_label)] = self.COLORS[
-                    "warning_yellow"
-                ]
+                mult_label.grid(row=0, column=1, padx=(3, 0), sticky="w")
+                self.widget_target_colors[id(mult_label)] = self.COLORS["warning_yellow"]
 
                 self.animated_widgets.append((lw, vw))
                 self.animated_widgets.append((mult_label, mult_label))
             else:
                 vw = ctk.CTkLabel(
-                    content,
+                    row_frame,
                     text=val,
                     font=sizes["value_font"],
                     text_color=bg,
-                    anchor="center",
+                    anchor="w",
                 )
-                vw.grid(row=i * 2 + 1, column=0, pady=(0, sizes["row_pad"]))
+                vw.grid(row=0, column=1, sticky="w")
                 self.widget_target_colors[id(vw)] = clr
 
                 self.animated_widgets.append((lw, vw))
 
-        # Buttons
+        # Buttons - always two rows: Previous/Close/Next on top, Main Menu on bottom
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
-        btn_container.grid(row=12, column=0, pady=(sizes["pad"], 0))
+        btn_container.grid(row=6, column=0, columnspan=2, pady=(sizes["pad"], 0))
         btn_container.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        btn_gap = max(2, sizes["pad"] // 3)
 
         ctk.CTkButton(
             btn_container,
@@ -774,7 +802,7 @@ class QuestionSummaryModal(ModalBase):
             width=sizes["btn_w"],
             height=sizes["btn_h"],
             corner_radius=sizes["btn_r"],
-        ).grid(row=0, column=0, padx=(0, sizes["pad"] // 2))
+        ).grid(row=0, column=0, padx=(0, btn_gap))
 
         ctk.CTkButton(
             btn_container,
@@ -787,11 +815,11 @@ class QuestionSummaryModal(ModalBase):
             width=sizes["btn_w"],
             height=sizes["btn_h"],
             corner_radius=sizes["btn_r"],
-        ).grid(row=0, column=1, padx=sizes["pad"] // 2)
+        ).grid(row=0, column=1, padx=btn_gap)
 
         ctk.CTkButton(
             btn_container,
-            text="Next Question",
+            text="Next",
             font=sizes["button_font"],
             fg_color=self.COLORS["primary_blue"],
             hover_color=self.COLORS["primary_hover"],
@@ -800,7 +828,7 @@ class QuestionSummaryModal(ModalBase):
             width=sizes["btn_w"],
             height=sizes["btn_h"],
             corner_radius=sizes["btn_r"],
-        ).grid(row=0, column=2, padx=(sizes["pad"] // 2, 0))
+        ).grid(row=0, column=2, padx=(btn_gap, 0))
 
         ctk.CTkButton(
             btn_container,
@@ -813,7 +841,7 @@ class QuestionSummaryModal(ModalBase):
             width=sizes["btn_w"],
             height=sizes["btn_h"],
             corner_radius=sizes["btn_r"],
-        ).grid(row=1, column=0, columnspan=3, pady=(sizes["pad"] // 2, 0))
+        ).grid(row=1, column=0, columnspan=3, pady=(btn_gap, 0))
 
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
         self.modal.bind("<Escape>", lambda e: self.handle_close())
@@ -821,37 +849,30 @@ class QuestionSummaryModal(ModalBase):
 
         self.start_fade_in_animation(bg)
 
-    def _calc_sizes(self, scale):
+    def _calc_sizes(self, scale, modal_width, modal_height):
+        # Scale everything based on modal size (reference: 450x380)
+        w_scale = modal_width / 450
+        h_scale = modal_height / 380
+        m_scale = min(w_scale, h_scale)  # Use the more constrained dimension
+        
+        def sz(base, min_v, max_v):
+            return int(max(min_v, min(max_v, base * m_scale)))
+        
         return {
-            "title_font": ctk.CTkFont(
-                family="Poppins ExtraBold",
-                size=self.scale_value(26, scale, 16, 44),
-                weight="bold",
-            ),
-            "label_font": ctk.CTkFont(
-                family="Poppins SemiBold",
-                size=self.scale_value(15, scale, 11, 26),
-                weight="bold",
-            ),
-            "value_font": ctk.CTkFont(
-                family="Poppins SemiBold",
-                size=self.scale_value(15, scale, 11, 26),
-                weight="bold",
-            ),
-            "button_font": ctk.CTkFont(
-                family="Poppins SemiBold",
-                size=self.scale_value(16, scale, 12, 28),
-                weight="bold",
-            ),
-            "header_h": self.scale_value(66, scale, 44, 110),
-            "btn_w": self.scale_value(150, scale, 100, 250),
-            "btn_h": self.scale_value(44, scale, 32, 72),
-            "btn_r": self.scale_value(12, scale, 8, 20),
-            "pad": self.scale_value(20, scale, 12, 36),
-            "row_pad": self.scale_value(6, scale, 4, 12),
-            "corner_r": self.scale_value(16, scale, 12, 28),
-            "border_w": self.scale_value(3, scale, 2, 5),
+            "title_font": ctk.CTkFont(family="Poppins ExtraBold", size=sz(20, 12, 36), weight="bold"),
+            "label_font": ctk.CTkFont(family="Poppins SemiBold", size=sz(13, 9, 22), weight="bold"),
+            "value_font": ctk.CTkFont(family="Poppins SemiBold", size=sz(13, 9, 22), weight="bold"),
+            "button_font": ctk.CTkFont(family="Poppins SemiBold", size=sz(12, 9, 22), weight="bold"),
+            "header_h": sz(50, 30, 90),
+            "btn_w": sz(100, 60, 180),
+            "btn_h": sz(34, 22, 60),
+            "btn_r": sz(8, 4, 16),
+            "pad": sz(14, 6, 28),
+            "row_pad": sz(4, 1, 10),
+            "corner_r": sz(12, 6, 24),
+            "border_w": sz(2, 1, 4),
             "scale": scale,
+            "modal_scale": m_scale,
         }
 
     def handle_next(self):
