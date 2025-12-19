@@ -529,6 +529,18 @@ class GameSizeCalculator:
             sizes["key_size"] = self._apply_compact_scale(
                 sizes["key_size"], compact_scale, min_value=20
             )
+            sizes["key_gap"] = self._apply_compact_scale(
+                sizes["key_gap"], compact_scale, min_value=3
+            )
+            sizes["key_row_gap"] = self._apply_compact_scale(
+                sizes["key_row_gap"], compact_scale, min_value=1
+            )
+            sizes["keyboard_pad_y"] = self._apply_compact_scale(
+                sizes["keyboard_pad_y"], compact_scale, min_value=4
+            )
+            sizes["delete_icon"] = self._apply_compact_scale(
+                sizes["delete_icon"], compact_scale, min_value=12
+            )
             sizes["wildcard_size"] = self._apply_compact_scale(
                 sizes["wildcard_size"], compact_scale, min_value=24
             )
