@@ -39,8 +39,7 @@ class GameScreen(GameScreenLogic):
             return
 
         # Get current dimensions
-        width = max(self.parent.winfo_width(), 1)
-        height = max(self.parent.winfo_height(), 1)
+        width, height = self._get_logical_dimensions()
 
         # Calculate scale using profile
         low_res_profile = GAME_PROFILES.get("low_res")
@@ -95,14 +94,21 @@ class GameScreen(GameScreenLogic):
         image_row = img_pad_top + img_sz + img_pad_bottom
 
         if is_compact:
-            def_pad_y = self.scale_value(6, scale, 3, 12)
-            def_height = self.scale_value(42, scale, 38, 50)
+            def_pad_y = sizes.get("definition_pad_y")
+            def_height = sizes.get("definition_height")
         else:
-            def_pad_y = self.scale_value(14, scale, 8, 36)
-            if sizes.get("window_height", 0) >= 1080:
-                def_height = self.scale_value(70, scale, 50, 110)
+            def_pad_y = sizes.get("definition_pad_y")
+            def_height = sizes.get("definition_height")
+        if def_pad_y is None:
+            def_pad_y = self.scale_value(6 if is_compact else 14, scale, 3, 36)
+        if def_height is None:
+            if is_compact:
+                def_height = self.scale_value(42, scale, 38, 50)
             else:
-                def_height = self.scale_value(50, scale, 42, 65)
+                if sizes.get("window_height", 0) >= 1080:
+                    def_height = self.scale_value(70, scale, 50, 110)
+                else:
+                    def_height = self.scale_value(50, scale, 42, 65)
         definition_row = def_height + def_pad_y * 2
 
         box_sz = sizes["answer_box"]
@@ -164,15 +170,11 @@ class GameScreen(GameScreenLogic):
         return 3 * (key_size + key_row_gap * 2) + keyboard_pad_y
 
     def _apply_keyboard_scale_profile(self, height):
-        try:
-            scaling = float(self.parent.tk.call("tk", "scaling"))
-        except (tk.TclError, TypeError, ValueError):
-            scaling = 1.0
-        if scaling <= 0:
-            scaling = 1.0
-        logical_height = int(round(height / scaling))
+        # Use the actual window height directly for profile lookup
+        # The height parameter is already in logical pixels from winfo_height()
+        # No DPI adjustment needed - the profile thresholds are in logical pixels
         profile = GAME_PROFILES.get("keyboard_scale", [])
-        keyboard_scale = self.scaler.interpolate_profile(logical_height, profile)
+        keyboard_scale = self.scaler.interpolate_profile(height, profile)
         keyboard_scale = self.scaler.clamp_value(keyboard_scale, 0.5, 1.0)
         if self.size_state is not None:
             self.size_state["keyboard_scale"] = keyboard_scale
@@ -317,17 +319,14 @@ class GameScreen(GameScreenLogic):
     def _update_definition(self):
         sizes = self.size_state
         scale = sizes.get("scale", 1.0)
-        is_compact = sizes.get("is_height_constrained", False)
 
         # Update definition frame padding responsively
         if self.definition_frame and self.definition_frame.winfo_exists():
-            if is_compact:
-                # Tighter padding for height-constrained screens
-                pad_x = self.scale_value(20, scale, 10, 40)
-                pad_y = self.scale_value(6, scale, 3, 12)
-            else:
-                # Normal padding for larger screens - expand more at high res
+            pad_x = sizes.get("definition_pad_x")
+            pad_y = sizes.get("definition_pad_y")
+            if pad_x is None:
                 pad_x = self.scale_value(36, scale, 20, 80)
+            if pad_y is None:
                 pad_y = self.scale_value(14, scale, 8, 36)
             self.definition_frame.grid_configure(padx=pad_x, pady=pad_y)
 
@@ -336,13 +335,15 @@ class GameScreen(GameScreenLogic):
             self.definition_scroll_wrapper
             and self.definition_scroll_wrapper.winfo_exists()
         ):
-            if is_compact:
-                max_height = self.scale_value(42, scale, 38, 50)
-            else:
-                if sizes.get("window_height", 0) >= 1080:
-                    max_height = self.scale_value(70, scale, 50, 110)
+            max_height = sizes.get("definition_height")
+            if max_height is None:
+                if sizes.get("is_height_constrained", False):
+                    max_height = self.scale_value(42, scale, 38, 50)
                 else:
-                    max_height = self.scale_value(50, scale, 42, 65)
+                    if sizes.get("window_height", 0) >= 1080:
+                        max_height = self.scale_value(70, scale, 50, 110)
+                    else:
+                        max_height = self.scale_value(50, scale, 42, 65)
             self.definition_scroll_wrapper.configure(height=max_height)
 
         if self.definition_label and self.definition_label.winfo_exists():

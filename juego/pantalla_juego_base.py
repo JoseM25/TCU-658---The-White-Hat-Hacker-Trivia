@@ -19,6 +19,7 @@ from juego.pantalla_juego_config import (
     GAME_BASE_SIZES,
     GAME_COLORS,
     GAME_FONT_SPECS,
+    GAME_GLOBAL_SCALE_FACTOR,
     GAME_ICONS,
     GAME_PROFILES,
     GAME_RESIZE_DELAY,
@@ -214,7 +215,7 @@ class GameScreenBase:
         self.scaler = ResponsiveScaler(
             self.BASE_DIMENSIONS,
             self.SCALE_LIMITS,
-            global_scale_factor=1.0,
+            global_scale_factor=GAME_GLOBAL_SCALE_FACTOR,
         )
 
         # Create size calculator
@@ -237,9 +238,26 @@ class GameScreenBase:
         # Icon cache for efficient resizing
         self.icon_cache = {}
 
+    def _get_window_scaling(self):
+        root = self.parent.winfo_toplevel() if self.parent else None
+        try:
+            scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
+        except (AttributeError, KeyError):
+            scaling = 1.0
+        if not scaling or scaling <= 0:
+            return 1.0
+        return scaling
+
+    def _get_logical_dimensions(self):
+        if not self.parent or not self.parent.winfo_exists():
+            return self.BASE_DIMENSIONS
+        scaling = self._get_window_scaling()
+        width = max(int(round(self.parent.winfo_width() / scaling)), 1)
+        height = max(int(round(self.parent.winfo_height() / scaling)), 1)
+        return width, height
+
     def get_current_scale(self):
-        w = max(self.parent.winfo_width(), 1)
-        h = max(self.parent.winfo_height(), 1)
+        w, h = self._get_logical_dimensions()
         low_res_profile = GAME_PROFILES.get("low_res")
         return self.scaler.calculate_scale(w, h, low_res_profile)
 
@@ -651,7 +669,6 @@ class GameScreenBase:
             height=box_sz + 16,  # Extra padding to prevent clipping at low res
         )
         self.answer_boxes_frame.grid(row=2, column=0, pady=(6, 6), padx=20)
-        self.answer_boxes_frame.grid_propagate(False)
         # Configure internal grid to center content without stretching a single column.
         self.answer_boxes_frame.grid_rowconfigure(0, weight=1)
         self.answer_boxes_frame.grid_anchor("center")

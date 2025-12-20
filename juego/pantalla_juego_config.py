@@ -146,7 +146,7 @@ GAME_FONT_SPECS = {
     # (family, base_size, weight, min_size)
     "timer": ("Poppins SemiBold", 24, "bold", 14),
     "score": ("Poppins ExtraBold", 28, "bold", 16),
-    "definition": ("Open Sans Regular", 15, None, 13),
+    "definition": ("Open Sans Regular", 15, None, 5),
     "keyboard": ("Poppins SemiBold", 18, "bold", 12),
     "answer_box": ("Poppins ExtraBold", 20, "bold", 14),
     "button": ("Poppins SemiBold", 20, None, 12),
@@ -161,11 +161,11 @@ GAME_FONT_SPECS = {
 
 # Header height profile (reduced slightly at lower resolutions to fit content)
 GAME_HEADER_HEIGHT_PROFILE = [
-    (720, 50),
-    (900, 56),
-    (1080, 66),
-    (1280, 76),
-    (1600, 92),
+    (720, 80),
+    (900, 80),
+    (1080, 80),
+    (1280, 80),
+    (1600, 100),
     (1920, 110),
     (2560, 130),
     (3200, 150),
@@ -174,69 +174,72 @@ GAME_HEADER_HEIGHT_PROFILE = [
 
 # Image size profile (aggressively reduced at low res)
 GAME_IMAGE_SIZE_PROFILE = [
-    (720, 90),
-    (900, 100),
-    (1080, 115),
-    (1280, 130),
-    (1600, 160),
-    (1920, 190),
-    (2560, 230),
-    (3200, 270),
-    (3840, 300),
+    (720, 200),
+    (900, 200),
+    (1080, 200),
+    (1280, 200),
+    (1600, 220),
+    (1920, 250),
+    (2560, 210),
+    (3200, 250),
+    (3840, 290),
 ]
 
 # Answer box size profile (slightly reduced at low res)
 GAME_ANSWER_BOX_PROFILE = [
-    (720, 28),
-    (900, 32),
-    (1080, 38),
-    (1280, 42),
-    (1600, 50),
-    (1920, 56),
-    (2560, 64),
-    (3200, 72),
-    (3840, 80),
+    (720, 25),
+    (900, 30),
+    (1080, 35),
+    (1280, 40),
+    (1600, 45),
+    (1920, 50),
+    (2560, 36),
+    (3200, 42),
+    (3840, 48),
 ]
 
 # Keyboard key size profile (aggressively reduced at low res)
 GAME_KEY_SIZE_PROFILE = [
-    (720, 22),
-    (900, 26),
-    (1080, 34),
-    (1280, 44),
-    (1600, 54),
-    (1920, 62),
-    (2560, 72),
-    (3200, 82),
-    (3840, 90),
+    (720, 60),
+    (900, 65),
+    (1080, 70),
+    (1280, 75),
+    (1600, 80),
+    (1920, 85),
+    (2560, 90),
+    (3200, 95),
+    (3840, 100),
 ]
 
 # Keyboard scale profile (height-based) to keep the keyboard compact on smaller screens
+# Less aggressive scaling to prevent layout overflow on DPI-scaled displays
+# (e.g., 1080p at 125% gives 864 logical pixels but isn't actually low-res)
 GAME_KEYBOARD_SCALE_PROFILE = [
-    (720, 0.65),
-    (900, 0.70),
-    (1080, 0.80),
-    (1440, 0.80),
-    (2160, 0.80),
+    (720, 0.90),
+    (800, 0.90),
+    (900, 0.90),
+    (1080, 0.95),
+    (1440, 1.00),
+    (2160, 1.00),
 ]
 
 # Keyboard horizontal padding profile
 GAME_KEYBOARD_PAD_PROFILE = [
-    (720, 96),
+    (720, 100),
     (900, 168),
-    (1080, 240),
-    (1280, 308),
-    (1600, 408),
-    (1920, 504),
-    (2560, 672),
-    (3200, 840),
-    (3840, 960),
+    (1080, 220),
+    (1280, 260),
+    (1600, 320),
+    (1920, 420),
+    (2560, 560),
+    (3200, 720),
+    (3840, 840),
 ]
 
 # Definition wrap length profile - capped to ensure text wraps nicely
 # Larger wraplength at high res causes single-line text that clips
 GAME_DEFINITION_WRAP_PROFILE = [
-    (720, 320),
+    (720, 400),
     (900, 400),
     (1080, 480),
     (1280, 560),
@@ -247,36 +250,74 @@ GAME_DEFINITION_WRAP_PROFILE = [
     (3840, 1680),
 ]
 
+# Definition scroll height profile
+GAME_DEFINITION_HEIGHT_PROFILE = [
+    (720, 50),
+    (900, 60),
+    (1080, 70),
+    (1280, 80),
+    (1600, 100),
+    (1920, 120),
+    (2560, 140),
+    (3200, 160),
+    (3840, 180),
+]
+
+# Definition container padding profiles
+GAME_DEFINITION_PAD_X_PROFILE = [
+    (720, 20),
+    (900, 26),
+    (1080, 32),
+    (1280, 36),
+    (1600, 44),
+    (1920, 54),
+    (2560, 68),
+    (3200, 78),
+    (3840, 88),
+]
+
+GAME_DEFINITION_PAD_Y_PROFILE = [
+    (720, 6),
+    (900, 8),
+    (1080, 10),
+    (1280, 12),
+    (1600, 16),
+    (1920, 21),
+    (2560, 26),
+    (3200, 30),
+    (3840, 34),
+]
+
 # Action button width profile (reduced at low res for more content space)
 GAME_ACTION_BUTTON_PROFILE = [
     (720, 90),
-    (900, 105),
-    (1080, 125),
-    (1280, 140),
-    (1600, 165),
-    (1920, 190),
-    (2560, 230),
-    (3200, 270),
-    (3840, 300),
+    (900, 115),
+    (1080, 150),
+    (1280, 160),
+    (1600, 190),
+    (1920, 220),
+    (2560, 270),
+    (3200, 320),
+    (3840, 350),
 ]
 
 # Wildcard size profile (reduced at low res)
 GAME_WILDCARD_SIZE_PROFILE = [
-    (720, 28),
-    (900, 32),
-    (1080, 40),
-    (1280, 46),
-    (1600, 54),
-    (1920, 64),
-    (2560, 76),
-    (3200, 88),
-    (3840, 96),
+    (720, 50),
+    (900, 30),
+    (1080, 35),
+    (1280, 40),
+    (1600, 45),
+    (1920, 51),
+    (2560, 90),
+    (3200, 104),
+    (3840, 112),
 ]
 
 # Container padding profile
 GAME_CONTAINER_PAD_PROFILE = [
-    (720, 12),
-    (900, 16),
+    (720, 10),
+    (900, 10),
     (1080, 20),
     (1280, 24),
     (1600, 32),
@@ -308,11 +349,11 @@ MODAL_BASE_SIZES = {
     "summary_width_ratio": 0.35,
     "summary_height_ratio": 0.48,
     "summary_max_scale": 1.6,
-    # Game completion modal
+    # Game completion modal - increased height ratio for 1080p compatibility
     "completion_width": 560,
     "completion_height": 520,
     "completion_width_ratio": 0.42,
-    "completion_height_ratio": 0.52,
+    "completion_height_ratio": 0.62,
     # Common
     "header_height": 72,
     "header_min": 48,
@@ -399,8 +440,9 @@ class GameFontRegistry:
 class GameSizeCalculator:
 
     # Height threshold below which we apply compact sizing
-    # Include 720p (720) and 768p (768) screens as height-constrained
-    HEIGHT_CONSTRAINED_THRESHOLD = 768
+    # Include 720p (720), 768p (768), and DPI-scaled 1080p displays
+    # (1080p at 125% gives ~864 logical pixels, at 150% gives ~720)
+    HEIGHT_CONSTRAINED_THRESHOLD = 800
 
     def __init__(self, scaler, profiles):
         self.scaler = scaler
@@ -470,6 +512,11 @@ class GameSizeCalculator:
 
         # Definition - always use width for wraplength (horizontal constraint)
         sizes["definition_wrap"] = ip(window_width, self.profiles["definition_wrap"])
+        sizes["definition_height"] = ip(
+            window_height, self.profiles["definition_height"]
+        )
+        sizes["definition_pad_x"] = ip(window_width, self.profiles["definition_pad_x"])
+        sizes["definition_pad_y"] = ip(window_height, self.profiles["definition_pad_y"])
         sizes["info_icon"] = s(GAME_BASE_SIZES["info_icon_size"], scale, 16, 40)
 
         # Answer boxes - use vertical_dimension for height-constrained
@@ -575,6 +622,9 @@ GAME_PROFILES = {
     "keyboard_scale": GAME_KEYBOARD_SCALE_PROFILE,
     "keyboard_pad": GAME_KEYBOARD_PAD_PROFILE,
     "definition_wrap": GAME_DEFINITION_WRAP_PROFILE,
+    "definition_height": GAME_DEFINITION_HEIGHT_PROFILE,
+    "definition_pad_x": GAME_DEFINITION_PAD_X_PROFILE,
+    "definition_pad_y": GAME_DEFINITION_PAD_Y_PROFILE,
     "action_button": GAME_ACTION_BUTTON_PROFILE,
     "wildcard_size": GAME_WILDCARD_SIZE_PROFILE,
     "container_pad": GAME_CONTAINER_PAD_PROFILE,

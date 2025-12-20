@@ -9,6 +9,8 @@ AUDIO_DIR = get_resource_audio_dir()
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
+ctk.set_widget_scaling(1.0)
+ctk.set_window_scaling(1.0)
 
 root = ctk.CTk()
 

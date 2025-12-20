@@ -43,12 +43,17 @@ class ModalBase:
             return 1.0
         base_scale = min(width / 1280, height / 720)
         min_dim = min(width, height)
+        # More gradual scaling penalties for smaller screens
+        # Ensures modals fit properly on 1080p (height=1080) and below
         if min_dim <= 720:
-            base_scale *= 0.50
+            base_scale *= 0.55
         elif min_dim <= 800:
-            base_scale *= 0.65
+            base_scale *= 0.70
         elif min_dim <= 900:
-            base_scale *= 0.80
+            base_scale *= 0.82
+        elif min_dim <= 1080:
+            # Gentle penalty for 1080p screens to ensure content fits
+            base_scale *= 0.92
         return max(0.4, min(1.4, base_scale))
 
     def create_modal(self, width, height, title):
@@ -292,14 +297,22 @@ class GameCompletionModal(ModalBase):
         content.grid_columnconfigure(0, weight=1)
         self._build_content(content, width, sizes)
         self.modal.update_idletasks()
+        # Force geometry update to get accurate measurements
+        content_wrapper.update_idletasks()
+        content.update_idletasks()
         available_h = height - sizes["header_h"] - (sizes["border_w"] * 2)
+        # Account for wrapper padding and extra margins
         required_h = (
-            content.winfo_reqheight() + (sizes["pad"] * 2) + (sizes["border_w"] * 2) + 6
+            content.winfo_reqheight()
+            + (sizes["pad"] * 2)
+            + (sizes["border_w"] * 2)
+            + 16
         )
+        # Retry with smaller scale if content doesn't fit
         if attempt == 0 and available_h > 0 and required_h > available_h:
-            shrink = available_h / required_h
-            if shrink < 0.98:
-                target_scale = max(0.3, scale * shrink)
+            shrink = (available_h - 10) / required_h  # Extra margin for safety
+            if shrink < 0.96:
+                target_scale = max(0.3, scale * shrink * 0.95)  # More aggressive shrink
                 self.close()
                 self._show_with_scale(scale_override=target_scale, attempt=1)
                 return
