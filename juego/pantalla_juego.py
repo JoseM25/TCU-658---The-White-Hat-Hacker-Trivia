@@ -7,6 +7,20 @@ from juego.pantalla_juego_logica import GameScreenLogic
 
 
 class GameScreen(GameScreenLogic):
+    """Main game screen combining logic with responsive UI and keyboard handling.
+
+    This class inherits from GameScreenLogic and adds:
+    - Responsive layout handling
+    - Physical keyboard binding
+    - Modal management
+
+    All instance attributes are initialized in parent classes.
+    The declarations below are type hints to satisfy static analysis tools.
+    """
+
+    # Type declarations for attributes inherited from parent classes
+    resize_job: str | None
+    key_feedback_job: str | None
 
     def __init__(
         self, parent, on_return_callback=None, tts_service=None, sfx_service=None
@@ -589,17 +603,7 @@ class GameScreen(GameScreenLogic):
             self.parent.after_cancel(self.key_feedback_job)
             self.key_feedback_job = None
 
-        if self.completion_modal:
-            self.completion_modal.close()
-            self.completion_modal = None
-
-        if self.summary_modal:
-            self.summary_modal.close()
-            self.summary_modal = None
-
-        if self.skip_modal:
-            self.skip_modal.close()
-            self.skip_modal = None
+        self.close_all_modals()
 
         self.parent.unbind("<Configure>")
         self.unbind_physical_keyboard()
@@ -716,4 +720,17 @@ class GameScreen(GameScreenLogic):
                         return True
                 except tk.TclError:
                     pass
+                # Clear stale reference if modal no longer exists
+                setattr(self, modal_attr, None)
         return False
+
+    def close_all_modals(self):
+        """Safely close all modals and clear references."""
+        for modal_attr in ["completion_modal", "summary_modal", "skip_modal"]:
+            modal = getattr(self, modal_attr, None)
+            if modal:
+                try:
+                    modal.close()
+                except (tk.TclError, AttributeError):
+                    pass
+                setattr(self, modal_attr, None)

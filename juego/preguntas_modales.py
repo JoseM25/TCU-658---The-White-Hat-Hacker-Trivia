@@ -3,6 +3,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
+from customtkinter.windows.widgets.scaling import ScalingTracker
 
 from juego.responsive_helpers import ResponsiveScaler
 from juego.widget_factory import (
@@ -72,8 +73,8 @@ class BaseModal:
     def calculate_position(self, modal, root, width, height):
         # Get scaling factor - geometry() applies this internally, so we divide
         try:
-            scaling = root._get_window_scaling() if root else 1.0
-        except Exception:
+            scaling = ScalingTracker.get_window_scaling(root) if root else 1.0
+        except (ValueError, KeyError, AttributeError, tk.TclError):
             scaling = 1.0
 
         screen_width, screen_height = (

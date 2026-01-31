@@ -1,3 +1,19 @@
+"""Base class for GameScreen with core state and responsive helpers.
+
+This module contains the GameScreenBase class which combines:
+- GameIconsMixin: Icon loading functionality
+- GameUIBuilderMixin: UI construction functionality
+
+And provides core functionality:
+- State management
+- Responsive system initialization
+- Question loading
+- Definition scrollbar management
+- Answer boxes management
+- Wildcard state management
+- Timer visual state management
+"""
+
 import json
 import tkinter as tk
 
@@ -28,11 +44,22 @@ from juego.pantalla_juego_config import (
     GameFontRegistry,
     GameSizeCalculator,
 )
+from juego.pantalla_juego_icons import GameIconsMixin
+from juego.pantalla_juego_ui_builder import GameUIBuilderMixin
 from juego.responsive_helpers import ResponsiveScaler
 from juego.tts_service import TTSService
 
 
-class GameScreenBase:
+class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
+    """Base class for game screen with state management and responsive helpers.
+
+    This class combines GameIconsMixin and GameUIBuilderMixin to provide
+    complete UI functionality, plus core game state and responsive logic.
+
+    Inheritance chain:
+        GameScreenBase -> GameScreenLogic -> GameScreen
+    """
+
     # Import constants from config
     BASE_DIMENSIONS = GAME_BASE_DIMENSIONS
     SCALE_LIMITS = GAME_SCALE_LIMITS
@@ -45,6 +72,16 @@ class GameScreenBase:
     # SVG rendering scale
     SVG_RASTER_SCALE = 2.0
 
+    # Maximum number of questions to keep in history
+    MAX_QUESTION_HISTORY = 50
+
+    # Class-level attribute declarations (initialized in __init__ helper methods)
+    _definition_scrollbar_visible: bool | None
+    _definition_scrollbar_manager: str | None
+    _definition_scroll_update_job: str | None
+    timer_frozen_visually: bool
+    double_points_visually_active: bool
+
     def __init__(
         self, parent, on_return_callback=None, tts_service=None, sfx_service=None
     ):
@@ -52,7 +89,20 @@ class GameScreenBase:
         self.on_return_callback = on_return_callback
         self.sfx = sfx_service
 
-        # Game state
+        # Initialize all state attributes
+        self._init_game_state()
+        self._init_ui_references()
+        self._init_paths_and_services(tts_service)
+
+        # Initialize responsive system
+        self.init_responsive_system()
+
+        # Load data and build UI
+        self.load_questions()
+        self.build_ui()
+
+    def _init_game_state(self):
+        """Initialize game state variables."""
         self.current_question = None
         self.questions = []
         self.available_questions = []
@@ -74,7 +124,24 @@ class GameScreenBase:
         # Resize handling
         self.resize_job = None
 
-        # UI component references - Main layout
+        # Game flow state
+        self.processing_correct_answer = False
+        self.awaiting_modal_decision = False
+        self.stored_modal_data = None
+        self.question_history = []
+        self.viewing_history_index = -1
+
+        # Physical keyboard handling
+        self.physical_key_pressed = None
+        self.key_feedback_job = None
+
+        # Visual state tracking
+        self.timer_frozen_visually = False
+        self.double_points_visually_active = False
+
+    def _init_ui_references(self):
+        """Initialize UI component references to None."""
+        # Main layout
         self.main = None
         self.header_frame = None
         self.header_left_container = None
@@ -136,10 +203,6 @@ class GameScreenBase:
         self.lightning_icon_label = None
         self.freeze_wildcard_icon = None
 
-        # Visual state tracking
-        self.timer_frozen_visually = False
-        self.double_points_visually_active = False
-
         # Wildcards panel components
         self.wildcards_frame = None
         self.wildcard_x2_btn = None
@@ -157,14 +220,22 @@ class GameScreenBase:
         self.summary_modal = None
         self.skip_modal = None
 
-        # Game flow state
-        self.processing_correct_answer = False
-        self.awaiting_modal_decision = False
-        self.stored_modal_data = None
-        self.question_history = []
-        self.viewing_history_index = -1
+        # Font attributes (set by font_registry.attach_attributes)
+        self.timer_font = None
+        self.score_font = None
+        self.definition_font = None
+        self.keyboard_font = None
+        self.answer_box_font = None
+        self.button_font = None
+        self.header_button_font = None
+        self.header_label_font = None
+        self.feedback_font = None
+        self.wildcard_font = None
+        self.charges_font = None
+        self.multiplier_font = None
 
-        # Paths
+    def _init_paths_and_services(self, tts_service):
+        """Initialize file paths and services."""
         resource_images_dir = get_resource_images_dir()
         resource_audio_dir = get_resource_audio_dir()
         data_root = get_data_root()
@@ -185,32 +256,8 @@ class GameScreenBase:
         # TTS service
         self.tts = tts_service or TTSService(self.audio_dir)
 
-        # Physical keyboard handling
-        self.physical_key_pressed = None
-        self.key_feedback_job = None
-
-        # Font attributes (set by font_registry.attach_attributes)
-        self.timer_font = None
-        self.score_font = None
-        self.definition_font = None
-        self.keyboard_font = None
-        self.answer_box_font = None
-        self.button_font = None
-        self.header_button_font = None
-        self.header_label_font = None
-        self.feedback_font = None
-        self.wildcard_font = None
-        self.charges_font = None
-        self.multiplier_font = None
-
-        # Initialize responsive system
-        self.init_responsive_system()
-
-        # Load data and build UI
-        self.load_questions()
-        self.build_ui()
-
     def init_responsive_system(self):
+        """Initialize the responsive scaling system."""
         # Create scaler
         self.scaler = ResponsiveScaler(
             self.BASE_DIMENSIONS,
@@ -239,6 +286,7 @@ class GameScreenBase:
         self.icon_cache = {}
 
     def _get_window_scaling(self):
+        """Get the current window DPI scaling factor."""
         root = self.parent.winfo_toplevel() if self.parent else None
         try:
             scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
@@ -249,6 +297,7 @@ class GameScreenBase:
         return scaling
 
     def _get_logical_dimensions(self):
+        """Get logical window dimensions accounting for DPI scaling."""
         if not self.parent or not self.parent.winfo_exists():
             return self.BASE_DIMENSIONS
         scaling = self._get_window_scaling()
@@ -257,14 +306,17 @@ class GameScreenBase:
         return width, height
 
     def get_current_scale(self):
+        """Calculate the current scale factor based on window size."""
         w, h = self._get_logical_dimensions()
         low_res_profile = GAME_PROFILES.get("low_res")
         return self.scaler.calculate_scale(w, h, low_res_profile)
 
     def scale_value(self, base, scale, min_value=None, max_value=None):
+        """Scale a value with optional min/max bounds."""
         return self.scaler.scale_value(base, scale, min_value, max_value)
 
     def get_scaled_image_size(self, scale=None):
+        """Get the scaled image size for the current scale."""
         if self.size_state and "image_size" in self.size_state:
             return self.size_state["image_size"]
         s = scale or self.get_current_scale()
@@ -276,6 +328,7 @@ class GameScreenBase:
         )
 
     def get_scaled_box_size(self, scale=None):
+        """Get the scaled answer box size for the current scale."""
         if self.size_state and "answer_box" in self.size_state:
             return self.size_state["answer_box"]
         s = scale or self.get_current_scale()
@@ -287,6 +340,7 @@ class GameScreenBase:
         )
 
     def load_questions(self):
+        """Load questions from the JSON data file."""
         try:
             with open(self.questions_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -301,272 +355,18 @@ class GameScreenBase:
             self.scoring_system = ScoringSystem(1)
             self.wildcard_manager.reset_game()
 
-    def build_ui(self):
-        # Clear existing widgets
-        for widget in self.parent.winfo_children():
-            widget.destroy()
-
-        # Configure parent grid
-        self.parent.grid_rowconfigure(0, weight=1)
-        self.parent.grid_columnconfigure(0, weight=1)
-
-        # Main container
-        self.main = ctk.CTkFrame(self.parent, fg_color=self.COLORS["bg_light"])
-        self.main.grid(row=0, column=0, sticky="nsew")
-
-        # Main layout: header, question area, keyboard, action buttons
-        self.main.grid_rowconfigure(0, weight=0)  # Header
-        self.main.grid_rowconfigure(1, weight=1)  # Question container
-        self.main.grid_rowconfigure(2, weight=0)  # Keyboard
-        self.main.grid_rowconfigure(3, weight=0)  # Action buttons
-        self.main.grid_columnconfigure(0, weight=1)
-
-        # Build sections
-        self.build_header()
-        self.build_question_container()
-        self.build_keyboard()
-        self.build_action_buttons()
-
-    def build_header(self):
-        header_height = self.BASE_SIZES["header_height"]
-
-        self.header_frame = ctk.CTkFrame(
-            self.main,
-            fg_color=self.COLORS["header_bg"],
-            height=header_height,
-            corner_radius=0,
-        )
-        self.header_frame.grid(row=0, column=0, sticky="ew")
-        self.header_frame.grid_propagate(False)
-
-        # Spanned layout: timer left, score center, mute right
-        self.header_frame.grid_columnconfigure(0, weight=1, uniform="header_side")
-        self.header_frame.grid_columnconfigure(1, weight=0)
-        self.header_frame.grid_columnconfigure(2, weight=1, uniform="header_side")
-        self.header_frame.grid_rowconfigure(0, weight=1)
-
-        # Load header icons
-        self.load_header_icons()
-
-        # Left container (timer)
-        self.header_left_container = ctk.CTkFrame(
-            self.header_frame, fg_color="transparent"
-        )
-        self.header_left_container.grid(
-            row=0, column=0, sticky="w", padx=(self.BASE_SIZES["header_pad_x"], 0)
-        )
-
-        # Center container (score)
-        self.header_center_container = ctk.CTkFrame(
-            self.header_frame, fg_color="transparent"
-        )
-        self.header_center_container.grid(row=0, column=1)
-
-        # Right container (audio toggle)
-        self.header_right_container = ctk.CTkFrame(
-            self.header_frame, fg_color="transparent"
-        )
-        self.header_right_container.grid(
-            row=0, column=2, sticky="e", padx=(0, self.BASE_SIZES["header_pad_x"])
-        )
-
-        # Build timer section
-        self.build_timer_section()
-
-        # Build score section
-        self.build_score_section()
-
-        # Build audio toggle
-        self.build_audio_section()
-
-    def build_timer_section(self):
-        self.timer_container = ctk.CTkFrame(
-            self.header_left_container, fg_color="transparent"
-        )
-        self.timer_container.grid(row=0, column=0)
-
-        self.timer_icon_label = ctk.CTkLabel(
-            self.timer_container, text="", image=self.clock_icon
-        )
-        self.timer_icon_label.grid(row=0, column=0, padx=(0, 8))
-
-        self.timer_label = ctk.CTkLabel(
-            self.timer_container,
-            text="00:00",
-            font=self.timer_font,
-            text_color="white",
-        )
-        self.timer_label.grid(row=0, column=1)
-
-    def build_score_section(self):
-        self.score_container = ctk.CTkFrame(
-            self.header_center_container, fg_color="transparent"
-        )
-        self.score_container.grid(row=0, column=0)
-
-        star_sz = 24
-        self.star_icon_label = ctk.CTkLabel(
-            self.score_container,
-            text="",
-            image=self.star_icon,
-            width=star_sz,
-            height=star_sz,
-        )
-        self.star_icon_label.grid(row=0, column=0, padx=(0, 8))
-
-        self.score_label = ctk.CTkLabel(
-            self.score_container,
-            text="0",
-            font=self.score_font,
-            text_color="white",
-        )
-        self.score_label.grid(row=0, column=1)
-
-        # Multiplier label (hidden by default)
-        self.multiplier_label = ctk.CTkLabel(
-            self.score_container,
-            text="",
-            font=self.multiplier_font,
-            text_color=self.COLORS["warning_yellow"],
-            width=star_sz + 8,
-        )
-        self.multiplier_label.grid(row=0, column=2, padx=(8, 0))
-        self.multiplier_label.grid_remove()
-
-    def build_audio_section(self):
-        self.audio_container = ctk.CTkFrame(
-            self.header_right_container, fg_color="transparent"
-        )
-        self.audio_container.grid(row=0, column=0)
-
-        self.load_audio_icons()
-
-        self.audio_toggle_btn = ctk.CTkButton(
-            self.audio_container,
-            text="",
-            image=self.audio_icon_on,
-            font=self.timer_font,
-            width=self.BASE_SIZES["audio_button_width"],
-            height=self.BASE_SIZES["audio_button_height"],
-            fg_color="transparent",
-            hover_color=self.COLORS["header_hover"],
-            text_color="white",
-            corner_radius=8,
-            command=self.toggle_audio,
-        )
-        self.audio_toggle_btn.grid(row=0, column=0)
-        self.update_audio_button_icon()
-
-    def build_question_container(self):
-        self.question_container = ctk.CTkFrame(
-            self.main,
-            fg_color=self.COLORS["bg_card"],
-            corner_radius=self.BASE_SIZES["container_corner_radius"],
-            border_width=2,
-            border_color=self.COLORS["border_light"],
-        )
-        self.question_container.grid(
-            row=1,
-            column=0,
-            sticky="nsew",
-            padx=self.BASE_SIZES["container_pad_x"],
-            pady=self.BASE_SIZES["container_pad_y"],
-        )
-
-        # Grid configuration for question container
-        # All rows have weight=0 so they take natural heights based on content
-        # This prevents the definition row from being squeezed out at low resolutions
-        self.question_container.grid_columnconfigure(0, weight=1)
-        self.question_container.grid_columnconfigure(1, weight=0)
-        for r in range(4):
-            self.question_container.grid_rowconfigure(r, weight=0)
-
-        # Build sections
-        self.build_image_section()
-        self.build_definition_section()
-        self.build_answer_boxes_section()
-        self.build_feedback_section()
-        self.build_wildcards_panel()
-
-    def build_image_section(self):
-        img_sz = self.get_scaled_image_size()
-
-        self.image_frame = ctk.CTkFrame(
-            self.question_container, fg_color="transparent", height=img_sz
-        )
-        self.image_frame.grid(row=0, column=0, pady=(12, 6))
-        self.image_frame.grid_rowconfigure(0, weight=1)
-        self.image_frame.grid_columnconfigure(0, weight=1)
-
-        self.image_label = ctk.CTkLabel(
-            self.image_frame,
-            text="",
-            fg_color=self.COLORS["bg_light"],
-            corner_radius=16,
-            width=img_sz,
-            height=img_sz,
-        )
-        self.image_label.grid(row=0, column=0)
-
-    def build_definition_section(self):
-        # Store reference to frame for responsive updates
-        self.definition_frame = ctk.CTkFrame(
-            self.question_container, fg_color="transparent"
-        )
-        self.definition_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=2)
-        self.definition_frame.grid_columnconfigure(0, weight=1)
-
-        self.load_info_icon()
-
-        # Wrapper with fixed height to constrain scrollable frame
-        self.definition_scroll_wrapper = ctk.CTkFrame(
-            self.definition_frame,
-            fg_color="transparent",
-            height=45,
-        )
-        self.definition_scroll_wrapper.grid(row=0, column=0, sticky="ew")
-        self.definition_scroll_wrapper.grid_propagate(False)  # Force fixed height
-        self.definition_scroll_wrapper.grid_rowconfigure(0, weight=1)
-        self.definition_scroll_wrapper.grid_columnconfigure(0, weight=1)
-
-        # Scrollable frame inside wrapper
-        self.definition_scroll = ctk.CTkScrollableFrame(
-            self.definition_scroll_wrapper,
-            fg_color="transparent",
-            scrollbar_button_color="#9B9B9B",
-            scrollbar_button_hover_color="#666666",
-        )
-        self.definition_scroll.grid(row=0, column=0, sticky="nsew")
-        self.definition_scroll.grid_columnconfigure(0, weight=1)
-
-        # Inner frame that centers content but expands horizontally
-        self.def_inner = ctk.CTkFrame(self.definition_scroll, fg_color="transparent")
-        self.def_inner.master.grid_columnconfigure(0, weight=1)
-        self.def_inner.grid(row=0, column=0, sticky="")
-        self.def_inner.grid_columnconfigure(1, weight=1)
-
-        self.info_icon_label = ctk.CTkLabel(
-            self.def_inner, text="", image=self.info_icon
-        )
-        self.info_icon_label.grid(row=0, column=0, sticky="n", padx=(0, 8), pady=(2, 0))
-
-        self.definition_label = ctk.CTkLabel(
-            self.def_inner,
-            text="Loading question...",
-            font=self.definition_font,
-            text_color=self.COLORS["text_medium"],
-            wraplength=self.BASE_SIZES["definition_wrap_base"],
-            justify="left",
-            anchor="w",
-        )
-        self.definition_label.grid(row=0, column=1, sticky="nw")
+    # =========================================================================
+    # Definition Scrollbar Management
+    # =========================================================================
 
     def set_definition_text(self, text):
+        """Set the definition label text and update scrollbar visibility."""
         if self.definition_label and self.definition_label.winfo_exists():
             self.definition_label.configure(text=text)
         self.queue_definition_scroll_update()
 
     def queue_definition_scroll_update(self):
+        """Queue an update to check if the definition scrollbar should be visible."""
         if not self.parent or not self.parent.winfo_exists():
             return
         if self._definition_scroll_update_job:
@@ -584,6 +384,7 @@ class GameScreenBase:
             self.update_definition_scrollbar_visibility()
 
     def update_definition_scrollbar_visibility(self):
+        """Update the scrollbar visibility based on content height."""
         self._definition_scroll_update_job = None
         if not self.definition_scroll or not self.definition_scroll.winfo_exists():
             return
@@ -616,6 +417,7 @@ class GameScreenBase:
         self._set_definition_scrollbar_visible(needs_scroll)
 
     def _set_definition_scrollbar_visible(self, visible):
+        """Show or hide the definition scrollbar."""
         if self._definition_scrollbar_visible is visible:
             return
 
@@ -646,6 +448,7 @@ class GameScreenBase:
         self._definition_scrollbar_visible = visible
 
     def _get_scrollbar_widget(self, scrollable):
+        """Get the scrollbar widget from a CTkScrollableFrame."""
         if not scrollable:
             return None
         for attr in (
@@ -659,259 +462,12 @@ class GameScreenBase:
                 return scrollbar
         return None
 
-    def build_answer_boxes_section(self):
-        box_sz = self.get_scaled_box_size()
-
-        self.answer_boxes_frame = ctk.CTkFrame(
-            self.question_container,
-            fg_color="transparent",
-            width=10 * (box_sz + 8),
-            height=box_sz + 16,  # Extra padding to prevent clipping at low res
-        )
-        self.answer_boxes_frame.grid(row=2, column=0, pady=(6, 6), padx=20)
-        # Configure internal grid to center content without stretching a single column.
-        self.answer_boxes_frame.grid_rowconfigure(0, weight=1)
-        self.answer_boxes_frame.grid_anchor("center")
-
-    def build_feedback_section(self):
-        self.feedback_label = ctk.CTkLabel(
-            self.question_container,
-            text="",
-            font=self.feedback_font,
-            text_color=self.COLORS["feedback_correct"],
-        )
-        self.feedback_label.grid(row=3, column=0, pady=(0, 4), padx=20)
-
-    def build_wildcards_panel(self):
-        self.wildcards_frame = ctk.CTkFrame(
-            self.question_container, fg_color="transparent"
-        )
-        # Use sticky="n" to anchor at top, natural content height
-        self.wildcards_frame.grid(
-            row=0, column=1, rowspan=4, sticky="n", padx=(0, 16), pady=12
-        )
-
-        wc_sz = self.BASE_SIZES["wildcard_size"]
-        wc_font = self.BASE_SIZES["wildcard_font_size"]
-        font = ctk.CTkFont(family="Poppins ExtraBold", size=wc_font, weight="bold")
-        charges_font = ctk.CTkFont(family="Poppins SemiBold", size=14, weight="bold")
-
-        # Calculate button width to accommodate text like "X16" (stacked multipliers)
-        # Use 1.5x the height for a nice pill shape that fits all text
-        wc_btn_width = int(wc_sz * 1.5)
-        wc_corner = wc_sz // 2  # Keep corner radius based on height for pill shape
-
-        # Charges display
-        self.charges_frame = ctk.CTkFrame(self.wildcards_frame, fg_color="transparent")
-        self.charges_frame.grid(row=1, column=0, pady=(0, 6))
-
-        self.load_lightning_icon()
-        if self.lightning_icon:
-            self.lightning_icon_label = ctk.CTkLabel(
-                self.charges_frame, text="", image=self.lightning_icon
-            )
-            self.lightning_icon_label.grid(row=0, column=0, padx=(0, 4))
-
-        self.charges_label = ctk.CTkLabel(
-            self.charges_frame,
-            text=str(self.wildcard_manager.get_charges()),
-            font=charges_font,
-            text_color=self.COLORS["warning_yellow"],
-        )
-        self.charges_label.grid(row=0, column=1)
-
-        # X2 button - use consistent width for all buttons
-        self.wildcard_x2_btn = ctk.CTkButton(
-            self.wildcards_frame,
-            text="X2",
-            font=font,
-            width=wc_btn_width,
-            height=wc_sz,
-            corner_radius=wc_corner,
-            fg_color=self.COLORS["wildcard_x2"],
-            hover_color=self.COLORS["wildcard_x2_hover"],
-            text_color="white",
-            command=self.on_wildcard_x2,
-        )
-        self.wildcard_x2_btn.grid(row=2, column=0, pady=4)
-
-        # Hint button - same width as X2 for consistency
-        self.wildcard_hint_btn = ctk.CTkButton(
-            self.wildcards_frame,
-            text="A",
-            font=font,
-            width=wc_btn_width,
-            height=wc_sz,
-            corner_radius=wc_corner,
-            fg_color=self.COLORS["wildcard_hint"],
-            hover_color=self.COLORS["wildcard_hint_hover"],
-            text_color="white",
-            command=self.on_wildcard_hint,
-        )
-        self.wildcard_hint_btn.grid(row=3, column=0, pady=4)
-
-        # Freeze button - same width as others for consistency
-        self.load_freeze_wildcard_icon(int(wc_sz * 0.5))
-
-        self.wildcard_freeze_btn = ctk.CTkButton(
-            self.wildcards_frame,
-            text="" if self.freeze_wildcard_icon else "❄",
-            image=self.freeze_wildcard_icon,
-            font=font,
-            width=wc_btn_width,
-            height=wc_sz,
-            corner_radius=wc_corner,
-            fg_color=self.COLORS["wildcard_freeze"],
-            hover_color=self.COLORS["wildcard_freeze_hover"],
-            text_color="white",
-            command=self.on_wildcard_freeze,
-        )
-        self.wildcard_freeze_btn.grid(row=4, column=0, pady=4)
-
-        self.update_wildcard_buttons_state()
-
-    def build_keyboard(self):
-        self.keyboard_frame = ctk.CTkFrame(self.main, fg_color="transparent")
-        self.keyboard_frame.grid(
-            row=2,
-            column=0,
-            pady=(0, 16),
-            padx=self.BASE_SIZES["keyboard_pad_x"],
-            sticky="ew",
-        )
-        self.keyboard_frame.grid_columnconfigure(0, weight=1)
-
-        self.keyboard_buttons.clear()
-        self.key_button_map.clear()
-        self.delete_button = None
-        self.load_delete_icon()
-
-        key_sz = self.BASE_SIZES["key_base"]
-        key_gap = self.BASE_SIZES["key_gap"]
-        key_width_ratio = self.BASE_SIZES.get("key_width_ratio", 1.0)
-        delete_ratio = self.BASE_SIZES.get("delete_key_width_ratio", 1.8)
-
-        for row_idx, row_keys in enumerate(self.KEYBOARD_LAYOUT):
-            row_frame = ctk.CTkFrame(self.keyboard_frame, fg_color="transparent")
-            row_frame.grid(row=row_idx, column=0, pady=4, sticky="ew")
-            row_frame.grid_columnconfigure(0, weight=1)
-            row_frame.grid_columnconfigure(2, weight=1)
-
-            inner = ctk.CTkFrame(row_frame, fg_color="transparent")
-            inner.grid(row=0, column=1)
-
-            for col, key in enumerate(row_keys):
-                is_del = key == "⌫"
-                w = (
-                    int(key_sz * delete_ratio * key_width_ratio)
-                    if is_del
-                    else int(key_sz * key_width_ratio)
-                )
-                fg = self.COLORS["danger_red"] if is_del else self.COLORS["key_bg"]
-                hv = self.COLORS["danger_hover"] if is_del else self.COLORS["key_hover"]
-                tc = "white" if is_del else self.COLORS["text_dark"]
-                img = self.delete_icon if is_del else None
-                txt = "" if img else key
-
-                btn = ctk.CTkButton(
-                    inner,
-                    text=txt,
-                    image=img,
-                    font=self.keyboard_font,
-                    width=w,
-                    height=key_sz,
-                    fg_color=fg,
-                    hover_color=hv,
-                    text_color=tc,
-                    border_width=2,
-                    border_color=self.COLORS["header_bg"],
-                    corner_radius=8,
-                    command=lambda k=key: self.on_key_press(k),
-                )
-                btn.grid(row=0, column=col, padx=key_gap // 2)
-                self.keyboard_buttons.append(btn)
-                self.key_button_map[key] = btn
-                if is_del:
-                    self.delete_button = btn
-
-    def build_action_buttons(self):
-        self.action_buttons_frame = ctk.CTkFrame(self.main, fg_color="transparent")
-        self.action_buttons_frame.grid(row=3, column=0, pady=(0, 24))
-
-        btn_width = self.BASE_SIZES["action_button_width"]
-        btn_height = self.BASE_SIZES["action_button_height"]
-        btn_gap = self.BASE_SIZES["action_button_gap"]
-        corner_r = self.BASE_SIZES["action_corner_radius"]
-
-        self.skip_button = ctk.CTkButton(
-            self.action_buttons_frame,
-            text="Skip",
-            font=self.button_font,
-            width=btn_width,
-            height=btn_height,
-            fg_color=self.COLORS["bg_light"],
-            hover_color=self.COLORS["border_medium"],
-            text_color="black",
-            border_width=2,
-            border_color="black",
-            corner_radius=corner_r,
-            command=self.on_skip,
-        )
-        self.skip_button.grid(row=0, column=0, padx=btn_gap // 2)
-
-        self.check_button = ctk.CTkButton(
-            self.action_buttons_frame,
-            text="Check",
-            font=self.button_font,
-            width=btn_width,
-            height=btn_height,
-            fg_color=self.COLORS["primary_blue"],
-            hover_color=self.COLORS["primary_hover"],
-            text_color="white",
-            corner_radius=corner_r,
-            command=self.on_check,
-        )
-        self.check_button.grid(row=0, column=1, padx=btn_gap // 2)
-
-    def _load_icon(self, icon_key, size):
-        return self.image_handler.create_ctk_icon(self.ICONS[icon_key], (size, size))
-
-    def load_header_icons(self):
-        self.clock_icon = self._load_icon("clock", 24)
-        self.star_icon = self._load_icon("star", 24)
-        self.freeze_icon = self._load_icon("freeze", 24)
-
-    def load_audio_icons(self):
-        sz = self.BASE_SIZES["audio_icon_base"]
-        self.audio_icon_on = self._load_icon("volume_on", sz)
-        self.audio_icon_off = self._load_icon("volume_off", sz)
-
-    def load_info_icon(self):
-        self.info_icon = self._load_icon("info", 24)
-
-    def load_delete_icon(self):
-        self.delete_icon = self._load_icon(
-            "delete", self.BASE_SIZES["delete_icon_base"]
-        )
-
-    def load_lightning_icon(self, size=18):
-        self.lightning_icon = self._load_icon("lightning", size)
-
-    def load_freeze_wildcard_icon(self, size=28):
-        self.freeze_wildcard_icon = self._load_icon("freeze", size)
-
-    def update_audio_button_icon(self):
-        if not self.audio_toggle_btn:
-            return
-        icon = self.audio_icon_on if self.audio_enabled else self.audio_icon_off
-        if icon:
-            self.audio_toggle_btn.configure(image=icon, text="")
-        else:
-            self.audio_toggle_btn.configure(
-                image=None, text="On" if self.audio_enabled else "Off"
-            )
+    # =========================================================================
+    # Answer Boxes Management
+    # =========================================================================
 
     def create_answer_boxes(self, word_length):
+        """Create or update answer boxes for the given word length."""
         box_sz = self.get_scaled_box_size()
         gap = self.size_state.get("answer_box_gap", 3)
         scale = self.size_state.get("scale", 1.0) if self.size_state else 1.0
@@ -975,21 +531,18 @@ class GameScreenBase:
                 pad_y = self.scale_value(14, scale, 8, 28)
             self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))
 
-    def on_wildcard_x2(self):
-        pass  # Override in logic class
-
-    def on_wildcard_hint(self):
-        pass  # Override in logic class
-
-    def on_wildcard_freeze(self):
-        pass  # Override in logic class
+    # =========================================================================
+    # Wildcard State Management
+    # =========================================================================
 
     def update_charges_display(self):
+        """Update the charges label with current charge count."""
         if self.charges_label:
             charges = self.wildcard_manager.get_charges()
             self.charges_label.configure(text=str(charges))
 
     def update_wildcard_buttons_state(self):
+        """Update all wildcard buttons based on current state and charges."""
         charges = self.wildcard_manager.get_charges()
         double_blocked = self.wildcard_manager.is_double_points_blocked()
         others_blocked = self.wildcard_manager.are_other_wildcards_blocked()
@@ -1074,9 +627,15 @@ class GameScreenBase:
         self.update_charges_display()
 
     def reset_wildcard_button_colors(self):
+        """Reset wildcard button colors to match current state."""
         self.update_wildcard_buttons_state()
 
+    # =========================================================================
+    # Timer Visual State
+    # =========================================================================
+
     def reset_timer_visuals(self):
+        """Reset timer to normal (unfrozen) visual state."""
         self.timer_frozen_visually = False
         if self.timer_label:
             self.timer_label.configure(text_color="white")
@@ -1084,6 +643,7 @@ class GameScreenBase:
             self.timer_icon_label.configure(image=self.clock_icon)
 
     def apply_freeze_timer_visuals(self):
+        """Apply frozen visual state to the timer."""
         self.timer_frozen_visually = True
         if self.timer_label:
             self.timer_label.configure(text_color="#D0E7FF")
@@ -1091,6 +651,7 @@ class GameScreenBase:
             self.timer_icon_label.configure(image=self.freeze_icon)
 
     def apply_double_points_visuals(self, multiplier=2):
+        """Apply double points visual state to the score display."""
         self.double_points_visually_active = True
         if self.score_label:
             self.score_label.configure(text_color=self.COLORS["warning_yellow"])
@@ -1099,26 +660,40 @@ class GameScreenBase:
             self.multiplier_label.grid()
 
     def reset_double_points_visuals(self):
+        """Reset the score display to normal visual state."""
         self.double_points_visually_active = False
         if self.score_label:
             self.score_label.configure(text_color="white")
         if self.multiplier_label:
             self.multiplier_label.grid_remove()
 
+    # =========================================================================
+    # Abstract Methods (to be overridden in subclasses)
+    # =========================================================================
+
+    def on_wildcard_x2(self):
+        """Handle X2 wildcard activation. Override in subclass."""
+
+    def on_wildcard_hint(self):
+        """Handle hint wildcard activation. Override in subclass."""
+
+    def on_wildcard_freeze(self):
+        """Handle freeze wildcard activation. Override in subclass."""
+
     def on_key_press(self, key):
-        pass
+        """Handle keyboard key press. Override in subclass."""
 
     def on_skip(self):
-        pass
+        """Handle skip button press. Override in subclass."""
 
     def on_check(self):
-        pass
+        """Handle check button press. Override in subclass."""
 
     def toggle_audio(self):
-        pass
+        """Handle audio toggle. Override in subclass."""
 
     def return_to_menu(self):
-        pass
+        """Handle return to menu. Override in subclass."""
 
     def cleanup(self):
-        pass
+        """Clean up resources. Override in subclass."""

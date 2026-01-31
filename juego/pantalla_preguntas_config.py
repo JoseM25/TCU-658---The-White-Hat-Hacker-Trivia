@@ -1,4 +1,5 @@
 import json
+import tempfile
 from pathlib import Path
 
 import customtkinter as ctk
@@ -217,14 +218,65 @@ class QuestionFileStorage:
         return normalized
 
     def save_questions(self, questions):
+        """Save questions atomically using a temp file and backup."""
         payload = {"questions": questions}
+        backup_path = self.json_path.with_suffix(".json.bak")
+        tmp_path = None
+
         try:
             self.json_path.parent.mkdir(parents=True, exist_ok=True)
-            self.json_path.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2),
+
+            # Write to temp file first
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                dir=self.json_path.parent,
+                delete=False,
                 encoding="utf-8",
-            )
+            ) as tmp:
+                json.dump(payload, tmp, ensure_ascii=False, indent=2)
+                tmp_path = Path(tmp.name)
+
+            # Create backup of existing file (Windows requires removing target first)
+            if self.json_path.exists():
+                try:
+                    if backup_path.exists():
+                        backup_path.unlink()
+                    self.json_path.rename(backup_path)
+                except OSError:
+                    # If backup fails, try direct overwrite
+                    pass
+
+            # Move temp to target (atomic on same filesystem)
+            try:
+                tmp_path.rename(self.json_path)
+            except OSError:
+                # On Windows cross-drive, fall back to copy + delete
+                import shutil
+
+                shutil.copy2(str(tmp_path), str(self.json_path))
+                tmp_path.unlink()
+
+            # Remove backup on success
+            try:
+                if backup_path.exists():
+                    backup_path.unlink()
+            except OSError:
+                pass
+
         except OSError as error:
+            # Try to restore from backup if save failed
+            if backup_path.exists() and not self.json_path.exists():
+                try:
+                    backup_path.rename(self.json_path)
+                except OSError:
+                    pass
+            # Clean up temp file if it exists
+            if tmp_path and tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass
             raise QuestionPersistenceError(
                 f"Unable to write {self.json_path}: {error}"
             ) from error

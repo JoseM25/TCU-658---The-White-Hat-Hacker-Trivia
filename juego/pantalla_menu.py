@@ -258,7 +258,8 @@ class MenuScreen:
 
     def load_png_image(self, png_path):
         try:
-            return Image.open(png_path).convert("RGBA")
+            with Image.open(png_path) as img:
+                return img.convert("RGBA").copy()
         except (FileNotFoundError, OSError) as e:
             print(f"Error loading PNG image '{png_path}': {e}")
             return None

@@ -160,7 +160,7 @@ class HoverSoundBinder:
         if type(self).CLICK_HOOK_INSTALLED:
             return
 
-        original_clicked = ctk.CTkButton._clicked
+        original_clicked = getattr(ctk.CTkButton, "_clicked")
 
         def _clicked_with_sfx(button_self, event=None):
             try:
@@ -170,7 +170,7 @@ class HoverSoundBinder:
                 pass
             return original_clicked(button_self, event)
 
-        ctk.CTkButton._clicked = _clicked_with_sfx
+        setattr(ctk.CTkButton, "_clicked", _clicked_with_sfx)
         type(self).CLICK_HOOK_INSTALLED = True
         type(self).ORIGINAL_CTKBUTTON_CLICKED = original_clicked
 

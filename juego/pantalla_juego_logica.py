@@ -13,6 +13,41 @@ from juego.pantalla_juego_modales import (
 
 
 class GameScreenLogic(GameScreenBase):
+    """Game screen logic layer handling game mechanics and user interactions.
+
+    This class inherits from GameScreenBase and adds game logic including:
+    - Wildcard handling
+    - Question loading and checking
+    - Timer management
+    - Modal dialogs
+    - Scoring
+
+    All instance attributes are initialized in the parent class GameScreenBase.__init__.
+    The declarations below are type hints to satisfy static analysis tools.
+    """
+
+    # Type declarations for attributes inherited from GameScreenBase
+    # (initialized in GameScreenBase._init_game_state and _init_ui_references)
+    current_answer: str
+    current_question: dict | None
+    current_image: ctk.CTkImage | None
+    processing_correct_answer: bool
+    question_timer: int
+    question_mistakes: int
+    audio_enabled: bool
+    questions_answered: int
+    score: int
+    stored_modal_data: dict | None
+    game_completed: bool
+    viewing_history_index: int
+    question_history: list
+    awaiting_modal_decision: bool
+    feedback_animation_job: str | None
+    timer_running: bool
+    timer_job: str | None
+    skip_modal: SkipConfirmationModal | None
+    completion_modal: GameCompletionModal | None
+    summary_modal: QuestionSummaryModal | None
 
     def on_wildcard_x2(self):
         if (
@@ -123,7 +158,8 @@ class GameScreenLogic(GameScreenBase):
             if self.image_handler:
                 resolved_path = self.image_handler.resolve_image_path(image_path)
             if resolved_path and resolved_path.exists():
-                pil_img = Image.open(resolved_path).convert("RGBA")
+                with Image.open(resolved_path) as img:
+                    pil_img = img.convert("RGBA").copy()
                 max_sz = self.get_scaled_image_size()
                 w, h = pil_img.size
                 sc = min(max_sz / w, max_sz / h)
@@ -504,6 +540,11 @@ class GameScreenLogic(GameScreenBase):
         else:
             if self.stored_modal_data:
                 self.question_history.append(self.stored_modal_data)
+                # Limit history size to prevent unbounded memory growth
+                if len(self.question_history) > self.MAX_QUESTION_HISTORY:
+                    self.question_history = self.question_history[
+                        -self.MAX_QUESTION_HISTORY :
+                    ]
             self.awaiting_modal_decision = False
             self.stored_modal_data = None
             self.set_buttons_enabled(True)
@@ -655,13 +696,20 @@ class GameScreenLogic(GameScreenBase):
     def stop_timer(self):
         self.timer_running = False
         if self.timer_job:
-            self.parent.after_cancel(self.timer_job)
+            try:
+                self.parent.after_cancel(self.timer_job)
+            except tk.TclError:
+                pass
             self.timer_job = None
 
     def update_timer(self):
         if not self.timer_running:
+            self.timer_job = None
             return
         self.question_timer += 1
         m, s = divmod(self.question_timer, 60)
         self.timer_label.configure(text=f"{m:02d}:{s:02d}")
-        self.timer_job = self.parent.after(1000, self.update_timer)
+        if self.timer_running:  # Double-check before scheduling
+            self.timer_job = self.parent.after(1000, self.update_timer)
+        else:
+            self.timer_job = None

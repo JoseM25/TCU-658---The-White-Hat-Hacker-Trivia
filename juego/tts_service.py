@@ -1,5 +1,6 @@
 import io
 import logging
+import os
 import threading
 import wave
 import winsound
@@ -20,6 +21,8 @@ class TTSService:
         self._speaking_thread = None
         self._load_lock = threading.Lock()
         self._load_error = None
+        self._temp_files = []
+        self._temp_lock = threading.Lock()
 
     def preload(self):
         self._ensure_voice_loaded()
@@ -57,12 +60,33 @@ class TTSService:
             wav_file.close()
 
             with NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp_path = tmp.name
                 tmp.write(buffer.getvalue())
                 tmp.flush()
-                winsound.PlaySound(tmp.name, winsound.SND_FILENAME | winsound.SND_ASYNC)
+
+            with self._temp_lock:
+                self._temp_files.append(tmp_path)
+
+            winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+
+            # Schedule cleanup of old temp files after a delay
+            threading.Timer(5.0, self._cleanup_old_temp_files).start()
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
             logging.exception("Failed to synthesize speech: %s", error)
+
+    def _cleanup_old_temp_files(self):
+        """Clean up temp files that are no longer playing."""
+        with self._temp_lock:
+            # Keep only the most recent file (might still be playing)
+            files_to_remove = self._temp_files[:-1]
+            self._temp_files = self._temp_files[-1:] if self._temp_files else []
+
+        for tmp_path in files_to_remove:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     def stop(self):
         try:
@@ -70,6 +94,15 @@ class TTSService:
         except (RuntimeError, OSError):
             # Ignore playback errors when trying to stop audio.
             pass
+
+        # Clean up all temp files when stopping
+        with self._temp_lock:
+            for tmp_path in self._temp_files:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            self._temp_files.clear()
 
     def _ensure_voice_loaded(self):
         if self._voice or self._load_error:
