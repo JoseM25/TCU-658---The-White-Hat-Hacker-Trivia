@@ -5,8 +5,8 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from customtkinter.windows.widgets.scaling import ScalingTracker
 
-from juego.responsive_helpers import ResponsiveScaler
-from juego.widget_factory import (
+from juego.ayudantes_responsivos import ResponsiveScaler
+from juego.fabrica_widgets import (
     ModalLayoutBuilder,
     ModalWidgetFactory,
     ScaledWidgetResizer,

@@ -19,17 +19,10 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from juego.app_paths import (
-    get_data_questions_path,
-    get_data_root,
-    get_resource_audio_dir,
-    get_resource_images_dir,
-    get_resource_root,
-    get_user_images_dir,
-)
+from juego.ayudantes_responsivos import ResponsiveScaler
 from juego.comodines import WildcardManager
-from juego.image_handler import ImageHandler
 from juego.logica import ScoringSystem
+from juego.manejador_imagenes import ImageHandler
 from juego.pantalla_juego_config import (
     GAME_BASE_DIMENSIONS,
     GAME_BASE_SIZES,
@@ -44,10 +37,17 @@ from juego.pantalla_juego_config import (
     GameFontRegistry,
     GameSizeCalculator,
 )
-from juego.pantalla_juego_icons import GameIconsMixin
-from juego.pantalla_juego_ui_builder import GameUIBuilderMixin
-from juego.responsive_helpers import ResponsiveScaler
-from juego.tts_service import TTSService
+from juego.pantalla_juego_constructor_ui import GameUIBuilderMixin
+from juego.pantalla_juego_iconos import GameIconsMixin
+from juego.rutas_app import (
+    get_data_questions_path,
+    get_data_root,
+    get_resource_audio_dir,
+    get_resource_images_dir,
+    get_resource_root,
+    get_user_images_dir,
+)
+from juego.servicio_tts import TTSService
 
 
 class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):

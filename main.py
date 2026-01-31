@@ -1,9 +1,9 @@
 import customtkinter as ctk
 
-from juego.app_paths import ensure_user_data, get_resource_audio_dir
 from juego.interfaz import AppController
-from juego.sfx_service import HoverSoundBinder, SFXService
-from juego.tts_service import TTSService
+from juego.rutas_app import ensure_user_data, get_resource_audio_dir
+from juego.servicio_sfx import HoverSoundBinder, SFXService
+from juego.servicio_tts import TTSService
 
 AUDIO_DIR = get_resource_audio_dir()
 

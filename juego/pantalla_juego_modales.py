@@ -4,13 +4,13 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
-from juego.app_paths import get_resource_images_dir
 from juego.pantalla_juego_config import (
     GAME_COLORS,
     LEVEL_BADGE_COLORS,
     MODAL_ANIMATION,
     MODAL_BASE_SIZES,
 )
+from juego.rutas_app import get_resource_images_dir
 
 
 class ModalBase:

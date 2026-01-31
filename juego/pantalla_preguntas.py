@@ -4,15 +4,12 @@ from types import SimpleNamespace
 
 import customtkinter as ctk
 
-from juego.app_paths import (
-    get_data_questions_path,
-    get_data_root,
-    get_resource_audio_dir,
-    get_resource_images_dir,
-    get_resource_root,
-    get_user_images_dir,
+from juego.ayudantes_responsivos import (
+    LayoutCalculator,
+    ResponsiveScaler,
+    SizeStateCalculator,
 )
-from juego.image_handler import ImageHandler
+from juego.manejador_imagenes import ImageHandler
 from juego.pantalla_preguntas_config import (
     SCREEN_BASE_DIMENSIONS,
     SCREEN_COLORS,
@@ -43,12 +40,15 @@ from juego.preguntas_modales import (
     DeleteConfirmationModal,
     EditQuestionModal,
 )
-from juego.responsive_helpers import (
-    LayoutCalculator,
-    ResponsiveScaler,
-    SizeStateCalculator,
+from juego.rutas_app import (
+    get_data_questions_path,
+    get_data_root,
+    get_resource_audio_dir,
+    get_resource_images_dir,
+    get_resource_root,
+    get_user_images_dir,
 )
-from juego.tts_service import TTSService
+from juego.servicio_tts import TTSService
 
 
 class QuestionScreenViewMixin(QuestionScreenLayoutMixin):

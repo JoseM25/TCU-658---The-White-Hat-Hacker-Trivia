@@ -4,7 +4,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
-from juego.app_paths import get_resource_images_dir
+from juego.rutas_app import get_resource_images_dir
 
 
 class MenuScreen:
