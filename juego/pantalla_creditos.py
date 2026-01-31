@@ -46,7 +46,7 @@ class CreditsScreen:
         )
 
         self.logo_svg_path = get_resource_images_dir() / "Hat.svg"
-        self._resize_job = None
+        self.resize_job = None
 
         self.build_ui()
         self.parent.bind("<Configure>", self.on_resize)
@@ -182,9 +182,9 @@ class CreditsScreen:
         if event.widget is not self.parent:
             return
 
-        if self._resize_job:
-            self.parent.after_cancel(self._resize_job)
-        self._resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
+        if self.resize_job:
+            self.parent.after_cancel(self.resize_job)
+        self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def apply_responsive(self):
         w = max(self.parent.winfo_width(), 1)
@@ -244,7 +244,7 @@ class CreditsScreen:
         if self.body_label:
             self.body_label.configure(wraplength=max(260, body_w - 40))
 
-        self._resize_job = None
+        self.resize_job = None
 
     def load_svg_image(self, svg_path, scale=1.0):
         try:

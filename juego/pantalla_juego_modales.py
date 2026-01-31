@@ -246,9 +246,9 @@ class GameCompletionModal(ModalBase):
         if self.modal and self.modal.winfo_exists():
             self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return
-        self._show_with_scale()
+        self.show_with_scale()
 
-    def _show_with_scale(self, scale_override=None, attempt=0):
+    def show_with_scale(self, scale_override=None, attempt=0):
         root = self.parent.winfo_toplevel() if self.parent else None
         base_scale = self.calculate_scale_factor(root)
         scale = scale_override if scale_override is not None else base_scale
@@ -276,7 +276,7 @@ class GameCompletionModal(ModalBase):
             height = min(height + extra_h, win_height)
         else:
             width, height = base_w, base_h
-        sizes = self._calc_sizes(scale, width, height)
+        sizes = self.calc_sizes(scale, width, height)
         self.create_modal(width, height, "Game Complete")
         container = self.create_container(sizes["corner_r"], sizes["border_w"])
         self.create_header(
@@ -295,7 +295,7 @@ class GameCompletionModal(ModalBase):
         content = ctk.CTkFrame(content_wrapper, fg_color="transparent")
         content.grid(row=0, column=0, sticky="", padx=sizes["pad"], pady=sizes["pad"])
         content.grid_columnconfigure(0, weight=1)
-        self._build_content(content, width, sizes)
+        self.build_content(content, width, sizes)
         self.modal.update_idletasks()
         # Forzar actualización de geometría para obtener medidas precisas
         content_wrapper.update_idletasks()
@@ -314,13 +314,13 @@ class GameCompletionModal(ModalBase):
             if shrink < 0.96:
                 target_scale = max(0.3, scale * shrink * 0.95)  # Reducción más agresiva
                 self.close()
-                self._show_with_scale(scale_override=target_scale, attempt=1)
+                self.show_with_scale(scale_override=target_scale, attempt=1)
                 return
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
         self.modal.bind("<Escape>", lambda e: self.handle_close())
         self.modal.bind("<Return>", lambda e: self.handle_close())
 
-    def _calc_sizes(self, scale, modal_width, modal_height):
+    def calc_sizes(self, scale, modal_width, modal_height):
         base_w = MODAL_BASE_SIZES["completion_width"]
         base_h = MODAL_BASE_SIZES["completion_height"]
         w_scale = modal_width / base_w if base_w else 1.0
@@ -364,7 +364,7 @@ class GameCompletionModal(ModalBase):
             "compact": compact,
         }
 
-    def _build_content(self, content, width, s):
+    def build_content(self, content, width, s):
         stats = self.session_stats or {}
 
         def to_int(v, d=0):
@@ -394,7 +394,7 @@ class GameCompletionModal(ModalBase):
         except (TypeError, ValueError):
             mastery_pct = 0.0
         knowledge_level = stats.get(
-            "knowledge_level", self._knowledge_level_from_pct(mastery_pct)
+            "knowledge_level", self.knowledge_level_from_pct(mastery_pct)
         )
         level_color = LEVEL_BADGE_COLORS.get(knowledge_level, self.COLORS["text_light"])
         # Mensaje de completado
@@ -408,7 +408,7 @@ class GameCompletionModal(ModalBase):
         # Mostrar puntaje
         score_frame = ctk.CTkFrame(content, fg_color="transparent")
         score_frame.grid(row=1, column=0, pady=(0, s["row_pad"]))
-        self._load_star_icon(s["star_size"])
+        self.load_star_icon(s["star_size"])
         ctk.CTkLabel(
             score_frame,
             text="★" if not self.star_icon else "",
@@ -538,7 +538,7 @@ class GameCompletionModal(ModalBase):
         self.safe_try(rb.focus_set)
         self.start_fade_in_animation(bg)
 
-    def _load_star_icon(self, size):
+    def load_star_icon(self, size):
         img = self.load_svg_image(self.IMAGES_DIR / "star.svg", self.SVG_RASTER_SCALE)
         if img:
             r, g, b = (
@@ -560,7 +560,7 @@ class GameCompletionModal(ModalBase):
                 light_image=img, dark_image=img, size=(size, size)
             )
 
-    def _knowledge_level_from_pct(self, mastery_pct):
+    def knowledge_level_from_pct(self, mastery_pct):
         pct = max(0.0, min(100.0, float(mastery_pct)))
         if pct < 40:
             return "Beginner"
@@ -644,7 +644,7 @@ class QuestionSummaryModal(ModalBase):
         max_height = int(MODAL_BASE_SIZES["summary_height"] * max_scale)
         width = min(width, max_width)
         height = min(height, max_height)
-        sizes = self._calc_sizes(scale, width, height)
+        sizes = self.calc_sizes(scale, width, height)
         self.create_modal(width, height, "Summary")
         container = self.create_container(sizes["corner_r"], sizes["border_w"])
         self.create_header(
@@ -800,7 +800,7 @@ class QuestionSummaryModal(ModalBase):
         self.modal.bind("<Return>", lambda e: self.handle_next())
         self.start_fade_in_animation(bg)
 
-    def _calc_sizes(self, scale, modal_width, modal_height):
+    def calc_sizes(self, scale, modal_width, modal_height):
         w_scale, h_scale = modal_width / 450, modal_height / 380
         m_scale = min(w_scale, h_scale)
 
@@ -865,7 +865,7 @@ class SkipConfirmationModal(ModalBase):
                 MODAL_BASE_SIZES["skip_width"],
                 MODAL_BASE_SIZES["skip_height"],
             )
-        sizes = self._calc_sizes(scale)
+        sizes = self.calc_sizes(scale)
         self.create_modal(width, height, "Skip Question")
         container = self.create_container(sizes["corner_r"], sizes["border_w"])
         self.create_header(
@@ -920,7 +920,7 @@ class SkipConfirmationModal(ModalBase):
         self.modal.protocol("WM_DELETE_WINDOW", self.close)
         self.modal.bind("<Escape>", lambda e: self.close())
 
-    def _calc_sizes(self, scale):
+    def calc_sizes(self, scale):
         def sv(b, mn, mx):
             return self.scale_value(b, scale, mn, mx)
 

@@ -52,7 +52,7 @@ from juego.servicio_tts import TTSService
 
 
 class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
-    def _init_question_screen_view(self):
+    def init_question_screen_view(self):
         self.selected_question_button = None
         self.detail_visible = False
         self.search_entry = None
@@ -86,9 +86,9 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
         self.definition_button_width = 0
         self.definition_button_gap = 16
         self.definition_layout_inline = True
-        self._detail_scrollbar_visible = None
-        self._detail_scrollbar_manager = None
-        self._detail_scroll_update_job = None
+        self.detail_scrollbar_visible = None
+        self.detail_scrollbar_manager = None
+        self.detail_scroll_update_job = None
         self.header_pad = 0
         self.body_pad = 0
         self.current_window_width = self.BASE_DIMENSIONS[0]
@@ -117,7 +117,7 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
 
         self.size_state = dict(self.SIZES)
         self.current_scale = 1.0
-        self._resize_job = None
+        self.resize_job = None
 
         for widget in self.parent.winfo_children():
             widget.destroy()
@@ -416,31 +416,31 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
     def queue_detail_scroll_update(self):
         if not self.parent or not self.parent.winfo_exists():
             return
-        if self._detail_scroll_update_job:
+        if self.detail_scroll_update_job:
             try:
-                self.parent.after_cancel(self._detail_scroll_update_job)
+                self.parent.after_cancel(self.detail_scroll_update_job)
             except tk.TclError:
                 pass
-            self._detail_scroll_update_job = None
+            self.detail_scroll_update_job = None
         try:
-            self._detail_scroll_update_job = self.parent.after_idle(
+            self.detail_scroll_update_job = self.parent.after_idle(
                 self.update_detail_scrollbar_visibility
             )
         except tk.TclError:
-            self._detail_scroll_update_job = None
+            self.detail_scroll_update_job = None
             self.update_detail_scrollbar_visibility()
 
     def update_detail_scrollbar_visibility(self):
-        self._detail_scroll_update_job = None
+        self.detail_scroll_update_job = None
         textbox = self.detail_definition_textbox
         if not textbox or not textbox.winfo_exists():
             return
 
-        scrollbar = self._get_textbox_scrollbar(textbox)
+        scrollbar = self.get_textbox_scrollbar(textbox)
         if not scrollbar or not scrollbar.winfo_exists():
             return
 
-        target = self._get_textbox_scroll_target(textbox)
+        target = self.get_textbox_scroll_target(textbox)
         if not target:
             return
 
@@ -451,20 +451,20 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
             return
 
         needs_scroll = last < 0.999
-        self._set_detail_scrollbar_visible(needs_scroll)
+        self.set_detail_scrollbar_visible(needs_scroll)
 
-    def _set_detail_scrollbar_visible(self, visible):
-        if self._detail_scrollbar_visible is visible:
+    def set_detail_scrollbar_visible(self, visible):
+        if self.detail_scrollbar_visible is visible:
             return
 
-        scrollbar = self._get_textbox_scrollbar(self.detail_definition_textbox)
+        scrollbar = self.get_textbox_scrollbar(self.detail_definition_textbox)
         if not scrollbar or not scrollbar.winfo_exists():
             return
 
-        manager = self._detail_scrollbar_manager or scrollbar.winfo_manager()
+        manager = self.detail_scrollbar_manager or scrollbar.winfo_manager()
         if not manager:
             manager = "grid"
-        self._detail_scrollbar_manager = manager
+        self.detail_scrollbar_manager = manager
 
         if visible:
             if manager == "grid":
@@ -481,9 +481,9 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
             elif manager == "place":
                 scrollbar.place_forget()
 
-        self._detail_scrollbar_visible = visible
+        self.detail_scrollbar_visible = visible
 
-    def _get_textbox_scrollbar(self, textbox):
+    def get_textbox_scrollbar(self, textbox):
         if not textbox:
             return None
         for attr in (
@@ -497,7 +497,7 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
                 return scrollbar
         return None
 
-    def _get_textbox_scroll_target(self, textbox):
+    def get_textbox_scroll_target(self, textbox):
         if not textbox:
             return None
         target = getattr(textbox, "_textbox", None)
@@ -507,7 +507,7 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
             return textbox
         return None
 
-    def _create_list_frame_container(self, is_scrollable):
+    def create_list_frame_container(self, is_scrollable):
         c = self.COLORS
 
         outer_frame = ctk.CTkFrame(
@@ -553,7 +553,7 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
 
         return list_frame
 
-    def _show_empty_list_state(self, list_frame, has_search_query):
+    def show_empty_list_state(self, list_frame, has_search_query):
         c = self.COLORS
         empty_text = (
             "No questions match your search."
@@ -567,7 +567,7 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
             text_color=c["text_lighter"],
         ).grid(row=1, column=0, padx=24, pady=(12, 24))
 
-    def _create_question_button(self, parent, question, is_selected, button_config):
+    def create_question_button(self, parent, question, is_selected, button_config):
         c = self.COLORS
         button = ctk.CTkButton(
             parent,
@@ -609,10 +609,10 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
         is_scrollable = len(questions) > s.get(
             "max_questions", self.SIZES["max_questions"]
         )
-        list_frame = self._create_list_frame_container(is_scrollable)
+        list_frame = self.create_list_frame_container(is_scrollable)
 
         if not questions:
-            self._show_empty_list_state(list_frame, search_query.strip())
+            self.show_empty_list_state(list_frame, search_query.strip())
             return
 
         button_config = {
@@ -630,7 +630,7 @@ class QuestionScreenViewMixin(QuestionScreenLayoutMixin):
         for index, question in enumerate(questions, start=0):
             is_selected = selected_visible and question is self.current_question
 
-            button = self._create_question_button(
+            button = self.create_question_button(
                 list_frame, question, is_selected, button_config
             )
 
@@ -888,7 +888,7 @@ class ManageQuestionsScreen(QuestionScreenViewMixin):
         self.current_question = (
             self.filtered_questions[0] if self.filtered_questions else None
         )
-        self._init_question_screen_view()
+        self.init_question_screen_view()
 
     def refresh_question_cache(self):
         self.questions = list(self.repository.questions)

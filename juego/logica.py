@@ -45,7 +45,7 @@ class ScoringSystem:
 
     def __init__(self, total_questions):
         self.total_questions = max(1, total_questions)
-        self.base_points = self._calculate_base_points()
+        self.base_points = self.calculate_base_points()
         self.max_raw_per_question = self.base_points * self.MAX_TIME_MULTIPLIER
         self.penalty_per_mistake = round(self.base_points * self.MISTAKE_PENALTY_FACTOR)
 
@@ -84,7 +84,7 @@ class ScoringSystem:
             return "Expert"
         return "Master"
 
-    def _calculate_base_points(self):
+    def calculate_base_points(self):
         scaled = round(
             self.REFERENCE_BASE * self.REFERENCE_QUESTIONS / self.total_questions
         )

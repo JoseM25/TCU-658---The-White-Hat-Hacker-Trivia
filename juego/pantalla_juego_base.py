@@ -52,9 +52,9 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
     MAX_QUESTION_HISTORY = 50
 
     # Declaraciones de atributos a nivel de clase (inicializados en métodos auxiliares de __init__)
-    _definition_scrollbar_visible: bool | None
-    _definition_scrollbar_manager: str | None
-    _definition_scroll_update_job: str | None
+    definition_scrollbar_visible: bool | None
+    definition_scrollbar_manager: str | None
+    definition_scroll_update_job: str | None
     timer_frozen_visually: bool
     double_points_visually_active: bool
 
@@ -66,9 +66,9 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.sfx = sfx_service
 
         # Inicializar todos los atributos de estado
-        self._init_game_state()
-        self._init_ui_references()
-        self._init_paths_and_services(tts_service)
+        self.init_game_state()
+        self.init_ui_references()
+        self.init_paths_and_services(tts_service)
 
         # Inicializar sistema responsivo
         self.init_responsive_system()
@@ -77,7 +77,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.load_questions()
         self.build_ui()
 
-    def _init_game_state(self):
+    def init_game_state(self):
         self.current_question = None
         self.questions = []
         self.available_questions = []
@@ -114,7 +114,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.timer_frozen_visually = False
         self.double_points_visually_active = False
 
-    def _init_ui_references(self):
+    def init_ui_references(self):
         # Diseño principal
         self.main = None
         self.header_frame = None
@@ -144,9 +144,9 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.definition_scroll = None
         self.def_inner = None
         self.definition_label = None
-        self._definition_scrollbar_visible = None
-        self._definition_scrollbar_manager = None
-        self._definition_scroll_update_job = None
+        self.definition_scrollbar_visible = None
+        self.definition_scrollbar_manager = None
+        self.definition_scroll_update_job = None
         self.answer_boxes_frame = None
         self.answer_box_labels = []
 
@@ -208,7 +208,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.charges_font = None
         self.multiplier_font = None
 
-    def _init_paths_and_services(self, tts_service):
+    def init_paths_and_services(self, tts_service):
         resource_images_dir = get_resource_images_dir()
         resource_audio_dir = get_resource_audio_dir()
         data_root = get_data_root()
@@ -257,7 +257,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         # Caché de iconos para redimensionamiento eficiente
         self.icon_cache = {}
 
-    def _get_window_scaling(self):
+    def get_window_scaling(self):
         root = self.parent.winfo_toplevel() if self.parent else None
         try:
             scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
@@ -267,16 +267,16 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             return 1.0
         return scaling
 
-    def _get_logical_dimensions(self):
+    def get_logical_dimensions(self):
         if not self.parent or not self.parent.winfo_exists():
             return self.BASE_DIMENSIONS
-        scaling = self._get_window_scaling()
+        scaling = self.get_window_scaling()
         width = max(int(round(self.parent.winfo_width() / scaling)), 1)
         height = max(int(round(self.parent.winfo_height() / scaling)), 1)
         return width, height
 
     def get_current_scale(self):
-        w, h = self._get_logical_dimensions()
+        w, h = self.get_logical_dimensions()
         low_res_profile = GAME_PROFILES.get("low_res")
         return self.scaler.calculate_scale(w, h, low_res_profile)
 
@@ -332,22 +332,22 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
     def queue_definition_scroll_update(self):
         if not self.parent or not self.parent.winfo_exists():
             return
-        if self._definition_scroll_update_job:
+        if self.definition_scroll_update_job:
             try:
-                self.parent.after_cancel(self._definition_scroll_update_job)
+                self.parent.after_cancel(self.definition_scroll_update_job)
             except tk.TclError:
                 pass
-            self._definition_scroll_update_job = None
+            self.definition_scroll_update_job = None
         try:
-            self._definition_scroll_update_job = self.parent.after_idle(
+            self.definition_scroll_update_job = self.parent.after_idle(
                 self.update_definition_scrollbar_visibility
             )
         except tk.TclError:
-            self._definition_scroll_update_job = None
+            self.definition_scroll_update_job = None
             self.update_definition_scrollbar_visibility()
 
     def update_definition_scrollbar_visibility(self):
-        self._definition_scroll_update_job = None
+        self.definition_scroll_update_job = None
         if not self.definition_scroll or not self.definition_scroll.winfo_exists():
             return
         if (
@@ -376,20 +376,20 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         content_height = content.winfo_reqheight()
 
         needs_scroll = content_height > (wrapper_height + 2)
-        self._set_definition_scrollbar_visible(needs_scroll)
+        self.set_definition_scrollbar_visible(needs_scroll)
 
-    def _set_definition_scrollbar_visible(self, visible):
-        if self._definition_scrollbar_visible is visible:
+    def set_definition_scrollbar_visible(self, visible):
+        if self.definition_scrollbar_visible is visible:
             return
 
-        scrollbar = self._get_scrollbar_widget(self.definition_scroll)
+        scrollbar = self.get_scrollbar_widget(self.definition_scroll)
         if not scrollbar or not scrollbar.winfo_exists():
             return
 
-        manager = self._definition_scrollbar_manager or scrollbar.winfo_manager()
+        manager = self.definition_scrollbar_manager or scrollbar.winfo_manager()
         if not manager:
             manager = "grid"
-        self._definition_scrollbar_manager = manager
+        self.definition_scrollbar_manager = manager
 
         if visible:
             if manager == "grid":
@@ -406,9 +406,9 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             elif manager == "place":
                 scrollbar.place_forget()
 
-        self._definition_scrollbar_visible = visible
+        self.definition_scrollbar_visible = visible
 
-    def _get_scrollbar_widget(self, scrollable):
+    def get_scrollbar_widget(self, scrollable):
         if not scrollable:
             return None
         for attr in (

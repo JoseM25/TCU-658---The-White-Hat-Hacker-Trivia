@@ -20,44 +20,44 @@ class WildcardManager:
 
     def __init__(self):
         # Cargas compartidas entre preguntas
-        self._charges = self.STARTING_CHARGES
+        self.charges = self.STARTING_CHARGES
 
         # Seguimiento de efectos activos para pregunta actual
-        self._freeze_active = False
-        self._double_points_stacks = 0
+        self.freeze_active = False
+        self.double_points_stacks = 0
 
         # Seguimiento de posiciones reveladas para evitar revelar de nuevo
-        self._revealed_positions = set()
+        self.revealed_positions = set()
 
         # Seguimiento si se usó algún comodín esta pregunta (para Rango S)
-        self._wildcard_used_this_question = False
+        self.wildcard_used_this_question = False
 
         # Seguimiento si se usó puntos dobles (no se puede combinar con otros)
-        self._double_points_used_this_question = False
+        self.double_points_used_this_question = False
 
         # Contador anti-frustración
-        self._questions_without_charge = 0
+        self.questions_without_charge = 0
 
     # Manejo de Cargas
 
     def get_charges(self):
-        return self._charges
+        return self.charges
 
     def add_charge(self, amount=1):
-        self._charges = min(self.MAX_CHARGES, self._charges + amount)
-        return self._charges
+        self.charges = min(self.MAX_CHARGES, self.charges + amount)
+        return self.charges
 
     def spend_charge(self, amount):
-        if self._charges >= amount:
-            self._charges -= amount
+        if self.charges >= amount:
+            self.charges -= amount
             return True
         return False
 
     def can_afford(self, cost):
-        return self._charges >= cost
+        return self.charges >= cost
 
     def was_wildcard_used_this_question(self):
-        return self._wildcard_used_this_question
+        return self.wildcard_used_this_question
 
     def is_double_points_blocked(self):
         return False
@@ -70,19 +70,19 @@ class WildcardManager:
     def activate_freeze(self):
         if not self.can_afford(self.COST_FREEZE_TIMER):
             return False
-        if self._freeze_active:
+        if self.freeze_active:
             return False
 
         self.spend_charge(self.COST_FREEZE_TIMER)
-        self._freeze_active = True
-        self._wildcard_used_this_question = True
+        self.freeze_active = True
+        self.wildcard_used_this_question = True
         return True
 
     def deactivate_freeze(self):
-        self._freeze_active = False
+        self.freeze_active = False
 
     def is_timer_frozen(self):
-        return self._freeze_active
+        return self.freeze_active
 
     # Comodín de Puntos Dobles (acumulable: x2, x4, x8, x16, ...)
 
@@ -91,20 +91,20 @@ class WildcardManager:
             return 0
 
         self.spend_charge(self.COST_DOUBLE_POINTS)
-        self._double_points_stacks += 1
-        self._wildcard_used_this_question = True
-        self._double_points_used_this_question = True
-        return self._double_points_stacks
+        self.double_points_stacks += 1
+        self.wildcard_used_this_question = True
+        self.double_points_used_this_question = True
+        return self.double_points_stacks
 
     def get_double_points_stacks(self):
-        return self._double_points_stacks
+        return self.double_points_stacks
 
     def is_double_points_active(self):
-        return self._double_points_stacks > 0
+        return self.double_points_stacks > 0
 
     def get_points_multiplier(self):
         # 2^n donde n es el número de acumulaciones (0 = 1x, 1 = 2x, 2 = 4x, etc.)
-        return 2**self._double_points_stacks
+        return 2**self.double_points_stacks
 
     # Comodín de Revelar Letra
 
@@ -112,15 +112,15 @@ class WildcardManager:
         if not self.can_afford(self.COST_REVEAL_LETTER):
             return None
 
-        result = self._get_random_unrevealed_position(current_answer, correct_answer)
+        result = self.compute_random_unrevealed_position(current_answer, correct_answer)
         if result is None:
             return None
 
         self.spend_charge(self.COST_REVEAL_LETTER)
-        self._wildcard_used_this_question = True
+        self.wildcard_used_this_question = True
         return result
 
-    def _get_random_unrevealed_position(self, current_answer, correct_answer):
+    def compute_random_unrevealed_position(self, current_answer, correct_answer):
         if not correct_answer:
             return None
 
@@ -133,7 +133,7 @@ class WildcardManager:
 
         for i, correct_letter in enumerate(correct_upper):
             # Saltar si esta posición ya fue revelada por comodín
-            if i in self._revealed_positions:
+            if i in self.revealed_positions:
                 continue
 
             # Verificar si la posición está vacía o tiene letra incorrecta
@@ -152,18 +152,18 @@ class WildcardManager:
         position, letter = random.choice(unrevealed_positions)
 
         # Marcar esta posición como revelada
-        self._revealed_positions.add(position)
+        self.revealed_positions.add(position)
 
         return (position, letter)
 
     def get_random_unrevealed_position(self, current_answer, correct_answer):
-        return self._get_random_unrevealed_position(current_answer, correct_answer)
+        return self.compute_random_unrevealed_position(current_answer, correct_answer)
 
     def mark_position_revealed(self, position):
-        self._revealed_positions.add(position)
+        self.revealed_positions.add(position)
 
     def get_revealed_positions(self):
-        return self._revealed_positions.copy()
+        return self.revealed_positions.copy()
 
     # Lógica de Ganancia de Cargas
 
@@ -172,14 +172,14 @@ class WildcardManager:
     ):
         if was_skipped:
             # Sin cargas al saltar, pero incrementar contador anti-frustración
-            self._questions_without_charge += 1
-            actual = self._check_anti_frustration()
+            self.questions_without_charge += 1
+            actual = self.check_anti_frustration()
             return (actual, False)
 
         if mistakes > 0:
             # Sin bonificación de rango con errores
-            self._questions_without_charge += 1
-            actual = self._check_anti_frustration()
+            self.questions_without_charge += 1
+            actual = self.check_anti_frustration()
             return (actual, False)
 
         # Respuesta perfecta (0 errores)
@@ -191,24 +191,24 @@ class WildcardManager:
             potential_charges += 1
 
         # Rango S: condiciones de Rango A + sin comodines usados Y raw >= 0.90 * maxRaw
-        if ratio >= self.S_RANK_THRESHOLD and not self._wildcard_used_this_question:
+        if ratio >= self.S_RANK_THRESHOLD and not self.wildcard_used_this_question:
             potential_charges += 1
 
         if potential_charges > 0:
-            self._questions_without_charge = 0
-            old_charges = self._charges
+            self.questions_without_charge = 0
+            old_charges = self.charges
             self.add_charge(potential_charges)
-            actual_added = self._charges - old_charges
+            actual_added = self.charges - old_charges
             max_reached = actual_added < potential_charges
             return (actual_added, max_reached)
         else:
-            self._questions_without_charge += 1
-            actual = self._check_anti_frustration()
+            self.questions_without_charge += 1
+            actual = self.check_anti_frustration()
             return (actual, False)
 
-    def _check_anti_frustration(self):
-        if self._questions_without_charge >= self.ANTI_FRUSTRATION_THRESHOLD:
-            self._questions_without_charge = 0
+    def check_anti_frustration(self):
+        if self.questions_without_charge >= self.ANTI_FRUSTRATION_THRESHOLD:
+            self.questions_without_charge = 0
             self.add_charge(1)
             return 1
         return 0
@@ -216,24 +216,24 @@ class WildcardManager:
     # Reinicio / Manejo de Estado
 
     def reset_for_new_question(self):
-        self._freeze_active = False
-        self._double_points_stacks = 0
-        self._revealed_positions.clear()
-        self._wildcard_used_this_question = False
-        self._double_points_used_this_question = False
+        self.freeze_active = False
+        self.double_points_stacks = 0
+        self.revealed_positions.clear()
+        self.wildcard_used_this_question = False
+        self.double_points_used_this_question = False
 
     def reset_game(self):
-        self._charges = self.STARTING_CHARGES
-        self._questions_without_charge = 0
+        self.charges = self.STARTING_CHARGES
+        self.questions_without_charge = 0
         self.reset_for_new_question()
 
     def get_active_effects(self):
         return {
-            "freeze": self._freeze_active,
-            "double_points_stacks": self._double_points_stacks,
+            "freeze": self.freeze_active,
+            "double_points_stacks": self.double_points_stacks,
             "points_multiplier": self.get_points_multiplier(),
-            "revealed_count": len(self._revealed_positions),
-            "charges": self._charges,
-            "wildcard_used": self._wildcard_used_this_question,
-            "questions_without_charge": self._questions_without_charge,
+            "revealed_count": len(self.revealed_positions),
+            "charges": self.charges,
+            "wildcard_used": self.wildcard_used_this_question,
+            "questions_without_charge": self.questions_without_charge,
         }

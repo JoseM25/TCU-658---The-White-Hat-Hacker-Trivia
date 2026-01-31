@@ -459,7 +459,7 @@ class QuestionScreenLayoutMixin:
             self.render_question_list()
 
         self.resize_current_modal()
-        self._resize_job = None
+        self.resize_job = None
 
     def resize_current_modal(self):
         if not self.current_modal:
@@ -489,9 +489,9 @@ class QuestionScreenLayoutMixin:
     def on_resize(self, event):
         if event.widget is not self.parent:
             return
-        if self._resize_job:
+        if self.resize_job:
             try:
-                self.parent.after_cancel(self._resize_job)
+                self.parent.after_cancel(self.resize_job)
             except tk.TclError:
                 pass
-        self._resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
+        self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)

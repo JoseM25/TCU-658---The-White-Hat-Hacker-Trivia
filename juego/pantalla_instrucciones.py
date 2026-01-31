@@ -171,7 +171,7 @@ class InstructionsScreen:
         self.on_return_callback = on_return_callback
         self.language = "EN"
 
-        self._resize_job = None
+        self.resize_job = None
         self.logo_image = None
         self.title_label = None
         self.toggle_container = None
@@ -465,9 +465,9 @@ class InstructionsScreen:
     def on_resize(self, event):
         if event.widget is not self.parent:
             return
-        if self._resize_job:
-            self.parent.after_cancel(self._resize_job)
-        self._resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
+        if self.resize_job:
+            self.parent.after_cancel(self.resize_job)
+        self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def apply_responsive(self):
         width = max(self.parent.winfo_width(), 1)
@@ -586,13 +586,13 @@ class InstructionsScreen:
         button_height = int(max(32, min(72, 50 * scale)))
         self.return_button.configure(width=button_width, height=button_height)
 
-        self._resize_job = None
+        self.resize_job = None
 
     def return_to_menu(self):
         if self.on_return_callback:
             self.on_return_callback()
 
-    def _tint_image(self, pil_image, hex_color):
+    def tint_image(self, pil_image, hex_color):
         if not hex_color:
             return pil_image
         try:
@@ -611,7 +611,7 @@ class InstructionsScreen:
         try:
             svg_photo = TkSvgImage(file=str(svg_path), scale=scale)
             pil_image = ImageTk.getimage(svg_photo).convert("RGBA")
-            return self._tint_image(pil_image, tint_color)
+            return self.tint_image(pil_image, tint_color)
         except (FileNotFoundError, ValueError) as error:
             print(f"Error loading SVG image '{svg_path}': {error}")
             return None

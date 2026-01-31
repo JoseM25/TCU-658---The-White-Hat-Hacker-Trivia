@@ -90,7 +90,7 @@ class SizeStateCalculator:
             200, sizes["detail_panel_height"] - s(150, scale, 90, 260)
         )
 
-        sidebar_share = self._get_sidebar_share(window_width)
+        sidebar_share = self.compute_sidebar_share(window_width)
         gutter = s(60, scale, 32, 110)
 
         sidebar_minsize = s(280, scale, 220, 560)
@@ -111,9 +111,9 @@ class SizeStateCalculator:
         return sizes
 
     def get_sidebar_share(self, window_width):
-        return self._get_sidebar_share(window_width)
+        return self.compute_sidebar_share(window_width)
 
-    def _get_sidebar_share(self, window_width):
+    def compute_sidebar_share(self, window_width):
         if not window_width or window_width <= 0:
             window_width = 1280
 

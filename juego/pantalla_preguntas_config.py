@@ -145,7 +145,7 @@ SCREEN_FONT_SPECS = {
 class ScreenFontRegistry:
 
     def __init__(self, specs):
-        self._fonts = {}
+        self.fonts = {}
         self.base_sizes = {}
         self.min_sizes = {}
 
@@ -155,21 +155,21 @@ class ScreenFontRegistry:
                 if weight
                 else ctk.CTkFont(family=family, size=size)
             )
-            self._fonts[name] = font
+            self.fonts[name] = font
             self.base_sizes[name] = size
             self.min_sizes[name] = min_size or 10
 
     def get(self, name):
-        return self._fonts[name]
+        return self.fonts[name]
 
     def items(self):
-        return self._fonts.items()
+        return self.fonts.items()
 
     def as_dict(self):
-        return dict(self._fonts)
+        return dict(self.fonts)
 
     def attach_attributes(self, target):
-        for name, font in self._fonts.items():
+        for name, font in self.fonts.items():
             setattr(target, f"{name}_font", font)
 
 

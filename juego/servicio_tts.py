@@ -17,39 +17,39 @@ class TTSService:
     def __init__(self, model_dir, model_name="en_US-ryan-high.onnx"):
         self.model_path = Path(model_dir) / model_name
         self.config_path = Path(model_dir) / f"{model_name}.json"
-        self._voice = None
-        self._speaking_thread = None
-        self._load_lock = threading.Lock()
-        self._load_error = None
-        self._temp_files = []
-        self._temp_lock = threading.Lock()
+        self.voice = None
+        self.speaking_thread = None
+        self.load_lock = threading.Lock()
+        self.load_error = None
+        self.temp_files = []
+        self.temp_lock = threading.Lock()
 
     def preload(self):
-        self._ensure_voice_loaded()
+        self.ensure_voice_loaded()
 
     def speak(self, text):
         if not text or not text.strip():
             return
 
-        if not self._ensure_voice_loaded():
+        if not self.ensure_voice_loaded():
             return
 
         self.stop()
-        self._speaking_thread = threading.Thread(
+        self.speaking_thread = threading.Thread(
             target=self.speak_worker, args=(text,), daemon=True
         )
-        self._speaking_thread.start()
+        self.speaking_thread.start()
 
     def speak_worker(self, text):
         try:
-            if not self._voice:
+            if not self.voice:
                 return
 
             buffer = io.BytesIO()
             wav_file = wave.open(buffer, "wb")
             wav_configured = False
 
-            for chunk in self._voice.synthesize(text):
+            for chunk in self.voice.synthesize(text):
                 if not wav_configured:
                     wav_file.setnchannels(chunk.sample_channels)
                     wav_file.setsampwidth(chunk.sample_width)
@@ -64,22 +64,22 @@ class TTSService:
                 tmp.write(buffer.getvalue())
                 tmp.flush()
 
-            with self._temp_lock:
-                self._temp_files.append(tmp_path)
+            with self.temp_lock:
+                self.temp_files.append(tmp_path)
 
             winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
             # Programar limpieza de archivos temporales viejos después de un retraso
-            threading.Timer(5.0, self._cleanup_old_temp_files).start()
+            threading.Timer(5.0, self.cleanup_old_temp_files).start()
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
             logging.exception("Failed to synthesize speech: %s", error)
 
-    def _cleanup_old_temp_files(self):
-        with self._temp_lock:
+    def cleanup_old_temp_files(self):
+        with self.temp_lock:
             # Mantener solo el archivo más reciente (podría estar reproduciéndose)
-            files_to_remove = self._temp_files[:-1]
-            self._temp_files = self._temp_files[-1:] if self._temp_files else []
+            files_to_remove = self.temp_files[:-1]
+            self.temp_files = self.temp_files[-1:] if self.temp_files else []
 
         for tmp_path in files_to_remove:
             try:
@@ -95,26 +95,26 @@ class TTSService:
             pass
 
         # Limpiar todos los archivos temporales al detener
-        with self._temp_lock:
-            for tmp_path in self._temp_files:
+        with self.temp_lock:
+            for tmp_path in self.temp_files:
                 try:
                     os.unlink(tmp_path)
                 except OSError:
                     pass
-            self._temp_files.clear()
+            self.temp_files.clear()
 
-    def _ensure_voice_loaded(self):
-        if self._voice or self._load_error:
-            return self._voice
+    def ensure_voice_loaded(self):
+        if self.voice or self.load_error:
+            return self.voice
 
-        with self._load_lock:
-            if self._voice or self._load_error:
-                return self._voice
+        with self.load_lock:
+            if self.voice or self.load_error:
+                return self.voice
             try:
-                self._voice = PiperVoice.load(
+                self.voice = PiperVoice.load(
                     str(self.model_path), str(self.config_path)
                 )
             except (FileNotFoundError, OSError, RuntimeError, ValueError) as error:
-                self._load_error = error
+                self.load_error = error
                 print(f"Warning: Unable to load TTS voice: {error}")
-        return self._voice
+        return self.voice

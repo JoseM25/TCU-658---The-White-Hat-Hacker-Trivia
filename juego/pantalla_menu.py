@@ -45,7 +45,7 @@ class MenuScreen:
         self.images_dir = get_resource_images_dir()
         self.logo_svg_path = self.images_dir / "Hat.svg"
 
-        self._resize_job = None
+        self.resize_job = None
 
         self.build_ui()
 
@@ -192,9 +192,9 @@ class MenuScreen:
         if event.widget is not self.parent:
             return
 
-        if self._resize_job:
-            self.parent.after_cancel(self._resize_job)
-        self._resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
+        if self.resize_job:
+            self.parent.after_cancel(self.resize_job)
+        self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def apply_responsive(self):
         w = max(self.parent.winfo_width(), 1)
@@ -245,7 +245,7 @@ class MenuScreen:
             )
             img.configure(size=(new_width, new_height))
 
-        self._resize_job = None
+        self.resize_job = None
 
     def load_svg_image(self, svg_path, scale=1.0):
         try:

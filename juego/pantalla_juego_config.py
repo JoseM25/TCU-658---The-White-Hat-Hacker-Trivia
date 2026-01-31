@@ -404,7 +404,7 @@ LEVEL_BADGE_COLORS = {
 class GameFontRegistry:
 
     def __init__(self, specs):
-        self._fonts = {}
+        self.fonts = {}
         self.base_sizes = {}
         self.min_sizes = {}
 
@@ -414,18 +414,18 @@ class GameFontRegistry:
                 if weight
                 else ctk.CTkFont(family=family, size=size)
             )
-            self._fonts[name] = font
+            self.fonts[name] = font
             self.base_sizes[name] = size
             self.min_sizes[name] = min_size or 10
 
     def get(self, name):
-        return self._fonts.get(name)
+        return self.fonts.get(name)
 
     def items(self):
-        return self._fonts.items()
+        return self.fonts.items()
 
     def update_scale(self, scale, scaler):
-        for name, font in self._fonts.items():
+        for name, font in self.fonts.items():
             base_size = self.base_sizes.get(name, 14)
             min_size = self.min_sizes.get(name, 10)
             max_size = base_size * 2.5
@@ -433,7 +433,7 @@ class GameFontRegistry:
             font.configure(size=new_size)
 
     def attach_attributes(self, target):
-        for name, font in self._fonts.items():
+        for name, font in self.fonts.items():
             setattr(target, f"{name}_font", font)
 
 
@@ -448,7 +448,7 @@ class GameSizeCalculator:
         self.scaler = scaler
         self.profiles = profiles
 
-    def _apply_compact_scale(self, value, scale, min_value=None):
+    def apply_compact_scale(self, value, scale, min_value=None):
         if scale >= 1.0:
             return value
         scaled = int(round(value * scale))
@@ -577,33 +577,33 @@ class GameSizeCalculator:
         # para evitar desbordamiento de contenido causado por el cromo de ventana reduciendo la altura del cliente.
         if is_height_constrained and scale < 1.0:
             compact_scale = scale
-            sizes["header_height"] = self._apply_compact_scale(
+            sizes["header_height"] = self.apply_compact_scale(
                 sizes["header_height"], compact_scale, min_value=44
             )
-            sizes["image_size"] = self._apply_compact_scale(
+            sizes["image_size"] = self.apply_compact_scale(
                 sizes["image_size"],
                 compact_scale,
                 min_value=GAME_BASE_SIZES["image_min"],
             )
-            sizes["answer_box"] = self._apply_compact_scale(
+            sizes["answer_box"] = self.apply_compact_scale(
                 sizes["answer_box"], compact_scale, min_value=24
             )
-            sizes["key_size"] = self._apply_compact_scale(
+            sizes["key_size"] = self.apply_compact_scale(
                 sizes["key_size"], compact_scale, min_value=20
             )
-            sizes["key_gap"] = self._apply_compact_scale(
+            sizes["key_gap"] = self.apply_compact_scale(
                 sizes["key_gap"], compact_scale, min_value=3
             )
-            sizes["key_row_gap"] = self._apply_compact_scale(
+            sizes["key_row_gap"] = self.apply_compact_scale(
                 sizes["key_row_gap"], compact_scale, min_value=1
             )
-            sizes["keyboard_pad_y"] = self._apply_compact_scale(
+            sizes["keyboard_pad_y"] = self.apply_compact_scale(
                 sizes["keyboard_pad_y"], compact_scale, min_value=4
             )
-            sizes["delete_icon"] = self._apply_compact_scale(
+            sizes["delete_icon"] = self.apply_compact_scale(
                 sizes["delete_icon"], compact_scale, min_value=12
             )
-            sizes["wildcard_size"] = self._apply_compact_scale(
+            sizes["wildcard_size"] = self.apply_compact_scale(
                 sizes["wildcard_size"], compact_scale, min_value=24
             )
             sizes["wildcard_corner_radius"] = sizes["wildcard_size"] // 2

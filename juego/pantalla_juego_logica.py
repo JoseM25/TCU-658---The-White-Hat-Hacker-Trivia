@@ -235,10 +235,10 @@ class GameScreenLogic(GameScreenBase):
             pass
         self.parent.after(
             150,
-            lambda: self._safe_configure(box, fg_color=self.COLORS["success_green"]),
+            lambda: self.safe_configure(box, fg_color=self.COLORS["success_green"]),
         )
 
-    def _safe_configure(self, widget, **kw):
+    def safe_configure(self, widget, **kw):
         try:
             widget.configure(**kw)
         except tk.TclError:
@@ -616,7 +616,7 @@ class GameScreenLogic(GameScreenBase):
     def set_buttons_enabled(self, enabled):
         st = "normal" if enabled else "disabled"
         for btn in self.key_button_map.values():
-            self._safe_configure(btn, state=st)
+            self.safe_configure(btn, state=st)
         for btn in [
             self.delete_button,
             self.skip_button,
@@ -626,7 +626,7 @@ class GameScreenLogic(GameScreenBase):
             self.wildcard_freeze_btn,
         ]:
             if btn:
-                self._safe_configure(btn, state=st)
+                self.safe_configure(btn, state=st)
 
     def show_feedback(self, correct=True, skipped=False):
         if self.feedback_animation_job:
@@ -641,23 +641,23 @@ class GameScreenLogic(GameScreenBase):
             txt, clr = "✗ Incorrect - Try Again", self.COLORS["feedback_incorrect"]
 
         self.feedback_label.configure(text=txt, text_color=clr)
-        self._animate_feedback(0, clr)
+        self.animate_feedback(0, clr)
 
-    def _animate_feedback(self, step, target):
+    def animate_feedback(self, step, target):
         if step > 5:
             return
         if step == 0:
             self.feedback_label.configure(text_color="#F5F7FA")
         else:
             self.feedback_label.configure(
-                text_color=self._interp_color("#F5F7FA", target, step / 5)
+                text_color=self.interp_color("#F5F7FA", target, step / 5)
             )
         if step < 5:
             self.feedback_animation_job = self.parent.after(
-                40, lambda: self._animate_feedback(step + 1, target)
+                40, lambda: self.animate_feedback(step + 1, target)
             )
 
-    def _interp_color(self, c1, c2, f):
+    def interp_color(self, c1, c2, f):
         r1, g1, b1 = int(c1[1:3], 16), int(c1[3:5], 16), int(c1[5:7], 16)
         r2, g2, b2 = int(c2[1:3], 16), int(c2[3:5], 16), int(c2[5:7], 16)
         r = int(r1 + (r2 - r1) * f)

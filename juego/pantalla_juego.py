@@ -43,7 +43,7 @@ class GameScreen(GameScreenLogic):
             return
 
         # Obtener dimensiones actuales
-        width, height = self._get_logical_dimensions()
+        width, height = self.get_logical_dimensions()
 
         # Calcular escala usando perfil
         low_res_profile = GAME_PROFILES.get("low_res")
@@ -51,37 +51,37 @@ class GameScreen(GameScreenLogic):
 
         # Actualizar estado de tamaños
         self.size_state = self.size_calc.calculate_sizes(scale, width, height)
-        self._apply_keyboard_scale_profile(height)
-        needed_height = self._estimate_layout_height(self.size_state)
+        self.apply_keyboard_scale_profile(height)
+        needed_height = self.estimate_layout_height(self.size_state)
         if needed_height > height:
             fit_ratio = height / needed_height
             fit_scale = max(
                 self.scaler.min_scale, min(self.scaler.max_scale, scale * fit_ratio)
             )
             self.size_state = self.size_calc.calculate_sizes(fit_scale, width, height)
-            self._apply_keyboard_scale_profile(height)
+            self.apply_keyboard_scale_profile(height)
             scale = fit_scale
-            needed_height = self._estimate_layout_height(self.size_state)
-        self._apply_keyboard_squeeze(needed_height, height)
+            needed_height = self.estimate_layout_height(self.size_state)
+        self.apply_keyboard_squeeze(needed_height, height)
         self.current_scale = scale
         self.current_window_width = width
         self.current_window_height = height
 
         # Actualizar todos los componentes
-        self._update_fonts(scale)
-        self._update_header(scale)
-        self._update_question_container()
-        self._update_keyboard()
-        self._update_action_buttons(scale)
-        self._update_wildcards(scale)
+        self.update_fonts(scale)
+        self.update_header(scale)
+        self.update_question_container()
+        self.update_keyboard()
+        self.update_action_buttons(scale)
+        self.update_wildcards(scale)
 
         # Redimensionar modales abiertos
-        self._resize_modals(scale)
+        self.resize_modals(scale)
 
         # Limpiar trabajo de redimensionamiento
         self.resize_job = None
 
-    def _estimate_layout_height(self, sizes):
+    def estimate_layout_height(self, sizes):
         scale = sizes.get("scale", 1.0)
         is_compact = sizes.get("is_height_constrained", False)
 
@@ -166,14 +166,14 @@ class GameScreen(GameScreenLogic):
             header_h + container_pad + question_height + keyboard_height + action_height
         )
 
-    def _estimate_keyboard_height(self, sizes):
+    def estimate_keyboard_height(self, sizes):
         keyboard_scale = sizes.get("keyboard_scale", 1.0)
         key_size = max(1, int(round(sizes["key_size"] * keyboard_scale)))
         key_row_gap = max(0, int(round(sizes["key_row_gap"] * keyboard_scale)))
         keyboard_pad_y = max(0, int(round(sizes["keyboard_pad_y"] * keyboard_scale)))
         return 3 * (key_size + key_row_gap * 2) + keyboard_pad_y
 
-    def _apply_keyboard_scale_profile(self, height):
+    def apply_keyboard_scale_profile(self, height):
         # Usar la altura real de ventana directamente para búsqueda de perfil
         # El parámetro height ya está en píxeles lógicos de winfo_height()
         # No se necesita ajuste de DPI - los umbrales del perfil están en píxeles lógicos
@@ -183,12 +183,12 @@ class GameScreen(GameScreenLogic):
         if self.size_state is not None:
             self.size_state["keyboard_scale"] = keyboard_scale
 
-    def _apply_keyboard_squeeze(self, needed_height, height):
+    def apply_keyboard_squeeze(self, needed_height, height):
         if not self.size_state:
             return
 
         sizes = self.size_state
-        kb_height = self._estimate_keyboard_height(sizes)
+        kb_height = self.estimate_keyboard_height(sizes)
         if kb_height <= 0:
             return
 
@@ -209,10 +209,10 @@ class GameScreen(GameScreenLogic):
         sizes["keyboard_pad_y"] = max(4, int(round(sizes["keyboard_pad_y"] * squeeze)))
         sizes["delete_icon"] = max(12, int(round(sizes["delete_icon"] * squeeze)))
 
-    def _update_fonts(self, scale):
+    def update_fonts(self, scale):
         self.font_registry.update_scale(scale, self.scaler)
 
-    def _update_header(self, scale):
+    def update_header(self, scale):
         sizes = self.size_state
 
         # Altura del frame de encabezado
@@ -233,12 +233,12 @@ class GameScreen(GameScreenLogic):
             self.header_center_container.grid_configure(pady=pad_y)
 
         # Actualizar iconos del encabezado
-        self._update_header_icons()
+        self.update_header_icons()
 
         # Actualizar botón de audio
-        self._update_audio_button(scale)
+        self.update_audio_button(scale)
 
-    def _update_header_icons(self):
+    def update_header_icons(self):
         sizes = self.size_state
 
         # Icono de reloj
@@ -256,7 +256,7 @@ class GameScreen(GameScreenLogic):
             sz = sizes["timer_icon"]
             self.freeze_icon.configure(size=(sz, sz))
 
-    def _update_audio_button(self, scale):
+    def update_audio_button(self, scale):
         sizes = self.size_state
         icon_sz = sizes["audio_icon"]
         btn_width = sizes["audio_button_width"]
@@ -276,7 +276,7 @@ class GameScreen(GameScreenLogic):
                 corner_radius=corner_r,
             )
 
-    def _update_question_container(self):
+    def update_question_container(self):
         sizes = self.size_state
 
         if not self.question_container or not self.question_container.winfo_exists():
@@ -291,12 +291,12 @@ class GameScreen(GameScreenLogic):
         self.question_container.configure(corner_radius=corner_r)
 
         # Actualizar subcomponentes
-        self._update_image()
-        self._update_definition()
-        self._update_answer_boxes()
-        self._update_feedback()
+        self.update_image()
+        self.update_definition()
+        self.update_answer_boxes()
+        self.update_feedback()
 
-    def _update_image(self):
+    def update_image(self):
         sizes = self.size_state
         scale = sizes.get("scale", 1.0)
         is_compact = sizes.get("is_height_constrained", False)
@@ -320,7 +320,7 @@ class GameScreen(GameScreenLogic):
         if self.current_image and self.current_question:
             self.load_question_image()
 
-    def _update_definition(self):
+    def update_definition(self):
         sizes = self.size_state
         scale = sizes.get("scale", 1.0)
 
@@ -361,7 +361,7 @@ class GameScreen(GameScreenLogic):
 
         self.queue_definition_scroll_update()
 
-    def _update_answer_boxes(self):
+    def update_answer_boxes(self):
         sizes = self.size_state
         scale = sizes.get("scale", 1.0)
         is_compact = sizes.get("is_height_constrained", False)
@@ -393,7 +393,7 @@ class GameScreen(GameScreenLogic):
                 pad_y = self.scale_value(14, scale, 8, 28)
             self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))
 
-    def _update_feedback(self):
+    def update_feedback(self):
         sizes = self.size_state
         is_compact = sizes.get("is_height_constrained", False)
 
@@ -404,7 +404,7 @@ class GameScreen(GameScreenLogic):
                 pad_bottom = max(6, pad_bottom // 2)
             self.feedback_label.grid_configure(pady=(0, pad_bottom))
 
-    def _update_keyboard(self):
+    def update_keyboard(self):
         sizes = self.size_state
         key_sz = sizes["key_size"]
         key_gap = sizes["key_gap"]
@@ -452,7 +452,7 @@ class GameScreen(GameScreenLogic):
         if self.delete_icon:
             self.delete_icon.configure(size=(delete_icon_sz, delete_icon_sz))
 
-    def _update_action_buttons(self, scale):
+    def update_action_buttons(self, scale):
         sizes = self.size_state
         btn_width = sizes["action_button_width"]
         btn_height = sizes["action_button_height"]
@@ -473,7 +473,7 @@ class GameScreen(GameScreenLogic):
             pad_bottom = self.scale_value(24, scale, 12, 48)
             self.action_buttons_frame.grid_configure(pady=(0, pad_bottom))
 
-    def _update_wildcards(self, scale):
+    def update_wildcards(self, scale):
         sizes = self.size_state
         is_compact = sizes.get("is_height_constrained", False)
         wc_sz = sizes["wildcard_size"]
@@ -565,7 +565,7 @@ class GameScreen(GameScreenLogic):
             except tk.TclError:
                 pass
 
-    def _resize_modals(self, scale):
+    def resize_modals(self, scale):
         for modal_attr in ["completion_modal", "summary_modal", "skip_modal"]:
             modal = getattr(self, modal_attr, None)
             if modal and hasattr(modal, "modal") and modal.modal:
@@ -619,7 +619,7 @@ class GameScreen(GameScreenLogic):
         key_sym = event.keysym
 
         if key_sym == "Return":
-            self._play_click_if_button_ready(self.check_button)
+            self.play_click_if_button_ready(self.check_button)
             self.simulate_button_press(self.check_button)
             self.on_check()
             return
@@ -628,24 +628,24 @@ class GameScreen(GameScreenLogic):
             return
 
         if key_char.isalpha() and len(key_char) == 1:
-            self._play_click_if_button_ready(self.key_button_map.get(key_char))
+            self.play_click_if_button_ready(self.key_button_map.get(key_char))
             self.show_key_feedback(key_char)
             self.on_key_press(key_char)
             return
 
         if key_sym == "BackSpace":
-            self._play_click_if_button_ready(self.delete_button)
+            self.play_click_if_button_ready(self.delete_button)
             self.show_key_feedback("⌫")
             self.on_key_press("⌫")
             return
 
         if key_sym == "Escape":
-            self._play_click_if_button_ready(self.skip_button)
+            self.play_click_if_button_ready(self.skip_button)
             self.simulate_button_press(self.skip_button)
             self.on_skip()
             return
 
-    def _play_click_if_button_ready(self, button):
+    def play_click_if_button_ready(self, button):
         if not self.sfx or not button:
             return
         try:
