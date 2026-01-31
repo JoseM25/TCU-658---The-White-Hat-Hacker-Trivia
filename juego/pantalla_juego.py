@@ -362,6 +362,9 @@ class GameScreen(GameScreenLogic):
         self.queue_definition_scroll_update()
 
     def update_answer_boxes(self):
+        # Llamar al método padre para actualizar el texto de las casillas
+        super().update_answer_boxes()
+
         sizes = self.size_state
         scale = sizes.get("scale", 1.0)
         is_compact = sizes.get("is_height_constrained", False)
