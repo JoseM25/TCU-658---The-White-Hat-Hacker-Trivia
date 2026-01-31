@@ -1,19 +1,3 @@
-"""Base class for GameScreen with core state and responsive helpers.
-
-This module contains the GameScreenBase class which combines:
-- GameIconsMixin: Icon loading functionality
-- GameUIBuilderMixin: UI construction functionality
-
-And provides core functionality:
-- State management
-- Responsive system initialization
-- Question loading
-- Definition scrollbar management
-- Answer boxes management
-- Wildcard state management
-- Timer visual state management
-"""
-
 import json
 import tkinter as tk
 
@@ -51,16 +35,8 @@ from juego.servicio_tts import TTSService
 
 
 class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
-    """Base class for game screen with state management and responsive helpers.
 
-    This class combines GameIconsMixin and GameUIBuilderMixin to provide
-    complete UI functionality, plus core game state and responsive logic.
-
-    Inheritance chain:
-        GameScreenBase -> GameScreenLogic -> GameScreen
-    """
-
-    # Import constants from config
+    # Importar constantes de configuración
     BASE_DIMENSIONS = GAME_BASE_DIMENSIONS
     SCALE_LIMITS = GAME_SCALE_LIMITS
     RESIZE_DELAY = GAME_RESIZE_DELAY
@@ -69,13 +45,13 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
     BASE_SIZES = GAME_BASE_SIZES
     KEYBOARD_LAYOUT = KEYBOARD_LAYOUT
 
-    # SVG rendering scale
+    # Escala de renderizado SVG
     SVG_RASTER_SCALE = 2.0
 
-    # Maximum number of questions to keep in history
+    # Número máximo de preguntas a mantener en el historial
     MAX_QUESTION_HISTORY = 50
 
-    # Class-level attribute declarations (initialized in __init__ helper methods)
+    # Declaraciones de atributos a nivel de clase (inicializados en métodos auxiliares de __init__)
     _definition_scrollbar_visible: bool | None
     _definition_scrollbar_manager: str | None
     _definition_scroll_update_job: str | None
@@ -89,20 +65,19 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.on_return_callback = on_return_callback
         self.sfx = sfx_service
 
-        # Initialize all state attributes
+        # Inicializar todos los atributos de estado
         self._init_game_state()
         self._init_ui_references()
         self._init_paths_and_services(tts_service)
 
-        # Initialize responsive system
+        # Inicializar sistema responsivo
         self.init_responsive_system()
 
-        # Load data and build UI
+        # Cargar datos y construir UI
         self.load_questions()
         self.build_ui()
 
     def _init_game_state(self):
-        """Initialize game state variables."""
         self.current_question = None
         self.questions = []
         self.available_questions = []
@@ -121,34 +96,33 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.question_timer = 0
         self.question_mistakes = 0
 
-        # Resize handling
+        # Manejo de redimensionamiento
         self.resize_job = None
 
-        # Game flow state
+        # Estado del flujo del juego
         self.processing_correct_answer = False
         self.awaiting_modal_decision = False
         self.stored_modal_data = None
         self.question_history = []
         self.viewing_history_index = -1
 
-        # Physical keyboard handling
+        # Manejo del teclado físico
         self.physical_key_pressed = None
         self.key_feedback_job = None
 
-        # Visual state tracking
+        # Seguimiento del estado visual
         self.timer_frozen_visually = False
         self.double_points_visually_active = False
 
     def _init_ui_references(self):
-        """Initialize UI component references to None."""
-        # Main layout
+        # Diseño principal
         self.main = None
         self.header_frame = None
         self.header_left_container = None
         self.header_center_container = None
         self.header_right_container = None
 
-        # Header components
+        # Componentes del encabezado
         self.back_button = None
         self.back_arrow_icon = None
         self.timer_container = None
@@ -161,7 +135,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.multiplier_label = None
         self.audio_toggle_btn = None
 
-        # Question container components
+        # Componentes del contenedor de pregunta
         self.question_container = None
         self.image_frame = None
         self.image_label = None
@@ -176,21 +150,21 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.answer_boxes_frame = None
         self.answer_box_labels = []
 
-        # Keyboard components
+        # Componentes del teclado
         self.keyboard_frame = None
         self.keyboard_buttons = []
         self.delete_button = None
         self.key_button_map = {}
 
-        # Action buttons
+        # Botones de acción
         self.action_buttons_frame = None
         self.skip_button = None
         self.check_button = None
 
-        # Image references
+        # Referencias de imagen
         self.current_image = None
 
-        # Icon references
+        # Referencias de iconos
         self.audio_icon_on = None
         self.audio_icon_off = None
         self.clock_icon = None
@@ -203,7 +177,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.lightning_icon_label = None
         self.freeze_wildcard_icon = None
 
-        # Wildcards panel components
+        # Componentes del panel de comodines
         self.wildcards_frame = None
         self.wildcard_x2_btn = None
         self.wildcard_hint_btn = None
@@ -211,16 +185,16 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.charges_frame = None
         self.charges_label = None
 
-        # Feedback components
+        # Componentes de retroalimentación
         self.feedback_label = None
         self.feedback_animation_job = None
 
-        # Modal references
+        # Referencias de modales
         self.completion_modal = None
         self.summary_modal = None
         self.skip_modal = None
 
-        # Font attributes (set by font_registry.attach_attributes)
+        # Atributos de fuente (establecidos por font_registry.attach_attributes)
         self.timer_font = None
         self.score_font = None
         self.definition_font = None
@@ -235,7 +209,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.multiplier_font = None
 
     def _init_paths_and_services(self, tts_service):
-        """Initialize file paths and services."""
         resource_images_dir = get_resource_images_dir()
         resource_audio_dir = get_resource_audio_dir()
         data_root = get_data_root()
@@ -245,7 +218,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.audio_dir = resource_audio_dir
         self.questions_path = get_data_questions_path()
 
-        # Image handler for icon loading
+        # Manejador de imágenes para cargar iconos
         self.image_handler = ImageHandler(
             self.images_dir,
             user_images_dir=get_user_images_dir(),
@@ -253,40 +226,38 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             resource_root=resource_root,
         )
 
-        # TTS service
+        # Servicio TTS
         self.tts = tts_service or TTSService(self.audio_dir)
 
     def init_responsive_system(self):
-        """Initialize the responsive scaling system."""
-        # Create scaler
+        # Crear escalador
         self.scaler = ResponsiveScaler(
             self.BASE_DIMENSIONS,
             self.SCALE_LIMITS,
             global_scale_factor=GAME_GLOBAL_SCALE_FACTOR,
         )
 
-        # Create size calculator
+        # Crear calculador de tamaños
         self.size_calc = GameSizeCalculator(self.scaler, GAME_PROFILES)
 
-        # Create font registry and attach fonts as attributes
+        # Crear registro de fuentes y adjuntar fuentes como atributos
         self.font_registry = GameFontRegistry(GAME_FONT_SPECS)
         self.font_registry.attach_attributes(self)
 
-        # Store base and min sizes for font scaling
+        # Almacenar tamaños base y mínimos para escalado de fuentes
         self.font_base_sizes = self.font_registry.base_sizes
         self.font_min_sizes = self.font_registry.min_sizes
 
-        # State tracking
+        # Seguimiento de estado
         self.current_scale = 1.0
         self.current_window_width = self.BASE_DIMENSIONS[0]
         self.current_window_height = self.BASE_DIMENSIONS[1]
         self.size_state = {}
 
-        # Icon cache for efficient resizing
+        # Caché de iconos para redimensionamiento eficiente
         self.icon_cache = {}
 
     def _get_window_scaling(self):
-        """Get the current window DPI scaling factor."""
         root = self.parent.winfo_toplevel() if self.parent else None
         try:
             scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
@@ -297,7 +268,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         return scaling
 
     def _get_logical_dimensions(self):
-        """Get logical window dimensions accounting for DPI scaling."""
         if not self.parent or not self.parent.winfo_exists():
             return self.BASE_DIMENSIONS
         scaling = self._get_window_scaling()
@@ -306,17 +276,14 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         return width, height
 
     def get_current_scale(self):
-        """Calculate the current scale factor based on window size."""
         w, h = self._get_logical_dimensions()
         low_res_profile = GAME_PROFILES.get("low_res")
         return self.scaler.calculate_scale(w, h, low_res_profile)
 
     def scale_value(self, base, scale, min_value=None, max_value=None):
-        """Scale a value with optional min/max bounds."""
         return self.scaler.scale_value(base, scale, min_value, max_value)
 
     def get_scaled_image_size(self, scale=None):
-        """Get the scaled image size for the current scale."""
         if self.size_state and "image_size" in self.size_state:
             return self.size_state["image_size"]
         s = scale or self.get_current_scale()
@@ -328,7 +295,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         )
 
     def get_scaled_box_size(self, scale=None):
-        """Get the scaled answer box size for the current scale."""
         if self.size_state and "answer_box" in self.size_state:
             return self.size_state["answer_box"]
         s = scale or self.get_current_scale()
@@ -340,7 +306,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         )
 
     def load_questions(self):
-        """Load questions from the JSON data file."""
         try:
             with open(self.questions_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -356,17 +321,15 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.wildcard_manager.reset_game()
 
     # =========================================================================
-    # Definition Scrollbar Management
+    # Manejo de Barra de Desplazamiento de Definición
     # =========================================================================
 
     def set_definition_text(self, text):
-        """Set the definition label text and update scrollbar visibility."""
         if self.definition_label and self.definition_label.winfo_exists():
             self.definition_label.configure(text=text)
         self.queue_definition_scroll_update()
 
     def queue_definition_scroll_update(self):
-        """Queue an update to check if the definition scrollbar should be visible."""
         if not self.parent or not self.parent.winfo_exists():
             return
         if self._definition_scroll_update_job:
@@ -384,7 +347,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.update_definition_scrollbar_visibility()
 
     def update_definition_scrollbar_visibility(self):
-        """Update the scrollbar visibility based on content height."""
         self._definition_scroll_update_job = None
         if not self.definition_scroll or not self.definition_scroll.winfo_exists():
             return
@@ -417,7 +379,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self._set_definition_scrollbar_visible(needs_scroll)
 
     def _set_definition_scrollbar_visible(self, visible):
-        """Show or hide the definition scrollbar."""
         if self._definition_scrollbar_visible is visible:
             return
 
@@ -448,7 +409,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self._definition_scrollbar_visible = visible
 
     def _get_scrollbar_widget(self, scrollable):
-        """Get the scrollbar widget from a CTkScrollableFrame."""
         if not scrollable:
             return None
         for attr in (
@@ -463,18 +423,17 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         return None
 
     # =========================================================================
-    # Answer Boxes Management
+    # Manejo de Cajas de Respuesta
     # =========================================================================
 
     def create_answer_boxes(self, word_length):
-        """Create or update answer boxes for the given word length."""
         box_sz = self.get_scaled_box_size()
         gap = self.size_state.get("answer_box_gap", 3)
         scale = self.size_state.get("scale", 1.0) if self.size_state else 1.0
         is_compact = self.size_state.get("is_height_constrained", False)
         extra_pad = self.scale_value(16, scale, 8, 20)
 
-        # Create new boxes if needed
+        # Crear nuevas cajas si es necesario
         for i in range(len(self.answer_box_labels), word_length):
             box = ctk.CTkLabel(
                 self.answer_boxes_frame,
@@ -490,7 +449,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
 
         revealed = self.wildcard_manager.get_revealed_positions()
 
-        # Configure visible boxes
+        # Configurar cajas visibles
         for i in range(word_length):
             box = self.answer_box_labels[i]
             has_char = i < len(self.current_answer) and self.current_answer[i].strip()
@@ -515,11 +474,11 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
                 )
             box.grid(row=0, column=i, padx=gap, pady=4)
 
-        # Hide extra boxes
+        # Ocultar cajas extras
         for i in range(word_length, len(self.answer_box_labels)):
             self.answer_box_labels[i].grid_remove()
 
-        # Update frame size (extra height padding to prevent clipping at low res)
+        # Actualizar tamaño del marco (relleno extra para evitar recorte en baja resolución)
         self.answer_boxes_frame.configure(
             width=max(box_sz, word_length * (box_sz + gap * 2)),
             height=box_sz + extra_pad,
@@ -532,22 +491,20 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))
 
     # =========================================================================
-    # Wildcard State Management
+    # Manejo de Estado de Comodines
     # =========================================================================
 
     def update_charges_display(self):
-        """Update the charges label with current charge count."""
         if self.charges_label:
             charges = self.wildcard_manager.get_charges()
             self.charges_label.configure(text=str(charges))
 
     def update_wildcard_buttons_state(self):
-        """Update all wildcard buttons based on current state and charges."""
         charges = self.wildcard_manager.get_charges()
         double_blocked = self.wildcard_manager.is_double_points_blocked()
         others_blocked = self.wildcard_manager.are_other_wildcards_blocked()
 
-        # X2 Button
+        # Botón X2
         if self.wildcard_x2_btn:
             can_use_x2 = (
                 charges >= self.wildcard_manager.COST_DOUBLE_POINTS
@@ -579,7 +536,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
                     state="disabled",
                 )
 
-        # Hint Button
+        # Botón de Pista
         if self.wildcard_hint_btn:
             can_use_hint = (
                 charges >= self.wildcard_manager.COST_REVEAL_LETTER
@@ -598,7 +555,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
                     state="disabled",
                 )
 
-        # Freeze Button
+        # Botón de Congelar
         if self.wildcard_freeze_btn:
             can_use_freeze = (
                 charges >= self.wildcard_manager.COST_FREEZE_TIMER
@@ -627,15 +584,13 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.update_charges_display()
 
     def reset_wildcard_button_colors(self):
-        """Reset wildcard button colors to match current state."""
         self.update_wildcard_buttons_state()
 
     # =========================================================================
-    # Timer Visual State
+    # Estado Visual del Temporizador
     # =========================================================================
 
     def reset_timer_visuals(self):
-        """Reset timer to normal (unfrozen) visual state."""
         self.timer_frozen_visually = False
         if self.timer_label:
             self.timer_label.configure(text_color="white")
@@ -643,7 +598,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.timer_icon_label.configure(image=self.clock_icon)
 
     def apply_freeze_timer_visuals(self):
-        """Apply frozen visual state to the timer."""
         self.timer_frozen_visually = True
         if self.timer_label:
             self.timer_label.configure(text_color="#D0E7FF")
@@ -651,7 +605,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.timer_icon_label.configure(image=self.freeze_icon)
 
     def apply_double_points_visuals(self, multiplier=2):
-        """Apply double points visual state to the score display."""
         self.double_points_visually_active = True
         if self.score_label:
             self.score_label.configure(text_color=self.COLORS["warning_yellow"])
@@ -660,7 +613,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.multiplier_label.grid()
 
     def reset_double_points_visuals(self):
-        """Reset the score display to normal visual state."""
         self.double_points_visually_active = False
         if self.score_label:
             self.score_label.configure(text_color="white")
@@ -668,32 +620,32 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.multiplier_label.grid_remove()
 
     # =========================================================================
-    # Abstract Methods (to be overridden in subclasses)
+    # Métodos Abstractos (a ser sobrescritos en subclases)
     # =========================================================================
 
     def on_wildcard_x2(self):
-        """Handle X2 wildcard activation. Override in subclass."""
+        pass
 
     def on_wildcard_hint(self):
-        """Handle hint wildcard activation. Override in subclass."""
+        pass
 
     def on_wildcard_freeze(self):
-        """Handle freeze wildcard activation. Override in subclass."""
+        pass
 
     def on_key_press(self, key):
-        """Handle keyboard key press. Override in subclass."""
+        pass
 
     def on_skip(self):
-        """Handle skip button press. Override in subclass."""
+        pass
 
     def on_check(self):
-        """Handle check button press. Override in subclass."""
+        pass
 
     def toggle_audio(self):
-        """Handle audio toggle. Override in subclass."""
+        pass
 
     def return_to_menu(self):
-        """Handle return to menu. Override in subclass."""
+        pass
 
     def cleanup(self):
-        """Clean up resources. Override in subclass."""
+        pass

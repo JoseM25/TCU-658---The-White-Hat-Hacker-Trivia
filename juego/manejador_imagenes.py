@@ -37,12 +37,11 @@ class ImageHandler:
             return None
 
     def get_svg_base_size(self, svg_path):
-        """Get the base size of an SVG by loading at scale 1.0"""
         try:
             img = ImageTk.getimage(TkSvgImage(file=str(svg_path), scale=1.0))
             return img.size
         except (FileNotFoundError, OSError, ValueError, RuntimeError):
-            return (24, 24)  # fallback
+            return (24, 24)  # respaldo
 
     def crop_to_alpha_bounds(self, pil_image):
         try:
@@ -63,10 +62,10 @@ class ImageHandler:
         target_max = max(target_w, target_h)
 
         if scale is None:
-            # Calculate the scale needed to rasterize SVG at target resolution
+            # Calcular la escala necesaria para rasterizar SVG a resolución objetivo
             base_w, base_h = self.get_svg_base_size(svg_path)
             base_max = max(base_w, base_h, 1)
-            # Rasterize at 2x target size for crispness, then downscale
+            # Rasterizar a 2x el tamaño objetivo para nitidez, luego reducir
             scale = (target_max * 2) / base_max
 
         pil_image = self.load_svg_image(svg_path, scale)
@@ -75,7 +74,7 @@ class ImageHandler:
 
         cropped = self.crop_to_alpha_bounds(pil_image)
 
-        # Preserve aspect ratio when resizing
+        # Preservar proporción de aspecto al redimensionar
         orig_w, orig_h = cropped.size
         if orig_w > 0 and orig_h > 0:
             ratio = min(target_w / orig_w, target_h / orig_h)
@@ -83,7 +82,7 @@ class ImageHandler:
             new_h = max(1, int(orig_h * ratio))
             resized = self.resize_image(cropped, (new_w, new_h))
 
-            # Center on transparent canvas
+            # Centrar en lienzo transparente
             final = Image.new("RGBA", size, (0, 0, 0, 0))
             paste_x = (target_w - new_w) // 2
             paste_y = (target_h - new_h) // 2

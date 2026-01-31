@@ -69,16 +69,15 @@ class TTSService:
 
             winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
-            # Schedule cleanup of old temp files after a delay
+            # Programar limpieza de archivos temporales viejos después de un retraso
             threading.Timer(5.0, self._cleanup_old_temp_files).start()
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
             logging.exception("Failed to synthesize speech: %s", error)
 
     def _cleanup_old_temp_files(self):
-        """Clean up temp files that are no longer playing."""
         with self._temp_lock:
-            # Keep only the most recent file (might still be playing)
+            # Mantener solo el archivo más reciente (podría estar reproduciéndose)
             files_to_remove = self._temp_files[:-1]
             self._temp_files = self._temp_files[-1:] if self._temp_files else []
 
@@ -92,10 +91,10 @@ class TTSService:
         try:
             winsound.PlaySound(None, winsound.SND_PURGE)
         except (RuntimeError, OSError):
-            # Ignore playback errors when trying to stop audio.
+            # Ignorar errores de reproducción al detener audio.
             pass
 
-        # Clean up all temp files when stopping
+        # Limpiar todos los archivos temporales al detener
         with self._temp_lock:
             for tmp_path in self._temp_files:
                 try:

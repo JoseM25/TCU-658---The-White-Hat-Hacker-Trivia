@@ -1,61 +1,37 @@
-"""UI building methods mixin for GameScreen.
-
-This module contains the GameUIBuilderMixin class which provides all UI
-construction functionality for the game screen, including header, question
-container, keyboard, action buttons, and wildcards panel.
-"""
-
 import customtkinter as ctk
 
 from juego.pantalla_juego_config import KEYBOARD_LAYOUT
 
 
 class GameUIBuilderMixin:
-    """Mixin providing UI building functionality for GameScreen.
-
-    This mixin requires the following attributes to be present on the class:
-    - parent: Parent widget
-    - COLORS: dict with color values
-    - BASE_SIZES: dict with base size values
-    - Various font attributes (timer_font, score_font, etc.)
-    - Various icon references (clock_icon, star_icon, etc.)
-    - wildcard_manager: WildcardManager instance
-    - Methods: toggle_audio, on_key_press, on_skip, on_check, on_wildcard_x2,
-               on_wildcard_hint, on_wildcard_freeze, update_wildcard_buttons_state,
-               get_scaled_image_size, get_scaled_box_size, update_audio_button_icon,
-               load_header_icons, load_audio_icons, load_info_icon, load_delete_icon,
-               load_lightning_icon, load_freeze_wildcard_icon
-    """
 
     def build_ui(self):
-        """Build the main game UI structure."""
-        # Clear existing widgets
+        # Limpiar widgets existentes
         for widget in self.parent.winfo_children():
             widget.destroy()
 
-        # Configure parent grid
+        # Configurar grid del padre
         self.parent.grid_rowconfigure(0, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
 
-        # Main container
+        # Contenedor principal
         self.main = ctk.CTkFrame(self.parent, fg_color=self.COLORS["bg_light"])
         self.main.grid(row=0, column=0, sticky="nsew")
 
-        # Main layout: header, question area, keyboard, action buttons
-        self.main.grid_rowconfigure(0, weight=0)  # Header
-        self.main.grid_rowconfigure(1, weight=1)  # Question container
-        self.main.grid_rowconfigure(2, weight=0)  # Keyboard
-        self.main.grid_rowconfigure(3, weight=0)  # Action buttons
+        # Layout principal: encabezado, área de pregunta, teclado, botones de acción
+        self.main.grid_rowconfigure(0, weight=0)  # Encabezado
+        self.main.grid_rowconfigure(1, weight=1)  # Contenedor de pregunta
+        self.main.grid_rowconfigure(2, weight=0)  # Teclado
+        self.main.grid_rowconfigure(3, weight=0)  # Botones de acción
         self.main.grid_columnconfigure(0, weight=1)
 
-        # Build sections
+        # Construir secciones
         self.build_header()
         self.build_question_container()
         self.build_keyboard()
         self.build_action_buttons()
 
     def build_header(self):
-        """Build the header section with timer, score, and audio toggle."""
         header_height = self.BASE_SIZES["header_height"]
 
         self.header_frame = ctk.CTkFrame(
@@ -67,16 +43,16 @@ class GameUIBuilderMixin:
         self.header_frame.grid(row=0, column=0, sticky="ew")
         self.header_frame.grid_propagate(False)
 
-        # Spanned layout: timer left, score center, mute right
+        # Distribución: temporizador izquierda, puntaje centro, silencio derecha
         self.header_frame.grid_columnconfigure(0, weight=1, uniform="header_side")
         self.header_frame.grid_columnconfigure(1, weight=0)
         self.header_frame.grid_columnconfigure(2, weight=1, uniform="header_side")
         self.header_frame.grid_rowconfigure(0, weight=1)
 
-        # Load header icons
+        # Cargar iconos del encabezado
         self.load_header_icons()
 
-        # Left container (timer)
+        # Contenedor izquierdo (temporizador)
         self.header_left_container = ctk.CTkFrame(
             self.header_frame, fg_color="transparent"
         )
@@ -84,13 +60,13 @@ class GameUIBuilderMixin:
             row=0, column=0, sticky="w", padx=(self.BASE_SIZES["header_pad_x"], 0)
         )
 
-        # Center container (score)
+        # Contenedor central (puntaje)
         self.header_center_container = ctk.CTkFrame(
             self.header_frame, fg_color="transparent"
         )
         self.header_center_container.grid(row=0, column=1)
 
-        # Right container (audio toggle)
+        # Contenedor derecho (control de audio)
         self.header_right_container = ctk.CTkFrame(
             self.header_frame, fg_color="transparent"
         )
@@ -98,17 +74,16 @@ class GameUIBuilderMixin:
             row=0, column=2, sticky="e", padx=(0, self.BASE_SIZES["header_pad_x"])
         )
 
-        # Build timer section
+        # Construir sección del temporizador
         self.build_timer_section()
 
-        # Build score section
+        # Construir sección del puntaje
         self.build_score_section()
 
-        # Build audio toggle
+        # Construir control de audio
         self.build_audio_section()
 
     def build_timer_section(self):
-        """Build the timer display in the header left container."""
         self.timer_container = ctk.CTkFrame(
             self.header_left_container, fg_color="transparent"
         )
@@ -128,7 +103,6 @@ class GameUIBuilderMixin:
         self.timer_label.grid(row=0, column=1)
 
     def build_score_section(self):
-        """Build the score display in the header center container."""
         self.score_container = ctk.CTkFrame(
             self.header_center_container, fg_color="transparent"
         )
@@ -152,7 +126,7 @@ class GameUIBuilderMixin:
         )
         self.score_label.grid(row=0, column=1)
 
-        # Multiplier label (hidden by default)
+        # Etiqueta de multiplicador (oculta por defecto)
         self.multiplier_label = ctk.CTkLabel(
             self.score_container,
             text="",
@@ -164,7 +138,6 @@ class GameUIBuilderMixin:
         self.multiplier_label.grid_remove()
 
     def build_audio_section(self):
-        """Build the audio toggle button in the header right container."""
         self.audio_container = ctk.CTkFrame(
             self.header_right_container, fg_color="transparent"
         )
@@ -189,7 +162,6 @@ class GameUIBuilderMixin:
         self.update_audio_button_icon()
 
     def build_question_container(self):
-        """Build the main question container with image, definition, and answer boxes."""
         self.question_container = ctk.CTkFrame(
             self.main,
             fg_color=self.COLORS["bg_card"],
@@ -205,15 +177,15 @@ class GameUIBuilderMixin:
             pady=self.BASE_SIZES["container_pad_y"],
         )
 
-        # Grid configuration for question container
-        # All rows have weight=0 so they take natural heights based on content
-        # This prevents the definition row from being squeezed out at low resolutions
+        # Configuración del grid del contenedor de pregunta
+        # Todas las filas tienen weight=0 para que tomen alturas naturales según contenido
+        # Esto evita que la fila de definición se comprima en resoluciones bajas
         self.question_container.grid_columnconfigure(0, weight=1)
         self.question_container.grid_columnconfigure(1, weight=0)
         for r in range(4):
             self.question_container.grid_rowconfigure(r, weight=0)
 
-        # Build sections
+        # Construir secciones
         self.build_image_section()
         self.build_definition_section()
         self.build_answer_boxes_section()
@@ -221,7 +193,6 @@ class GameUIBuilderMixin:
         self.build_wildcards_panel()
 
     def build_image_section(self):
-        """Build the question image display area."""
         img_sz = self.get_scaled_image_size()
 
         self.image_frame = ctk.CTkFrame(
@@ -242,8 +213,7 @@ class GameUIBuilderMixin:
         self.image_label.grid(row=0, column=0)
 
     def build_definition_section(self):
-        """Build the scrollable definition text area."""
-        # Store reference to frame for responsive updates
+        # Guardar referencia al frame para actualizaciones responsivas
         self.definition_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent"
         )
@@ -252,18 +222,18 @@ class GameUIBuilderMixin:
 
         self.load_info_icon()
 
-        # Wrapper with fixed height to constrain scrollable frame
+        # Contenedor con altura fija para limitar el frame con scroll
         self.definition_scroll_wrapper = ctk.CTkFrame(
             self.definition_frame,
             fg_color="transparent",
             height=45,
         )
         self.definition_scroll_wrapper.grid(row=0, column=0, sticky="ew")
-        self.definition_scroll_wrapper.grid_propagate(False)  # Force fixed height
+        self.definition_scroll_wrapper.grid_propagate(False)  # Forzar altura fija
         self.definition_scroll_wrapper.grid_rowconfigure(0, weight=1)
         self.definition_scroll_wrapper.grid_columnconfigure(0, weight=1)
 
-        # Scrollable frame inside wrapper
+        # Frame con scroll dentro del contenedor
         self.definition_scroll = ctk.CTkScrollableFrame(
             self.definition_scroll_wrapper,
             fg_color="transparent",
@@ -273,7 +243,7 @@ class GameUIBuilderMixin:
         self.definition_scroll.grid(row=0, column=0, sticky="nsew")
         self.definition_scroll.grid_columnconfigure(0, weight=1)
 
-        # Inner frame that centers content but expands horizontally
+        # Frame interno que centra contenido pero se expande horizontalmente
         self.def_inner = ctk.CTkFrame(self.definition_scroll, fg_color="transparent")
         self.def_inner.master.grid_columnconfigure(0, weight=1)
         self.def_inner.grid(row=0, column=0, sticky="")
@@ -296,22 +266,20 @@ class GameUIBuilderMixin:
         self.definition_label.grid(row=0, column=1, sticky="nw")
 
     def build_answer_boxes_section(self):
-        """Build the answer letter boxes container."""
         box_sz = self.get_scaled_box_size()
 
         self.answer_boxes_frame = ctk.CTkFrame(
             self.question_container,
             fg_color="transparent",
             width=10 * (box_sz + 8),
-            height=box_sz + 16,  # Extra padding to prevent clipping at low res
+            height=box_sz + 16,  # Relleno extra para evitar recorte en baja resolución
         )
         self.answer_boxes_frame.grid(row=2, column=0, pady=(6, 6), padx=20)
-        # Configure internal grid to center content without stretching a single column.
+        # Configurar grid interno para centrar contenido sin estirar una sola columna
         self.answer_boxes_frame.grid_rowconfigure(0, weight=1)
         self.answer_boxes_frame.grid_anchor("center")
 
     def build_feedback_section(self):
-        """Build the feedback label for correct/incorrect messages."""
         self.feedback_label = ctk.CTkLabel(
             self.question_container,
             text="",
@@ -321,11 +289,10 @@ class GameUIBuilderMixin:
         self.feedback_label.grid(row=3, column=0, pady=(0, 4), padx=20)
 
     def build_wildcards_panel(self):
-        """Build the wildcards panel with X2, hint, and freeze buttons."""
         self.wildcards_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent"
         )
-        # Use sticky="n" to anchor at top, natural content height
+        # Usar sticky="n" para anclar arriba, altura natural del contenido
         self.wildcards_frame.grid(
             row=0, column=1, rowspan=4, sticky="n", padx=(0, 16), pady=12
         )
@@ -335,12 +302,14 @@ class GameUIBuilderMixin:
         font = ctk.CTkFont(family="Poppins ExtraBold", size=wc_font, weight="bold")
         charges_font = ctk.CTkFont(family="Poppins SemiBold", size=14, weight="bold")
 
-        # Calculate button width to accommodate text like "X16" (stacked multipliers)
-        # Use 1.5x the height for a nice pill shape that fits all text
+        # Calcular ancho del botón para acomodar texto como "X16" (multiplicadores acumulados)
+        # Usar 1.5x la altura para una forma de píldora que ajuste todo el texto
         wc_btn_width = int(wc_sz * 1.5)
-        wc_corner = wc_sz // 2  # Keep corner radius based on height for pill shape
+        wc_corner = (
+            wc_sz // 2
+        )  # Mantener radio de esquina basado en altura para forma de píldora
 
-        # Charges display
+        # Mostrar cargas
         self.charges_frame = ctk.CTkFrame(self.wildcards_frame, fg_color="transparent")
         self.charges_frame.grid(row=1, column=0, pady=(0, 6))
 
@@ -359,7 +328,7 @@ class GameUIBuilderMixin:
         )
         self.charges_label.grid(row=0, column=1)
 
-        # X2 button - use consistent width for all buttons
+        # Botón X2 - usar ancho consistente para todos los botones
         self.wildcard_x2_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="X2",
@@ -374,7 +343,7 @@ class GameUIBuilderMixin:
         )
         self.wildcard_x2_btn.grid(row=2, column=0, pady=4)
 
-        # Hint button - same width as X2 for consistency
+        # Botón de pista - mismo ancho que X2 para consistencia
         self.wildcard_hint_btn = ctk.CTkButton(
             self.wildcards_frame,
             text="A",
@@ -389,7 +358,7 @@ class GameUIBuilderMixin:
         )
         self.wildcard_hint_btn.grid(row=3, column=0, pady=4)
 
-        # Freeze button - same width as others for consistency
+        # Botón de congelar - mismo ancho que los demás para consistencia
         self.load_freeze_wildcard_icon(int(wc_sz * 0.5))
 
         self.wildcard_freeze_btn = ctk.CTkButton(
@@ -410,7 +379,6 @@ class GameUIBuilderMixin:
         self.update_wildcard_buttons_state()
 
     def build_keyboard(self):
-        """Build the virtual keyboard with letter keys and delete button."""
         self.keyboard_frame = ctk.CTkFrame(self.main, fg_color="transparent")
         self.keyboard_frame.grid(
             row=2,
@@ -475,7 +443,6 @@ class GameUIBuilderMixin:
                     self.delete_button = btn
 
     def build_action_buttons(self):
-        """Build the Skip and Check action buttons."""
         self.action_buttons_frame = ctk.CTkFrame(self.main, fg_color="transparent")
         self.action_buttons_frame.grid(row=3, column=0, pady=(0, 24))
 

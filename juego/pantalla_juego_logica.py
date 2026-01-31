@@ -13,21 +13,9 @@ from juego.pantalla_juego_modales import (
 
 
 class GameScreenLogic(GameScreenBase):
-    """Game screen logic layer handling game mechanics and user interactions.
 
-    This class inherits from GameScreenBase and adds game logic including:
-    - Wildcard handling
-    - Question loading and checking
-    - Timer management
-    - Modal dialogs
-    - Scoring
-
-    All instance attributes are initialized in the parent class GameScreenBase.__init__.
-    The declarations below are type hints to satisfy static analysis tools.
-    """
-
-    # Type declarations for attributes inherited from GameScreenBase
-    # (initialized in GameScreenBase._init_game_state and _init_ui_references)
+    # Declaraciones de tipo para atributos heredados de GameScreenBase
+    # (inicializados en GameScreenBase._init_game_state y _init_ui_references)
     current_answer: str
     current_question: dict | None
     current_image: ctk.CTkImage | None
@@ -188,11 +176,11 @@ class GameScreenLogic(GameScreenBase):
         max_len = len(title)
         revealed = self.wildcard_manager.get_revealed_positions()
 
-        # Pad the current answer to max_len with spaces to preserve positions
+        # Rellenar la respuesta actual hasta max_len con espacios para preservar posiciones
         ans = list(self.current_answer.ljust(max_len))
 
         if key == "⌫":
-            # Find the last non-revealed position with actual content and clear it
+            # Encontrar la última posición no revelada con contenido y limpiarla
             for i in range(max_len - 1, -1, -1):
                 if i in revealed:
                     continue
@@ -200,7 +188,7 @@ class GameScreenLogic(GameScreenBase):
                     ans[i] = " "
                     break
         else:
-            # Find the first non-revealed empty position and fill it
+            # Encontrar la primera posición vacía no revelada y llenarla
             for i in range(max_len):
                 if i in revealed:
                     continue
@@ -208,7 +196,7 @@ class GameScreenLogic(GameScreenBase):
                     ans[i] = key
                     break
 
-        # Trim trailing spaces, but never below the highest revealed position + 1
+        # Recortar espacios finales, pero nunca por debajo de la posición revelada más alta + 1
         min_len = (max(revealed) + 1) if revealed else 0
         while len(ans) > min_len and not ans[-1].strip():
             ans.pop()
@@ -300,7 +288,7 @@ class GameScreenLogic(GameScreenBase):
         else:
             self.questions_answered += 1
 
-        # Calculate charges for skip (for anti-frustration tracking)
+        # Calcular cargas por saltar (para seguimiento anti-frustración)
         charges_earned, charges_max_reached = (
             self.wildcard_manager.calculate_earned_charges(0, 1, 0, was_skipped=True)
         )
@@ -412,7 +400,7 @@ class GameScreenLogic(GameScreenBase):
                 self.score += pts
                 self.questions_answered += 1
 
-            # Calculate earned charges
+            # Calcular cargas ganadas
             charges_earned, charges_max_reached = (
                 self.wildcard_manager.calculate_earned_charges(
                     raw_pts, max_raw, self.question_mistakes, was_skipped=False
@@ -540,7 +528,7 @@ class GameScreenLogic(GameScreenBase):
         else:
             if self.stored_modal_data:
                 self.question_history.append(self.stored_modal_data)
-                # Limit history size to prevent unbounded memory growth
+                # Limitar tamaño del historial para evitar crecimiento ilimitado de memoria
                 if len(self.question_history) > self.MAX_QUESTION_HISTORY:
                     self.question_history = self.question_history[
                         -self.MAX_QUESTION_HISTORY :
@@ -709,7 +697,7 @@ class GameScreenLogic(GameScreenBase):
         self.question_timer += 1
         m, s = divmod(self.question_timer, 60)
         self.timer_label.configure(text=f"{m:02d}:{s:02d}")
-        if self.timer_running:  # Double-check before scheduling
+        if self.timer_running:  # Verificar antes de programar
             self.timer_job = self.parent.after(1000, self.update_timer)
         else:
             self.timer_job = None

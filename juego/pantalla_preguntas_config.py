@@ -4,7 +4,7 @@ from pathlib import Path
 
 import customtkinter as ctk
 
-# Screen base dimensions and scaling
+# Dimensiones base de pantalla y escalado
 SCREEN_BASE_DIMENSIONS = (1280, 720)
 SCREEN_SCALE_LIMITS = (0.18, 1.90)
 SCREEN_RESIZE_DELAY = 80
@@ -218,7 +218,6 @@ class QuestionFileStorage:
         return normalized
 
     def save_questions(self, questions):
-        """Save questions atomically using a temp file and backup."""
         payload = {"questions": questions}
         backup_path = self.json_path.with_suffix(".json.bak")
         tmp_path = None
@@ -226,7 +225,7 @@ class QuestionFileStorage:
         try:
             self.json_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Write to temp file first
+            # Escribir primero en archivo temporal
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 suffix=".json",
@@ -237,27 +236,27 @@ class QuestionFileStorage:
                 json.dump(payload, tmp, ensure_ascii=False, indent=2)
                 tmp_path = Path(tmp.name)
 
-            # Create backup of existing file (Windows requires removing target first)
+            # Crear respaldo del archivo existente (Windows requiere eliminar destino primero)
             if self.json_path.exists():
                 try:
                     if backup_path.exists():
                         backup_path.unlink()
                     self.json_path.rename(backup_path)
                 except OSError:
-                    # If backup fails, try direct overwrite
+                    # Si el respaldo falla, intentar sobreescribir directamente
                     pass
 
-            # Move temp to target (atomic on same filesystem)
+            # Mover temporal al destino (atómico en mismo sistema de archivos)
             try:
                 tmp_path.rename(self.json_path)
             except OSError:
-                # On Windows cross-drive, fall back to copy + delete
+                # En Windows entre unidades, usar copiar + eliminar
                 import shutil
 
                 shutil.copy2(str(tmp_path), str(self.json_path))
                 tmp_path.unlink()
 
-            # Remove backup on success
+            # Eliminar respaldo si todo salió bien
             try:
                 if backup_path.exists():
                     backup_path.unlink()
@@ -265,13 +264,13 @@ class QuestionFileStorage:
                 pass
 
         except OSError as error:
-            # Try to restore from backup if save failed
+            # Intentar restaurar desde respaldo si falló el guardado
             if backup_path.exists() and not self.json_path.exists():
                 try:
                     backup_path.rename(self.json_path)
                 except OSError:
                     pass
-            # Clean up temp file if it exists
+            # Limpiar archivo temporal si existe
             if tmp_path and tmp_path.exists():
                 try:
                     tmp_path.unlink()

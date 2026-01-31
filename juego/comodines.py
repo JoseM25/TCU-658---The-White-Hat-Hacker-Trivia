@@ -2,79 +2,72 @@ import random
 
 
 class WildcardManager:
-    # Charge constants
+    # Constantes de cargas
     MAX_CHARGES = 3
     STARTING_CHARGES = 1
 
-    # Costs (all wildcards cost 1 charge)
+    # Costos (todos los comodines cuestan 1 carga)
     COST_REVEAL_LETTER = 1
     COST_FREEZE_TIMER = 1
     COST_DOUBLE_POINTS = 1
 
-    # Rank thresholds (percentage of max_raw)
+    # Umbrales de rango (porcentaje de max_raw)
     A_RANK_THRESHOLD = 0.80
     S_RANK_THRESHOLD = 0.90
 
-    # Anti-frustration: questions without earning a charge
+    # Anti-frustración: preguntas sin ganar una carga
     ANTI_FRUSTRATION_THRESHOLD = 3
 
     def __init__(self):
-        # Shared charges across questions
+        # Cargas compartidas entre preguntas
         self._charges = self.STARTING_CHARGES
 
-        # Track active effects for current question
+        # Seguimiento de efectos activos para pregunta actual
         self._freeze_active = False
         self._double_points_stacks = 0
 
-        # Track revealed positions to avoid re-revealing
+        # Seguimiento de posiciones reveladas para evitar revelar de nuevo
         self._revealed_positions = set()
 
-        # Track if any wildcard was used this question (for S Rank)
+        # Seguimiento si se usó algún comodín esta pregunta (para Rango S)
         self._wildcard_used_this_question = False
 
-        # Track if double points was used (can't combine with others)
+        # Seguimiento si se usó puntos dobles (no se puede combinar con otros)
         self._double_points_used_this_question = False
 
-        # Anti-frustration counter
+        # Contador anti-frustración
         self._questions_without_charge = 0
 
-    # Charge Management
+    # Manejo de Cargas
 
     def get_charges(self):
         return self._charges
 
     def add_charge(self, amount=1):
-        """Add charges, capped at MAX_CHARGES."""
         self._charges = min(self.MAX_CHARGES, self._charges + amount)
         return self._charges
 
     def spend_charge(self, amount):
-        """Spend charges if available. Returns True if successful."""
         if self._charges >= amount:
             self._charges -= amount
             return True
         return False
 
     def can_afford(self, cost):
-        """Check if player can afford a wildcard."""
         return self._charges >= cost
 
     def was_wildcard_used_this_question(self):
-        """Check if any wildcard was used this question."""
         return self._wildcard_used_this_question
 
     def is_double_points_blocked(self):
-        """Check if double points is blocked. Always returns False (no blocking)."""
         return False
 
     def are_other_wildcards_blocked(self):
-        """Check if reveal/freeze are blocked. Always returns False (no blocking)."""
         return False
 
-    # Freeze Wildcard
+    # Comodín de Congelar
 
     def activate_freeze(self):
-        """Activate freeze timer. Returns True if successful."""
         if not self.can_afford(self.COST_FREEZE_TIMER):
             return False
         if self._freeze_active:
@@ -91,10 +84,9 @@ class WildcardManager:
     def is_timer_frozen(self):
         return self._freeze_active
 
-    # Double Points Wildcard (stackable: x2, x4, x8, x16, ...)
+    # Comodín de Puntos Dobles (acumulable: x2, x4, x8, x16, ...)
 
     def activate_double_points(self):
-        """Activate double points. Returns number of stacks if successful, 0 if failed."""
         if not self.can_afford(self.COST_DOUBLE_POINTS):
             return 0
 
@@ -111,13 +103,12 @@ class WildcardManager:
         return self._double_points_stacks > 0
 
     def get_points_multiplier(self):
-        # 2^n where n is the number of stacks (0 stacks = 1x, 1 stack = 2x, 2 stacks = 4x, etc.)
+        # 2^n donde n es el número de acumulaciones (0 = 1x, 1 = 2x, 2 = 4x, etc.)
         return 2**self._double_points_stacks
 
-    # Letter Reveal Wildcard
+    # Comodín de Revelar Letra
 
     def activate_reveal_letter(self, current_answer, correct_answer):
-        """Reveal a random letter. Returns (position, letter) if successful, None if failed."""
         if not self.can_afford(self.COST_REVEAL_LETTER):
             return None
 
@@ -130,44 +121,42 @@ class WildcardManager:
         return result
 
     def _get_random_unrevealed_position(self, current_answer, correct_answer):
-        """Internal: find a random unrevealed position."""
         if not correct_answer:
             return None
 
-        # Normalize inputs
+        # Normalizar entradas
         current_upper = current_answer.upper() if current_answer else ""
         correct_upper = correct_answer.upper()
 
-        # Find positions where the letter doesn't match or isn't filled
+        # Encontrar posiciones donde la letra no coincide o no está llena
         unrevealed_positions = []
 
         for i, correct_letter in enumerate(correct_upper):
-            # Skip if this position was already revealed by wildcard
+            # Saltar si esta posición ya fue revelada por comodín
             if i in self._revealed_positions:
                 continue
 
-            # Check if position is unfilled or has wrong letter
+            # Verificar si la posición está vacía o tiene letra incorrecta
             if i >= len(current_upper):
-                # Position not yet typed
+                # Posición aún no escrita
                 unrevealed_positions.append((i, correct_letter))
             elif current_upper[i] != correct_letter:
-                # Position has wrong letter
+                # Posición tiene letra incorrecta
                 unrevealed_positions.append((i, correct_letter))
-            # If correct letter is already there, skip it
+            # Si la letra correcta ya está, saltar
 
         if not unrevealed_positions:
             return None
 
-        # Select random position
+        # Seleccionar posición aleatoria
         position, letter = random.choice(unrevealed_positions)
 
-        # Mark this position as revealed
+        # Marcar esta posición como revelada
         self._revealed_positions.add(position)
 
         return (position, letter)
 
     def get_random_unrevealed_position(self, current_answer, correct_answer):
-        """Legacy method for compatibility. Use activate_reveal_letter instead."""
         return self._get_random_unrevealed_position(current_answer, correct_answer)
 
     def mark_position_revealed(self, position):
@@ -176,38 +165,32 @@ class WildcardManager:
     def get_revealed_positions(self):
         return self._revealed_positions.copy()
 
-    # Charge Earning Logic
+    # Lógica de Ganancia de Cargas
 
     def calculate_earned_charges(
         self, raw_points, max_raw, mistakes, was_skipped=False
     ):
-        """
-        Calculate charges earned after completing a question.
-        Returns tuple (actual_charges_added, max_reached) where:
-        - actual_charges_added: charges actually added to storage
-        - max_reached: True if player would have earned charges but was at max
-        """
         if was_skipped:
-            # No charges on skip, but increment anti-frustration counter
+            # Sin cargas al saltar, pero incrementar contador anti-frustración
             self._questions_without_charge += 1
             actual = self._check_anti_frustration()
             return (actual, False)
 
         if mistakes > 0:
-            # No rank bonus with mistakes
+            # Sin bonificación de rango con errores
             self._questions_without_charge += 1
             actual = self._check_anti_frustration()
             return (actual, False)
 
-        # Perfect answer (0 mistakes)
+        # Respuesta perfecta (0 errores)
         potential_charges = 0
         ratio = raw_points / max_raw if max_raw > 0 else 0
 
-        # A Rank: correct with 0 mistakes AND raw >= 0.80 * maxRaw
+        # Rango A: correcto con 0 errores Y raw >= 0.80 * maxRaw
         if ratio >= self.A_RANK_THRESHOLD:
             potential_charges += 1
 
-        # S Rank: A Rank conditions + no wildcards used AND raw >= 0.90 * maxRaw
+        # Rango S: condiciones de Rango A + sin comodines usados Y raw >= 0.90 * maxRaw
         if ratio >= self.S_RANK_THRESHOLD and not self._wildcard_used_this_question:
             potential_charges += 1
 
@@ -224,17 +207,15 @@ class WildcardManager:
             return (actual, False)
 
     def _check_anti_frustration(self):
-        """Check and apply anti-frustration bonus if needed."""
         if self._questions_without_charge >= self.ANTI_FRUSTRATION_THRESHOLD:
             self._questions_without_charge = 0
             self.add_charge(1)
             return 1
         return 0
 
-    # Reset / State Management
+    # Reinicio / Manejo de Estado
 
     def reset_for_new_question(self):
-        """Reset per-question state, keep charges."""
         self._freeze_active = False
         self._double_points_stacks = 0
         self._revealed_positions.clear()
@@ -242,7 +223,6 @@ class WildcardManager:
         self._double_points_used_this_question = False
 
     def reset_game(self):
-        """Full reset for new game."""
         self._charges = self.STARTING_CHARGES
         self._questions_without_charge = 0
         self.reset_for_new_question()

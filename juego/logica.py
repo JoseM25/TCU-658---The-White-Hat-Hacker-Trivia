@@ -39,9 +39,9 @@ class ScoringSystem:
     # Penalización
     MISTAKE_PENALTY_FACTOR = 0.10  # 10% de BASE por error
 
-    # Streak constants
-    STREAK_BONUS_PER_LEVEL = 0.05  # 5% bonus per streak level
-    STREAK_MAX_LEVEL = 10  # Cap at 10 (1.50x max)
+    # Constantes de racha
+    STREAK_BONUS_PER_LEVEL = 0.05  # 5% de bonificación por nivel de racha
+    STREAK_MAX_LEVEL = 10  # Tope en 10 (1.50x máximo)
 
     def __init__(self, total_questions):
         self.total_questions = max(1, total_questions)
@@ -57,7 +57,7 @@ class ScoringSystem:
         self.questions_skipped = 0
         self.total_errors = 0
 
-        # Streak tracking
+        # Seguimiento de racha
         self.clean_streak = 0
         self.highest_streak = 0
 
@@ -140,14 +140,14 @@ class ScoringSystem:
         raw_points = self.calculate_raw_points(effective_time)
         score_before_streak = self.calculate_score(time_seconds, mistakes)
 
-        # Streak logic: increase only if correct with 0 mistakes
+        # Lógica de racha: incrementar solo si es correcto con 0 errores
         if mistakes == 0:
             self.clean_streak += 1
         else:
             self.clean_streak = 0
         self.highest_streak = max(self.highest_streak, self.clean_streak)
 
-        # Apply streak multiplier
+        # Aplicar multiplicador de racha
         streak_mult = self.calculate_streak_multiplier()
         final_points = round(score_before_streak * streak_mult)
 
@@ -167,7 +167,7 @@ class ScoringSystem:
 
     def process_skip(self, mistakes=0):
         mistakes = max(0, int(mistakes or 0))
-        # Streak resets on skip
+        # La racha se reinicia al saltar
         self.clean_streak = 0
 
         self.questions_answered += 1

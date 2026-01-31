@@ -71,7 +71,7 @@ class BaseModal:
             pass
 
     def calculate_position(self, modal, root, width, height):
-        # Get scaling factor - geometry() applies this internally, so we divide
+        # Obtener factor de escala - geometry() lo aplica internamente, así que dividimos
         try:
             scaling = ScalingTracker.get_window_scaling(root) if root else 1.0
         except (ValueError, KeyError, AttributeError, tk.TclError):
@@ -89,7 +89,7 @@ class BaseModal:
             pos_x = max((screen_width - width) // 2, 0)
             pos_y = max((screen_height - height) // 2, 0)
 
-        # Divide by scaling since CTk's geometry() multiplies internally
+        # Dividir por escala ya que geometry() de CTk multiplica internamente
         pos_x = int(pos_x / scaling)
         pos_y = int(pos_y / scaling)
 

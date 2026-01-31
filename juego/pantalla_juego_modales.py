@@ -43,8 +43,8 @@ class ModalBase:
             return 1.0
         base_scale = min(width / 1280, height / 720)
         min_dim = min(width, height)
-        # More gradual scaling penalties for smaller screens
-        # Ensures modals fit properly on 1080p (height=1080) and below
+        # Penalizaciones de escalado más graduales para pantallas pequeñas
+        # Asegura que los modales ajusten bien en 1080p (altura=1080) y menor
         if min_dim <= 720:
             base_scale *= 0.55
         elif min_dim <= 800:
@@ -52,7 +52,7 @@ class ModalBase:
         elif min_dim <= 900:
             base_scale *= 0.82
         elif min_dim <= 1080:
-            # Gentle penalty for 1080p screens to ensure content fits
+            # Penalización suave para pantallas 1080p para asegurar que el contenido ajuste
             base_scale *= 0.92
         return max(0.4, min(1.4, base_scale))
 
@@ -297,22 +297,22 @@ class GameCompletionModal(ModalBase):
         content.grid_columnconfigure(0, weight=1)
         self._build_content(content, width, sizes)
         self.modal.update_idletasks()
-        # Force geometry update to get accurate measurements
+        # Forzar actualización de geometría para obtener medidas precisas
         content_wrapper.update_idletasks()
         content.update_idletasks()
         available_h = height - sizes["header_h"] - (sizes["border_w"] * 2)
-        # Account for wrapper padding and extra margins
+        # Considerar relleno del contenedor y márgenes extra
         required_h = (
             content.winfo_reqheight()
             + (sizes["pad"] * 2)
             + (sizes["border_w"] * 2)
             + 16
         )
-        # Retry with smaller scale if content doesn't fit
+        # Reintentar con escala menor si el contenido no ajusta
         if attempt == 0 and available_h > 0 and required_h > available_h:
-            shrink = (available_h - 10) / required_h  # Extra margin for safety
+            shrink = (available_h - 10) / required_h  # Margen extra de seguridad
             if shrink < 0.96:
-                target_scale = max(0.3, scale * shrink * 0.95)  # More aggressive shrink
+                target_scale = max(0.3, scale * shrink * 0.95)  # Reducción más agresiva
                 self.close()
                 self._show_with_scale(scale_override=target_scale, attempt=1)
                 return
@@ -397,7 +397,7 @@ class GameCompletionModal(ModalBase):
             "knowledge_level", self._knowledge_level_from_pct(mastery_pct)
         )
         level_color = LEVEL_BADGE_COLORS.get(knowledge_level, self.COLORS["text_light"])
-        # Completion message
+        # Mensaje de completado
         ctk.CTkLabel(
             content,
             text="You've completed all questions!",
@@ -405,7 +405,7 @@ class GameCompletionModal(ModalBase):
             text_color=self.COLORS["text_light"],
             anchor="center",
         ).grid(row=0, column=0, pady=(0, s["row_pad"]))
-        # Score display
+        # Mostrar puntaje
         score_frame = ctk.CTkFrame(content, fg_color="transparent")
         score_frame.grid(row=1, column=0, pady=(0, s["row_pad"]))
         self._load_star_icon(s["star_size"])
@@ -428,7 +428,7 @@ class GameCompletionModal(ModalBase):
             font=s["message_font"],
             text_color=self.COLORS["text_light"],
         ).grid(row=0, column=2, padx=(8, 0), sticky="s", pady=(0, 6))
-        # Knowledge level badge
+        # Insignia de nivel de conocimiento
         badge_frame = ctk.CTkFrame(content, fg_color="transparent")
         badge_frame.grid(row=2, column=0, pady=(0, s["row_pad"]))
         ctk.CTkLabel(
@@ -451,7 +451,7 @@ class GameCompletionModal(ModalBase):
             font=s["badge_font"],
             text_color=self.COLORS["text_light"],
         ).grid(row=0, column=2)
-        # Stats card
+        # Tarjeta de estadísticas
         stats_card = ctk.CTkFrame(
             content,
             fg_color=self.COLORS["bg_card"],
@@ -492,7 +492,7 @@ class GameCompletionModal(ModalBase):
             vw.grid(row=0, column=1, sticky="e", padx=(s["pad"] // 2, 0))
             self.widget_target_colors[id(vw)] = clr
             self.animated_widgets.append((lw, vw))
-        # Grace period note
+        # Nota del período de gracia
         grace_text = (
             f"You get the first {grace} seconds free to read the clue. "
             "Time-based scoring starts after that."
@@ -506,7 +506,7 @@ class GameCompletionModal(ModalBase):
             anchor="center",
             wraplength=int(width * (0.9 if s.get("compact") else 0.82)),
         ).grid(row=4, column=0, pady=(0, s["pad"] // 2))
-        # Buttons
+        # Botones
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
         btn_container.grid(row=5, column=0, pady=(s["pad"] // 2, 0))
         ctk.CTkButton(
@@ -662,7 +662,7 @@ class QuestionSummaryModal(ModalBase):
         )
         content.grid_columnconfigure(0, weight=1)
         content.grid_columnconfigure(1, weight=1)
-        # Build data rows
+        # Construir filas de datos
         points_display = str(self.points_awarded)
         streak_display = f"{self.streak} ({self.streak_multiplier:.2f}x)"
         if self.charges_earned > 0:
@@ -738,7 +738,7 @@ class QuestionSummaryModal(ModalBase):
                 vw.grid(row=0, column=1, sticky="w")
                 self.widget_target_colors[id(vw)] = clr
                 self.animated_widgets.append((lw, vw))
-        # Buttons
+        # Botones
         btn_container = ctk.CTkFrame(content, fg_color="transparent")
         btn_container.grid(row=6, column=0, columnspan=2, pady=(sizes["pad"], 0))
         btn_container.grid_columnconfigure((0, 1, 2), weight=1)

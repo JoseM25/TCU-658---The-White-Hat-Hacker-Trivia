@@ -7,18 +7,8 @@ from juego.pantalla_juego_logica import GameScreenLogic
 
 
 class GameScreen(GameScreenLogic):
-    """Main game screen combining logic with responsive UI and keyboard handling.
 
-    This class inherits from GameScreenLogic and adds:
-    - Responsive layout handling
-    - Physical keyboard binding
-    - Modal management
-
-    All instance attributes are initialized in parent classes.
-    The declarations below are type hints to satisfy static analysis tools.
-    """
-
-    # Type declarations for attributes inherited from parent classes
+    # Declaraciones de tipo para atributos heredados de clases padre
     resize_job: str | None
     key_feedback_job: str | None
 
@@ -27,16 +17,16 @@ class GameScreen(GameScreenLogic):
     ):
         super().__init__(parent, on_return_callback, tts_service, sfx_service)
 
-        # Bind resize event
+        # Vincular evento de redimensionamiento
         self.parent.bind("<Configure>", self.on_resize)
 
-        # Bind physical keyboard
+        # Vincular teclado físico
         self.bind_physical_keyboard()
 
-        # Initial responsive layout
+        # Layout responsivo inicial
         self.apply_responsive()
 
-        # Start the game
+        # Iniciar el juego
         self.load_random_question()
         self.start_timer()
 
@@ -52,14 +42,14 @@ class GameScreen(GameScreenLogic):
         if not self.parent or not self.parent.winfo_exists():
             return
 
-        # Get current dimensions
+        # Obtener dimensiones actuales
         width, height = self._get_logical_dimensions()
 
-        # Calculate scale using profile
+        # Calcular escala usando perfil
         low_res_profile = GAME_PROFILES.get("low_res")
         scale = self.scaler.calculate_scale(width, height, low_res_profile)
 
-        # Update size state
+        # Actualizar estado de tamaños
         self.size_state = self.size_calc.calculate_sizes(scale, width, height)
         self._apply_keyboard_scale_profile(height)
         needed_height = self._estimate_layout_height(self.size_state)
@@ -77,7 +67,7 @@ class GameScreen(GameScreenLogic):
         self.current_window_width = width
         self.current_window_height = height
 
-        # Update all components
+        # Actualizar todos los componentes
         self._update_fonts(scale)
         self._update_header(scale)
         self._update_question_container()
@@ -85,10 +75,10 @@ class GameScreen(GameScreenLogic):
         self._update_action_buttons(scale)
         self._update_wildcards(scale)
 
-        # Resize any open modals
+        # Redimensionar modales abiertos
         self._resize_modals(scale)
 
-        # Clear resize job
+        # Limpiar trabajo de redimensionamiento
         self.resize_job = None
 
     def _estimate_layout_height(self, sizes):
@@ -184,9 +174,9 @@ class GameScreen(GameScreenLogic):
         return 3 * (key_size + key_row_gap * 2) + keyboard_pad_y
 
     def _apply_keyboard_scale_profile(self, height):
-        # Use the actual window height directly for profile lookup
-        # The height parameter is already in logical pixels from winfo_height()
-        # No DPI adjustment needed - the profile thresholds are in logical pixels
+        # Usar la altura real de ventana directamente para búsqueda de perfil
+        # El parámetro height ya está en píxeles lógicos de winfo_height()
+        # No se necesita ajuste de DPI - los umbrales del perfil están en píxeles lógicos
         profile = GAME_PROFILES.get("keyboard_scale", [])
         keyboard_scale = self.scaler.interpolate_profile(height, profile)
         keyboard_scale = self.scaler.clamp_value(keyboard_scale, 0.5, 1.0)
@@ -225,11 +215,11 @@ class GameScreen(GameScreenLogic):
     def _update_header(self, scale):
         sizes = self.size_state
 
-        # Header frame height
+        # Altura del frame de encabezado
         if self.header_frame and self.header_frame.winfo_exists():
             self.header_frame.configure(height=sizes["header_height"])
 
-        # Header container padding
+        # Relleno del contenedor de encabezado
         pad_x = sizes["header_pad_x"]
         pad_y = sizes["header_pad_y"]
 
@@ -242,26 +232,26 @@ class GameScreen(GameScreenLogic):
         if self.header_center_container and self.header_center_container.winfo_exists():
             self.header_center_container.grid_configure(pady=pad_y)
 
-        # Update header icons
+        # Actualizar iconos del encabezado
         self._update_header_icons()
 
-        # Update audio button
+        # Actualizar botón de audio
         self._update_audio_button(scale)
 
     def _update_header_icons(self):
         sizes = self.size_state
 
-        # Clock icon
+        # Icono de reloj
         if self.clock_icon:
             sz = sizes["timer_icon"]
             self.clock_icon.configure(size=(sz, sz))
 
-        # Star icon
+        # Icono de estrella
         if self.star_icon:
             sz = sizes["star_icon"]
             self.star_icon.configure(size=(sz, sz))
 
-        # Freeze icon (for timer)
+        # Icono de congelar (para temporizador)
         if self.freeze_icon:
             sz = sizes["timer_icon"]
             self.freeze_icon.configure(size=(sz, sz))
@@ -273,12 +263,12 @@ class GameScreen(GameScreenLogic):
         btn_height = sizes["audio_button_height"]
         corner_r = self.scale_value(8, scale, 6, 16)
 
-        # Update icon sizes
+        # Actualizar tamaños de iconos
         for icon in (self.audio_icon_on, self.audio_icon_off):
             if icon:
                 icon.configure(size=(icon_sz, icon_sz))
 
-        # Update button size
+        # Actualizar tamaño del botón
         if self.audio_toggle_btn and self.audio_toggle_btn.winfo_exists():
             self.audio_toggle_btn.configure(
                 width=btn_width,
@@ -292,7 +282,7 @@ class GameScreen(GameScreenLogic):
         if not self.question_container or not self.question_container.winfo_exists():
             return
 
-        # Container padding and corner radius
+        # Relleno y radio de esquina del contenedor
         pad_x = sizes["container_pad_x"]
         pad_y = sizes["container_pad_y"]
         corner_r = sizes["container_corner_radius"]
@@ -300,7 +290,7 @@ class GameScreen(GameScreenLogic):
         self.question_container.grid_configure(padx=pad_x, pady=pad_y)
         self.question_container.configure(corner_radius=corner_r)
 
-        # Update sub-components
+        # Actualizar subcomponentes
         self._update_image()
         self._update_definition()
         self._update_answer_boxes()
@@ -314,7 +304,7 @@ class GameScreen(GameScreenLogic):
 
         if self.image_frame and self.image_frame.winfo_exists():
             self.image_frame.configure(height=img_sz)
-            # Scale image padding - reduce at low res, expand at high res
+            # Escalar relleno de imagen - reducir en baja res, expandir en alta res
             if is_compact:
                 pad_top = self.scale_value(12, scale, 6, 20)
                 pad_bottom = self.scale_value(6, scale, 3, 10)
@@ -326,7 +316,7 @@ class GameScreen(GameScreenLogic):
         if self.image_label and self.image_label.winfo_exists():
             self.image_label.configure(width=img_sz, height=img_sz)
 
-        # Reload image at new size
+        # Recargar imagen al nuevo tamaño
         if self.current_image and self.current_question:
             self.load_question_image()
 
@@ -334,7 +324,7 @@ class GameScreen(GameScreenLogic):
         sizes = self.size_state
         scale = sizes.get("scale", 1.0)
 
-        # Update definition frame padding responsively
+        # Actualizar relleno del frame de definición responsivamente
         if self.definition_frame and self.definition_frame.winfo_exists():
             pad_x = sizes.get("definition_pad_x")
             pad_y = sizes.get("definition_pad_y")
@@ -344,7 +334,7 @@ class GameScreen(GameScreenLogic):
                 pad_y = self.scale_value(14, scale, 8, 36)
             self.definition_frame.grid_configure(padx=pad_x, pady=pad_y)
 
-        # Update scrollable frame wrapper height for long definitions
+        # Actualizar altura del contenedor de scroll para definiciones largas
         if (
             self.definition_scroll_wrapper
             and self.definition_scroll_wrapper.winfo_exists()
@@ -364,7 +354,7 @@ class GameScreen(GameScreenLogic):
             wrap = sizes["definition_wrap"]
             self.definition_label.configure(wraplength=wrap)
 
-        # Update info icon
+        # Actualizar icono de información
         if self.info_icon:
             sz = sizes["info_icon"]
             self.info_icon.configure(size=(sz, sz))
@@ -379,15 +369,15 @@ class GameScreen(GameScreenLogic):
         gap = sizes["answer_box_gap"]
         extra_pad = self.scale_value(16, scale, 8, 20)
 
-        # Update answer box labels - only update boxes that are currently visible (managed)
-        # Using grid_configure on a grid_remove()'d widget would re-show it!
+        # Actualizar etiquetas de casillas de respuesta - solo actualizar casillas visibles (administradas)
+        # Usar grid_configure en un widget con grid_remove() lo volvería a mostrar!
         visible_boxes = [b for b in self.answer_box_labels if b.winfo_manager()]
         for box in visible_boxes:
             if box and box.winfo_exists():
                 box.configure(width=box_sz, height=box_sz)
                 box.grid_configure(padx=gap, pady=4)
 
-        # Update frame size if we have visible boxes (extra height padding to prevent clipping)
+        # Actualizar tamaño del frame si hay casillas visibles (altura extra para evitar recorte)
         if (
             visible_boxes
             and self.answer_boxes_frame
@@ -396,7 +386,7 @@ class GameScreen(GameScreenLogic):
             frame_width = len(visible_boxes) * (box_sz + gap * 2)
             frame_height = box_sz + extra_pad
             self.answer_boxes_frame.configure(width=frame_width, height=frame_height)
-            # Update answer boxes frame padding - reduce at low res, expand at high res
+            # Actualizar relleno del frame de casillas - reducir en baja res, expandir en alta res
             if is_compact:
                 pad_y = self.scale_value(8, scale, 6, 12)
             else:
@@ -409,7 +399,7 @@ class GameScreen(GameScreenLogic):
 
         if self.feedback_label and self.feedback_label.winfo_exists():
             pad_bottom = sizes["feedback_pad_bottom"]
-            # Reduce feedback padding at low res
+            # Reducir relleno de retroalimentación en baja res
             if is_compact:
                 pad_bottom = max(6, pad_bottom // 2)
             self.feedback_label.grid_configure(pady=(0, pad_bottom))
@@ -445,12 +435,12 @@ class GameScreen(GameScreenLogic):
                 padx=keyboard_pad, pady=(0, keyboard_pad_y)
             )
 
-        # Update keyboard row gaps
+        # Actualizar espaciado de filas del teclado
         for row_frame in self.keyboard_frame.winfo_children():
             if row_frame and row_frame.winfo_exists():
                 row_frame.grid_configure(pady=key_row_gap)
 
-        # Update all keyboard buttons
+        # Actualizar todos los botones del teclado
         for btn in self.keyboard_buttons:
             if btn and btn.winfo_exists():
                 is_delete = btn is self.delete_button
@@ -458,7 +448,7 @@ class GameScreen(GameScreenLogic):
                 btn.configure(width=width, height=key_sz)
                 btn.grid_configure(padx=key_gap // 2)
 
-        # Update delete icon size
+        # Actualizar tamaño del icono de borrar
         if self.delete_icon:
             self.delete_icon.configure(size=(delete_icon_sz, delete_icon_sz))
 
@@ -478,7 +468,7 @@ class GameScreen(GameScreenLogic):
                 )
                 btn.grid_configure(padx=btn_gap // 2)
 
-        # Update padding for action buttons frame
+        # Actualizar relleno del frame de botones de acción
         if self.action_buttons_frame and self.action_buttons_frame.winfo_exists():
             pad_bottom = self.scale_value(24, scale, 12, 48)
             self.action_buttons_frame.grid_configure(pady=(0, pad_bottom))
@@ -493,16 +483,16 @@ class GameScreen(GameScreenLogic):
         wc_font_size = sizes["wildcard_font"]
         charges_font_size = sizes["charges_font"]
 
-        # Calculate button width to match build_wildcards_panel (1.5x height for pill shape)
+        # Calcular ancho del botón igual que build_wildcards_panel (1.5x altura para forma de píldora)
         wc_btn_width = int(wc_sz * 1.5)
 
-        # Scale button gap - reduce at low res, expand at high res
+        # Escalar espaciado de botones - reducir en baja res, expandir en alta res
         if is_compact:
             btn_gap = self.scale_value(6, scale, 3, 10)
         else:
             btn_gap = self.scale_value(10, scale, 6, 20)
 
-        # Update wildcard buttons with consistent pill shape
+        # Actualizar botones de comodines con forma de píldora consistente
         for btn in [
             self.wildcard_x2_btn,
             self.wildcard_hint_btn,
@@ -516,15 +506,15 @@ class GameScreen(GameScreenLogic):
                 )
                 btn.grid_configure(pady=btn_gap)
 
-        # Update lightning icon
+        # Actualizar icono de rayo
         if self.lightning_icon:
             self.lightning_icon.configure(size=(lightning_sz, lightning_sz))
 
-        # Update freeze wildcard icon
+        # Actualizar icono de congelar de comodín
         if self.freeze_wildcard_icon:
             self.freeze_wildcard_icon.configure(size=(freeze_sz, freeze_sz))
 
-        # Update wildcards frame padding - tighter at low res, expand at high res
+        # Actualizar relleno del frame de comodines - más ajustado en baja res, expandir en alta res
         if self.wildcards_frame and self.wildcards_frame.winfo_exists():
             if is_compact:
                 pad_x = self.scale_value(14, scale, 8, 20)
@@ -534,7 +524,7 @@ class GameScreen(GameScreenLogic):
                 pad_y = self.scale_value(28, scale, 16, 56)
             self.wildcards_frame.grid_configure(padx=(0, pad_x), pady=pad_y)
 
-        # Update charges frame padding
+        # Actualizar relleno del frame de cargas
         if self.charges_frame and self.charges_frame.winfo_exists():
             charges_pad = (
                 self.scale_value(10, scale, 4, 14)
@@ -543,7 +533,7 @@ class GameScreen(GameScreenLogic):
             )
             self.charges_frame.grid_configure(pady=(0, charges_pad))
 
-        # Update wildcard button fonts
+        # Actualizar fuentes de botones de comodines
         try:
             wc_font = ctk.CTkFont(
                 family="Poppins ExtraBold", size=wc_font_size, weight="bold"
@@ -554,7 +544,7 @@ class GameScreen(GameScreenLogic):
         except tk.TclError:
             pass
 
-        # Update charges label font
+        # Actualizar fuente de etiqueta de cargas
         if self.charges_label and self.charges_label.winfo_exists():
             try:
                 charges_font = ctk.CTkFont(
@@ -564,7 +554,7 @@ class GameScreen(GameScreenLogic):
             except tk.TclError:
                 pass
 
-        # Update multiplier label font
+        # Actualizar fuente de etiqueta de multiplicador
         if self.multiplier_label and self.multiplier_label.winfo_exists():
             mul_font_size = self.scale_value(20, scale, 12, 36)
             try:
@@ -720,12 +710,11 @@ class GameScreen(GameScreenLogic):
                         return True
                 except tk.TclError:
                     pass
-                # Clear stale reference if modal no longer exists
+                # Limpiar referencia obsoleta si el modal ya no existe
                 setattr(self, modal_attr, None)
         return False
 
     def close_all_modals(self):
-        """Safely close all modals and clear references."""
         for modal_attr in ["completion_modal", "summary_modal", "skip_modal"]:
             modal = getattr(self, modal_attr, None)
             if modal:
