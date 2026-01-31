@@ -13,25 +13,38 @@ class AppController:
         self.current_screen = None
         self.show_menu()
 
+    def _cleanup_current_screen(self):
+        """Clean up the current screen before switching to a new one."""
+        if self.current_screen and hasattr(self.current_screen, "cleanup"):
+            try:
+                self.current_screen.cleanup()
+            except (AttributeError, RuntimeError, TypeError):
+                pass
+
     def show_menu(self):
+        self._cleanup_current_screen()
         self.current_screen = MenuScreen(self.root, app_controller=self)
 
     def show_instructions(self):
+        self._cleanup_current_screen()
         self.current_screen = InstructionsScreen(
             self.root, on_return_callback=self.show_menu
         )
 
     def show_credits(self):
+        self._cleanup_current_screen()
         self.current_screen = CreditsScreen(
             self.root, on_return_callback=self.show_menu
         )
 
     def show_manage_questions(self):
+        self._cleanup_current_screen()
         self.current_screen = ManageQuestionsScreen(
             self.root, on_return_callback=self.show_menu, tts_service=self.tts
         )
 
     def start_game(self):
+        self._cleanup_current_screen()
         self.current_screen = GameScreen(
             self.root,
             on_return_callback=self.show_menu,

@@ -1,3 +1,4 @@
+import tkinter as tk
 from tkinter import messagebox
 
 import customtkinter as ctk
@@ -229,6 +230,8 @@ class MenuScreen:
 
         for item in self.footer_items:
             img = item["image"]
+            if img is None:
+                continue
             w, h = item["base_size"]
 
             new_width = int(
@@ -294,6 +297,19 @@ class MenuScreen:
             self.app_controller.show_credits()
         else:
             messagebox.showinfo("Créditos", "Aquí van los créditos del juego.")
+
+    def cleanup(self):
+        """Clean up resources before switching screens."""
+        try:
+            self.parent.unbind("<Configure>")
+        except tk.TclError:
+            pass
+        if self.resize_job:
+            try:
+                self.parent.after_cancel(self.resize_job)
+            except tk.TclError:
+                pass
+            self.resize_job = None
 
     def exit_game(self):
         result = messagebox.askyesno("Salir", "¿Estás seguro que quieres salir?")

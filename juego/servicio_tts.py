@@ -103,6 +103,11 @@ class TTSService:
                     pass
             self.temp_files.clear()
 
+    def shutdown(self):
+        """Clean up all resources. Call on application exit."""
+        self.stop()
+        self.voice = None
+
     def ensure_voice_loaded(self):
         if self.voice or self.load_error:
             return self.voice

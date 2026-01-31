@@ -1,4 +1,6 @@
-﻿import customtkinter as ctk
+﻿from tkinter import TclError
+
+import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
@@ -588,7 +590,21 @@ class InstructionsScreen:
 
         self.resize_job = None
 
+    def cleanup(self):
+        """Clean up resources before switching screens."""
+        try:
+            self.parent.unbind("<Configure>")
+        except TclError:
+            pass
+        if self.resize_job:
+            try:
+                self.parent.after_cancel(self.resize_job)
+            except TclError:
+                pass
+            self.resize_job = None
+
     def return_to_menu(self):
+        self.cleanup()
         if self.on_return_callback:
             self.on_return_callback()
 

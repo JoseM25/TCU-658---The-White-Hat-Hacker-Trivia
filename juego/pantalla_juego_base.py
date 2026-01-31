@@ -474,7 +474,18 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
                 )
             box.grid(row=0, column=i, padx=gap, pady=4)
 
-        # Ocultar cajas extras
+        # Ocultar y destruir cajas extras (prevenir crecimiento infinito de memoria)
+        excess_count = len(self.answer_box_labels) - word_length
+        if excess_count > 10:  # Threshold: keep up to 10 extras for reuse
+            # Destroy the truly excess boxes beyond the threshold
+            for i in range(word_length + 10, len(self.answer_box_labels)):
+                try:
+                    self.answer_box_labels[i].destroy()
+                except tk.TclError:
+                    pass
+            del self.answer_box_labels[word_length + 10 :]
+
+        # Hide remaining extra boxes
         for i in range(word_length, len(self.answer_box_labels)):
             self.answer_box_labels[i].grid_remove()
 

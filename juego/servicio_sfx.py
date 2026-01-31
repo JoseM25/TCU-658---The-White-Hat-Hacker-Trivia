@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 import tkinter as tk
+import weakref
 from pathlib import Path
 
 import customtkinter as ctk
@@ -64,6 +65,19 @@ class SFXService:
         self.load_sound("points")
         self.load_sound("reveal")
         self.load_sound("win")
+
+    def shutdown(self):
+        """Properly shut down the pygame mixer. Call on application exit."""
+        if not self.enabled or pygame is None:
+            return
+        try:
+            pygame.mixer.stop()
+            pygame.mixer.quit()
+        except PYGAME_EXCEPTIONS as exc:
+            LOGGER.debug("Failed to shutdown mixer: %s", exc)
+        self.enabled = False
+        self.sounds.clear()
+        self.channels.clear()
 
     def set_muted(self, muted):
         self.muted = bool(muted)
@@ -143,18 +157,33 @@ class SFXService:
 class HoverSoundBinder:
     CLICK_HOOK_INSTALLED = False
     ORIGINAL_CTKBUTTON_CLICKED = None
+    # Class-level weak reference to the active SFX service for click sounds
+    _active_sfx_ref = None
 
     def __init__(self, root, sfx_service):
         self.root = root
         self.sfx = sfx_service
         self.hovered_button = None
         self.hover_cooldown_ms = 80
+        # Store weak reference at class level so the closure doesn't hold strong ref
+        HoverSoundBinder._active_sfx_ref = weakref.ref(sfx_service)
         self.bind_events()
         self.install_click_hook()
 
     def bind_events(self):
         self.root.bind_all("<Enter>", self.on_enter, add="+")
         self.root.bind_all("<Leave>", self.on_leave, add="+")
+
+    def unbind_events(self):
+        """Unbind hover events. Call this on cleanup."""
+        try:
+            self.root.unbind_all("<Enter>")
+        except tk.TclError:
+            pass
+        try:
+            self.root.unbind_all("<Leave>")
+        except tk.TclError:
+            pass
 
     def install_click_hook(self):
         if type(self).CLICK_HOOK_INSTALLED:
@@ -163,11 +192,16 @@ class HoverSoundBinder:
         original_clicked = getattr(ctk.CTkButton, "_clicked")
 
         def clicked_with_sfx(button_self, event=None):
-            try:
-                if button_self.cget("state") == "normal":
-                    self.on_button_click(button_self, force=True)
-            except tk.TclError:
-                pass
+            # Use class-level weak reference instead of capturing self
+            sfx_ref = HoverSoundBinder._active_sfx_ref
+            if sfx_ref is not None:
+                sfx = sfx_ref()
+                if sfx is not None:
+                    try:
+                        if button_self.cget("state") == "normal":
+                            sfx.play("click", stop_previous=True, volume=0.8)
+                    except tk.TclError:
+                        pass
             return original_clicked(button_self, event)
 
         setattr(ctk.CTkButton, "_clicked", clicked_with_sfx)

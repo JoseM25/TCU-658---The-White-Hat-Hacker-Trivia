@@ -1,3 +1,5 @@
+import atexit
+
 import customtkinter as ctk
 
 from juego.interfaz import AppController
@@ -35,6 +37,10 @@ tts_service.preload()
 sfx_service = SFXService(AUDIO_DIR)
 sfx_service.preload()
 hover_binder = HoverSoundBinder(root, sfx_service)
+
+# Register cleanup on application exit
+atexit.register(sfx_service.shutdown)
+atexit.register(tts_service.shutdown)
 
 app = AppController(root, tts_service=tts_service, sfx_service=sfx_service)
 

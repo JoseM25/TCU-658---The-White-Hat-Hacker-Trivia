@@ -589,16 +589,41 @@ class GameScreen(GameScreenLogic):
         self.tts.stop()
 
         if self.feedback_animation_job:
-            self.parent.after_cancel(self.feedback_animation_job)
+            try:
+                self.parent.after_cancel(self.feedback_animation_job)
+            except (tk.TclError, ValueError):
+                pass
             self.feedback_animation_job = None
 
         if self.key_feedback_job:
-            self.parent.after_cancel(self.key_feedback_job)
+            try:
+                self.parent.after_cancel(self.key_feedback_job)
+            except (tk.TclError, ValueError):
+                pass
             self.key_feedback_job = None
+
+        # Cancel resize job
+        if self.resize_job:
+            try:
+                self.parent.after_cancel(self.resize_job)
+            except (tk.TclError, ValueError):
+                pass
+            self.resize_job = None
+
+        # Cancel definition scroll update job
+        if self.definition_scroll_update_job:
+            try:
+                self.parent.after_cancel(self.definition_scroll_update_job)
+            except (tk.TclError, ValueError):
+                pass
+            self.definition_scroll_update_job = None
 
         self.close_all_modals()
 
-        self.parent.unbind("<Configure>")
+        try:
+            self.parent.unbind("<Configure>")
+        except tk.TclError:
+            pass
         self.unbind_physical_keyboard()
 
     def bind_physical_keyboard(self):

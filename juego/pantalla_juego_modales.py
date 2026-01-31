@@ -195,10 +195,12 @@ class ModalBase:
 
     def close(self):
         modal = self.modal
-        for job in self.animation_jobs:
+        # Copy the list to avoid modification during iteration
+        jobs_to_cancel = list(self.animation_jobs)
+        self.animation_jobs.clear()
+        for job in jobs_to_cancel:
             if modal:
                 self.safe_try(lambda j=job, m=modal: m.after_cancel(j))
-        self.animation_jobs.clear()
         self.animated_widgets.clear()
         self.widget_target_colors.clear()
         if modal:

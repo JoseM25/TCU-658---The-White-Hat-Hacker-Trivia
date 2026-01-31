@@ -549,7 +549,32 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
             if definition:
                 self.tts.speak(definition)
 
-    def return_to_menu(self):
+    def cleanup(self):
+        """Clean up resources before switching screens."""
         self.tts.stop()
+        try:
+            self.parent.unbind("<Configure>")
+        except tk.TclError:
+            pass
+        try:
+            self.parent.unbind("<Button-1>")
+        except tk.TclError:
+            pass
+        if self.resize_job:
+            try:
+                self.parent.after_cancel(self.resize_job)
+            except tk.TclError:
+                pass
+            self.resize_job = None
+        # Close any open modal
+        if self.current_modal and hasattr(self.current_modal, "close"):
+            try:
+                self.current_modal.close()
+            except tk.TclError:
+                pass
+            self.current_modal = None
+
+    def return_to_menu(self):
+        self.cleanup()
         if self.on_return_callback:
             self.on_return_callback()
