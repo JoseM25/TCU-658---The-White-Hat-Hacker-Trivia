@@ -17,11 +17,11 @@ class GameScreen(GameScreenLogic):
     ):
         super().__init__(parent, on_return_callback, tts_service, sfx_service)
 
-        # Initialize keyboard binding IDs
-        self._keypress_bind_id: str | None = None
-        self._keyrelease_bind_id: str | None = None
+        # Inicializar IDs de vinculación de teclado
+        self.keypress_bind_id: str | None = None
+        self.keyrelease_bind_id: str | None = None
 
-        # Initialize image size tracking
+        # Inicializar seguimiento de tamaño de imagen
         self.ultimo_tam_imagen: int = 0
 
         # Vincular evento de redimensionamiento
@@ -613,7 +613,7 @@ class GameScreen(GameScreenLogic):
                 pass
             self.key_feedback_job = None
 
-        # Cancel resize job
+        # Cancelar trabajo de redimensionamiento
         if self.resize_job:
             try:
                 self.parent.after_cancel(self.resize_job)
@@ -621,7 +621,7 @@ class GameScreen(GameScreenLogic):
                 pass
             self.resize_job = None
 
-        # Cancel definition scroll update job
+        # Cancelar trabajo de actualización de scroll de definición
         if self.definition_scroll_update_job:
             try:
                 self.parent.after_cancel(self.definition_scroll_update_job)
@@ -639,22 +639,22 @@ class GameScreen(GameScreenLogic):
 
     def bind_physical_keyboard(self):
         root = self.parent.winfo_toplevel()
-        # Store binding IDs to unbind only our specific handlers
-        self._keypress_bind_id = root.bind("<KeyPress>", self.on_physical_key_press)
-        self._keyrelease_bind_id = root.bind(
+        # Guardar IDs de vinculación para desvincular solo nuestros manejadores
+        self.keypress_bind_id = root.bind("<KeyPress>", self.on_physical_key_press)
+        self.keyrelease_bind_id = root.bind(
             "<KeyRelease>", self.on_physical_key_release
         )
 
     def unbind_physical_keyboard(self):
         try:
             root = self.parent.winfo_toplevel()
-            # Unbind only our specific handlers using the stored IDs
-            if hasattr(self, "_keypress_bind_id") and self._keypress_bind_id:
-                root.unbind("<KeyPress>", self._keypress_bind_id)
-                self._keypress_bind_id = None
-            if hasattr(self, "_keyrelease_bind_id") and self._keyrelease_bind_id:
-                root.unbind("<KeyRelease>", self._keyrelease_bind_id)
-                self._keyrelease_bind_id = None
+            # Desvincular solo nuestros manejadores usando los IDs guardados
+            if hasattr(self, "keypress_bind_id") and self.keypress_bind_id:
+                root.unbind("<KeyPress>", self.keypress_bind_id)
+                self.keypress_bind_id = None
+            if hasattr(self, "keyrelease_bind_id") and self.keyrelease_bind_id:
+                root.unbind("<KeyRelease>", self.keyrelease_bind_id)
+                self.keyrelease_bind_id = None
         except tk.TclError:
             pass
 

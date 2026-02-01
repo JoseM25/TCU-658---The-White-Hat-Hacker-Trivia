@@ -36,7 +36,7 @@ class GameScreenLogic(GameScreenBase):
     skip_modal: SkipConfirmationModal | None
     completion_modal: GameCompletionModal | None
     summary_modal: QuestionSummaryModal | None
-    _cached_original_image: Image.Image | None = None
+    cached_original_image: Image.Image | None
 
     def on_wildcard_x2(self):
         if (
@@ -108,7 +108,7 @@ class GameScreenLogic(GameScreenBase):
         self.reset_double_points_visuals()
 
         # Limpiar caché de imagen
-        self._cached_original_image = None
+        self.cached_original_image = None
 
         if not self.questions:
             self.set_definition_text("No questions available!")
@@ -143,16 +143,16 @@ class GameScreenLogic(GameScreenBase):
         if not image_path:
             self.image_label.configure(image=None, text="No Image")
             self.current_image = None
-            self._cached_original_image = None
+            self.cached_original_image = None
             return
 
         try:
             # Inicializar caché si no existe
-            if not hasattr(self, "_cached_original_image"):
-                self._cached_original_image = None
+            if not hasattr(self, "cached_original_image"):
+                self.cached_original_image = None
 
             # Cargar imagen solo si no está en caché
-            if self._cached_original_image is None:
+            if self.cached_original_image is None:
                 resolved_path = None
                 if self.image_handler:
                     resolved_path = self.image_handler.resolve_image_path(image_path)
@@ -160,23 +160,23 @@ class GameScreenLogic(GameScreenBase):
                 if resolved_path and resolved_path.exists():
                     with Image.open(resolved_path) as img:
                         # Guardamos copia RGBA en memoria
-                        self._cached_original_image = img.convert("RGBA").copy()
+                        self.cached_original_image = img.convert("RGBA").copy()
                 else:
                     self.image_label.configure(image=None, text="Image not found")
                     self.current_image = None
-                    self._cached_original_image = None
+                    self.cached_original_image = None
                     return
 
             # Si tenemos imagen en caché, redimensionar
-            if self._cached_original_image:
+            if self.cached_original_image:
                 max_sz = self.get_scaled_image_size()
-                w, h = self._cached_original_image.size
+                w, h = self.cached_original_image.size
                 if w > 0 and h > 0:
                     sc = min(max_sz / w, max_sz / h)
 
                     self.current_image = ctk.CTkImage(
-                        light_image=self._cached_original_image,
-                        dark_image=self._cached_original_image,
+                        light_image=self.cached_original_image,
+                        dark_image=self.cached_original_image,
                         size=(int(w * sc), int(h * sc)),
                     )
                     self.image_label.configure(image=self.current_image, text="")
@@ -724,7 +724,7 @@ class GameScreenLogic(GameScreenBase):
 
     def start_timer(self):
         self.timer_running = True
-        # Increment generation to invalidate any pending timer callbacks
+        # Incrementar generación para invalidar callbacks de temporizador pendientes
         self.timer_generation += 1
         current_gen = self.timer_generation
         if self.timer_job:
@@ -739,7 +739,7 @@ class GameScreenLogic(GameScreenBase):
 
     def stop_timer(self):
         self.timer_running = False
-        # Increment generation to invalidate any pending timer callbacks
+        # Incrementar generación para invalidar callbacks de temporizador pendientes
         self.timer_generation += 1
         if self.timer_job:
             try:
@@ -749,9 +749,9 @@ class GameScreenLogic(GameScreenBase):
             self.timer_job = None
 
     def update_timer(self, generation=None):
-        # Check if this callback belongs to the current timer generation
+        # Verificar si este callback pertenece a la generación actual del temporizador
         if generation is not None and generation != self.timer_generation:
-            return  # Stale callback, ignore
+            return  # Callback obsoleto, ignorar
         if not self.timer_running:
             self.timer_job = None
             return

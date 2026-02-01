@@ -73,7 +73,7 @@ class TTSService:
             if not self.voice:
                 return
 
-            # Check if cancelled before starting
+            # Verificar si fue cancelado antes de iniciar
             if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
@@ -82,7 +82,7 @@ class TTSService:
             wav_configured = False
 
             for chunk in self.voice.synthesize(text):
-                # Check cancellation during synthesis
+                # Verificar cancelación durante síntesis
                 if self.speaking_cancelled.is_set() or gen != self.speakgen:
                     wav_file.close()
                     return
@@ -95,7 +95,7 @@ class TTSService:
 
             wav_file.close()
 
-            # Check if cancelled after synthesis
+            # Verificar si fue cancelado después de síntesis
             if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
@@ -124,19 +124,18 @@ class TTSService:
 
             winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
-            # Schedule cleanup with deduplication - cancel existing timer first
+            # Programar limpieza con deduplicación - cancelar temporizador existente primero
             self.schedule_cleanup_timer()
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
             logging.exception("Failed to synthesize speech: %s", error)
 
     def schedule_cleanup_timer(self):
-        """Schedule cleanup with deduplication - only one timer runs at a time."""
         with self.cleanup_timer_lock:
-            # Cancel existing cleanup timer if any
+            # Cancelar temporizador de limpieza existente si hay
             if self.cleanup_timer is not None:
                 self.cleanup_timer.cancel()
-            # Schedule new cleanup timer
+            # Programar nuevo temporizador de limpieza
             self.cleanup_timer = threading.Timer(5.0, self.cleanup_old_temp_files)
             self.cleanup_timer.daemon = True
             self.cleanup_timer.start()
@@ -166,7 +165,7 @@ class TTSService:
                 pass
 
     def stop(self):
-        # Signal any running thread to stop
+        # Señalar a cualquier hilo en ejecución que se detenga
         self.speaking_cancelled.set()
 
         try:
@@ -175,7 +174,7 @@ class TTSService:
             # Ignorar errores de reproducción al detener audio.
             pass
 
-        # Cancel any pending cleanup timer
+        # Cancelar cualquier temporizador de limpieza pendiente
         with self.cleanup_timer_lock:
             if self.cleanup_timer is not None:
                 self.cleanup_timer.cancel()
@@ -197,9 +196,8 @@ class TTSService:
             self.temp_files = restantes
 
     def shutdown(self):
-        """Clean up all resources. Call on application exit."""
         self.stop()
-        # Wait for speaking thread to finish if running (with timeout)
+        # Esperar a que el hilo de voz termine si está corriendo (con timeout)
         if self.speaking_thread is not None and self.speaking_thread.is_alive():
             self.speaking_thread.join(timeout=1.0)
         self.speaking_thread = None

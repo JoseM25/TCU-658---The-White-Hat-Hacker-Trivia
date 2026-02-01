@@ -258,7 +258,6 @@ class CreditsScreen:
             return None
 
     def cleanup(self):
-        """Clean up resources before switching screens."""
         try:
             self.parent.unbind("<Configure>")
         except tkinter.TclError:

@@ -299,7 +299,6 @@ class MenuScreen:
             messagebox.showinfo("Créditos", "Aquí van los créditos del juego.")
 
     def cleanup(self):
-        """Clean up resources before switching screens."""
         try:
             self.parent.unbind("<Configure>")
         except tk.TclError:

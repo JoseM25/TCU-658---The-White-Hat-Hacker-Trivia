@@ -31,7 +31,9 @@ class ModalBase:
         self.current_scale = initial_scale
         self.resizable_widgets = {}
         self.resizable_fonts = {}
-        self._closing = False  # Flag to prevent new animation jobs during close
+        self.closing = (
+            False  # Bandera para prevenir nuevos trabajos de animación durante cierre
+        )
 
     def calculate_scale_factor(self, root):
         if not root or not root.winfo_exists():
@@ -162,8 +164,8 @@ class ModalBase:
             self.animation_jobs.append(job)
 
     def fade_in_row(self, label_widget, value_widget, bg_color, step):
-        # Check closing flag to prevent scheduling during close
-        if self._closing:
+        # Verificar bandera de cierre para prevenir programación durante cierre
+        if self.closing:
             return
         if not self.modal or not self.modal.winfo_exists():
             return
@@ -184,8 +186,8 @@ class ModalBase:
                 text_color=self.interpolate_color(bg_color, value_target, progress)
             )
         )
-        # Check closing flag again before scheduling
-        if self._closing:
+        # Verificar bandera de cierre de nuevo antes de programar
+        if self.closing:
             return
         job = self.modal.after(
             self.FADE_STEP_MS,
@@ -201,10 +203,10 @@ class ModalBase:
             return None
 
     def close(self):
-        # Set closing flag first to prevent new animation jobs
-        self._closing = True
+        # Establecer bandera de cierre primero para prevenir nuevos trabajos de animación
+        self.closing = True
         modal = self.modal
-        # Copy the list to avoid modification during iteration
+        # Copiar la lista para evitar modificación durante iteración
         jobs_to_cancel = list(self.animation_jobs)
         self.animation_jobs.clear()
         for job in jobs_to_cancel:
@@ -221,7 +223,7 @@ class ModalBase:
                 pass
         self.modal = None
         self.root = None
-        self._closing = False  # Reset for potential reuse
+        self.closing = False  # Reiniciar para posible reutilización
 
     def safe_try(self, func):
         try:

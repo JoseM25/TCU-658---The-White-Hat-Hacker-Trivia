@@ -570,7 +570,6 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
                 self.tts.speak(definition)
 
     def cleanup(self):
-        """Clean up resources before switching screens."""
         self.tts.stop()
         try:
             self.parent.unbind("<Configure>")
@@ -586,7 +585,7 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
             except tk.TclError:
                 pass
             self.resize_job = None
-        # Close any open modal
+        # Cerrar cualquier modal abierto
         if self.current_modal and hasattr(self.current_modal, "close"):
             try:
                 self.current_modal.close()

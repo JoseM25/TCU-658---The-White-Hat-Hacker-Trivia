@@ -67,7 +67,6 @@ class SFXService:
         self.load_sound("win")
 
     def shutdown(self):
-        """Properly shut down the pygame mixer. Call on application exit."""
         if not self.enabled or pygame is None:
             return
         try:
@@ -157,16 +156,16 @@ class SFXService:
 class HoverSoundBinder:
     CLICK_HOOK_INSTALLED = False
     ORIGINAL_CTKBUTTON_CLICKED = None
-    # Class-level weak reference to the active SFX service for click sounds
-    _active_sfx_ref = None
+    # Referencia débil a nivel de clase para el servicio SFX activo para sonidos de clic
+    active_sfx_ref = None
 
     def __init__(self, root, sfx_service):
         self.root = root
         self.sfx = sfx_service
         self.hovered_button = None
         self.hover_cooldown_ms = 80
-        # Store weak reference at class level so the closure doesn't hold strong ref
-        HoverSoundBinder._active_sfx_ref = weakref.ref(sfx_service)
+        # Guardar referencia débil a nivel de clase para que el closure no mantenga referencia fuerte
+        HoverSoundBinder.active_sfx_ref = weakref.ref(sfx_service)
         self.bind_events()
         self.install_click_hook()
 
@@ -175,7 +174,6 @@ class HoverSoundBinder:
         self.root.bind_all("<Leave>", self.on_leave, add="+")
 
     def unbind_events(self):
-        """Unbind hover events. Call this on cleanup."""
         try:
             self.root.unbind_all("<Enter>")
         except tk.TclError:
@@ -192,8 +190,8 @@ class HoverSoundBinder:
         original_clicked = getattr(ctk.CTkButton, "_clicked")
 
         def clicked_with_sfx(button_self, event=None):
-            # Use class-level weak reference instead of capturing self
-            sfx_ref = HoverSoundBinder._active_sfx_ref
+            # Usar referencia débil a nivel de clase en lugar de capturar self
+            sfx_ref = HoverSoundBinder.active_sfx_ref
             if sfx_ref is not None:
                 sfx = sfx_ref()
                 if sfx is not None:

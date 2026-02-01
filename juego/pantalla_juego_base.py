@@ -89,7 +89,9 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.audio_enabled = not self.sfx.is_muted()
         self.timer_running = False
         self.timer_job = None
-        self.timer_generation = 0  # Counter to invalidate stale timer callbacks
+        self.timer_generation = (
+            0  # Contador para invalidar callbacks de temporizador obsoletos
+        )
         self.questions_answered = 0
         self.game_completed = False
         self.scoring_system = None
@@ -110,8 +112,8 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         # Manejo del teclado físico
         self.physical_key_pressed = None
         self.key_feedback_job = None
-        self._keypress_bind_id = None
-        self._keyrelease_bind_id = None
+        self.keypress_bind_id = None
+        self.keyrelease_bind_id = None
 
         # Seguimiento del estado visual
         self.timer_frozen_visually = False
@@ -480,8 +482,8 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
 
         # Ocultar y destruir cajas extras (prevenir crecimiento infinito de memoria)
         excess_count = len(self.answer_box_labels) - word_length
-        if excess_count > 10:  # Threshold: keep up to 10 extras for reuse
-            # Destroy the truly excess boxes beyond the threshold
+        if excess_count > 10:  # Umbral: mantener hasta 10 extras para reutilizar
+            # Destruir las cajas realmente sobrantes más allá del umbral
             for i in range(word_length + 10, len(self.answer_box_labels)):
                 try:
                     self.answer_box_labels[i].destroy()
@@ -489,7 +491,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
                     pass
             del self.answer_box_labels[word_length + 10 :]
 
-        # Hide remaining extra boxes
+        # Ocultar cajas extras restantes
         for i in range(word_length, len(self.answer_box_labels)):
             self.answer_box_labels[i].grid_remove()
 
