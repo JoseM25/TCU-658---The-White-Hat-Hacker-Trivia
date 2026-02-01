@@ -30,6 +30,7 @@ class TTSService:
         self.audiocacheorder = []
         self.audiocachemax = 20
         self.cachelock = threading.Lock()
+        self.speakgen = 0
 
     def preload(self):
         self.ensure_voice_loaded()
@@ -45,6 +46,7 @@ class TTSService:
 
         if cachedpath and os.path.exists(cachedpath):
             self.stop()
+            self.speakgen += 1
             self.speaking_cancelled.clear()
             winsound.PlaySound(cachedpath, winsound.SND_FILENAME | winsound.SND_ASYNC)
             self.schedule_cleanup_timer()
@@ -58,19 +60,21 @@ class TTSService:
             return
 
         self.stop()
+        self.speakgen += 1
         self.speaking_cancelled.clear()
+        gen = self.speakgen
         self.speaking_thread = threading.Thread(
-            target=self.speak_worker, args=(text,), daemon=True
+            target=self.speak_worker, args=(text, gen), daemon=True
         )
         self.speaking_thread.start()
 
-    def speak_worker(self, text):
+    def speak_worker(self, text, gen):
         try:
             if not self.voice:
                 return
 
             # Check if cancelled before starting
-            if self.speaking_cancelled.is_set():
+            if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
             buffer = io.BytesIO()
@@ -79,7 +83,7 @@ class TTSService:
 
             for chunk in self.voice.synthesize(text):
                 # Check cancellation during synthesis
-                if self.speaking_cancelled.is_set():
+                if self.speaking_cancelled.is_set() or gen != self.speakgen:
                     wav_file.close()
                     return
                 if not wav_configured:
@@ -92,7 +96,7 @@ class TTSService:
             wav_file.close()
 
             # Check if cancelled after synthesis
-            if self.speaking_cancelled.is_set():
+            if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
             with NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -114,6 +118,9 @@ class TTSService:
                             os.unlink(pathviejo)
                         except OSError:
                             pass
+
+            if self.speaking_cancelled.is_set() or gen != self.speakgen:
+                return
 
             winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 

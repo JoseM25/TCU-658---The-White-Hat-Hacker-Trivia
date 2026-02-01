@@ -386,7 +386,27 @@ class GameScreenLogic(GameScreenBase):
             return
 
         title = self.current_question.get("title", "")
-        if self.current_answer.upper() == title.replace(" ", "").upper():
+        clean = title.replace(" ", "")
+        targetlen = len(clean)
+        ans = self.current_answer.ljust(targetlen)
+        full = True
+        for i in range(targetlen):
+            if not ans[i].strip():
+                full = False
+                break
+        if not full:
+            if self.feedback_animation_job:
+                try:
+                    self.parent.after_cancel(self.feedback_animation_job)
+                except tk.TclError:
+                    pass
+                self.feedback_animation_job = None
+            txt = "Fill all spaces"
+            clr = self.COLORS.get("warning_yellow", "#FFC553")
+            self.feedback_label.configure(text=txt, text_color=clr)
+            self.animate_feedback(0, clr)
+            return
+        if self.current_answer.upper() == clean.upper():
             self.processing_correct_answer = True
             self.stop_timer()
             self.tts.stop()
@@ -652,7 +672,10 @@ class GameScreenLogic(GameScreenBase):
 
     def show_feedback(self, correct=True, skipped=False):
         if self.feedback_animation_job:
-            self.parent.after_cancel(self.feedback_animation_job)
+            try:
+                self.parent.after_cancel(self.feedback_animation_job)
+            except tk.TclError:
+                pass
             self.feedback_animation_job = None
 
         if skipped:
@@ -667,6 +690,7 @@ class GameScreenLogic(GameScreenBase):
 
     def animate_feedback(self, step, target):
         if step > 5:
+            self.feedback_animation_job = None
             return
         if step == 0:
             self.feedback_label.configure(text_color="#F5F7FA")
@@ -678,6 +702,8 @@ class GameScreenLogic(GameScreenBase):
             self.feedback_animation_job = self.parent.after(
                 40, lambda: self.animate_feedback(step + 1, target)
             )
+        else:
+            self.feedback_animation_job = None
 
     def interp_color(self, c1, c2, f):
         r1, g1, b1 = int(c1[1:3], 16), int(c1[3:5], 16), int(c1[5:7], 16)
@@ -689,7 +715,10 @@ class GameScreenLogic(GameScreenBase):
 
     def hide_feedback(self):
         if self.feedback_animation_job:
-            self.parent.after_cancel(self.feedback_animation_job)
+            try:
+                self.parent.after_cancel(self.feedback_animation_job)
+            except tk.TclError:
+                pass
             self.feedback_animation_job = None
         self.feedback_label.configure(text="")
 
