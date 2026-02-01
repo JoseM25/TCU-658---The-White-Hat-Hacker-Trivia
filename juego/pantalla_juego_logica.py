@@ -14,29 +14,34 @@ from juego.pantalla_juego_modales import (
 
 class GameScreenLogic(GameScreenBase):
 
-    # Declaraciones de tipo para atributos heredados de GameScreenBase
-    # (inicializados en GameScreenBase._init_game_state y _init_ui_references)
-    current_answer: str
-    current_question: dict | None
-    current_image: ctk.CTkImage | None
-    processing_correct_answer: bool
-    question_timer: int
-    question_mistakes: int
-    audio_enabled: bool
-    questions_answered: int
-    score: int
-    stored_modal_data: dict | None
-    game_completed: bool
-    viewing_history_index: int
-    question_history: list
-    awaiting_modal_decision: bool
-    feedback_animation_job: str | None
-    timer_running: bool
-    timer_job: str | None
-    skip_modal: SkipConfirmationModal | None
-    completion_modal: GameCompletionModal | None
-    summary_modal: QuestionSummaryModal | None
-    cached_original_image: Image.Image | None
+    def __init__(
+        self, parent, on_return_callback=None, tts_service=None, sfx_service=None
+    ):
+        # Pre-inicializar atributos antes de llamar al constructor padre
+        # para satisfacer al linter (estos se re-inicializan en el padre)
+        self.current_question = None
+        self.current_answer = ""
+        self.current_image = None
+        self.processing_correct_answer = False
+        self.question_timer = 0
+        self.question_mistakes = 0
+        self.audio_enabled = True
+        self.questions_answered = 0
+        self.score = 0
+        self.stored_modal_data = None
+        self.game_completed = False
+        self.viewing_history_index = -1
+        self.question_history = []
+        self.awaiting_modal_decision = False
+        self.feedback_animation_job = None
+        self.timer_running = False
+        self.timer_job = None
+        self.skip_modal = None
+        self.completion_modal = None
+        self.summary_modal = None
+        self.cached_original_image = None
+
+        super().__init__(parent, on_return_callback, tts_service, sfx_service)
 
     def on_wildcard_x2(self):
         if (

@@ -51,19 +51,118 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
     # Número máximo de preguntas a mantener en el historial
     MAX_QUESTION_HISTORY = 50
 
-    # Declaraciones de atributos a nivel de clase (inicializados en métodos auxiliares de __init__)
-    definition_scrollbar_visible: bool | None
-    definition_scrollbar_manager: str | None
-    definition_scroll_update_job: str | None
-    timer_frozen_visually: bool
-    double_points_visually_active: bool
-
     def __init__(
         self, parent, on_return_callback=None, tts_service=None, sfx_service=None
     ):
         self.parent = parent
         self.on_return_callback = on_return_callback
         self.sfx = sfx_service
+
+        # Pre-inicializar todos los atributos para satisfacer al linter
+        # Atributos de estado del juego
+        self.current_question = None
+        self.questions = []
+        self.available_questions = []
+        self.score = 0
+        self.current_answer = ""
+        self.timer_seconds = 0
+        self.audio_enabled = True
+        self.timer_running = False
+        self.timer_job = None
+        self.timer_generation = 0
+        self.questions_answered = 0
+        self.game_completed = False
+        self.scoring_system = None
+        self.wildcard_manager = None
+        self.question_timer = 0
+        self.question_mistakes = 0
+        self.resize_job = None
+        self.processing_correct_answer = False
+        self.awaiting_modal_decision = False
+        self.stored_modal_data = None
+        self.question_history = []
+        self.viewing_history_index = -1
+        self.physical_key_pressed = None
+        self.key_feedback_job = None
+        self.keypress_bind_id = None
+        self.keyrelease_bind_id = None
+        self.timer_frozen_visually = False
+        self.double_points_visually_active = False
+        self.ultimo_tam_imagen = 0
+        self.cached_original_image = None
+
+        # Atributos de UI
+        self.main = None
+        self.header_frame = None
+        self.header_left_container = None
+        self.header_center_container = None
+        self.header_right_container = None
+        self.back_button = None
+        self.back_arrow_icon = None
+        self.timer_container = None
+        self.score_container = None
+        self.audio_container = None
+        self.timer_label = None
+        self.timer_icon_label = None
+        self.score_label = None
+        self.star_icon_label = None
+        self.multiplier_label = None
+        self.audio_toggle_btn = None
+        self.question_container = None
+        self.image_frame = None
+        self.image_label = None
+        self.definition_frame = None
+        self.definition_scroll_wrapper = None
+        self.definition_scroll = None
+        self.def_inner = None
+        self.definition_label = None
+        self.definition_scrollbar_visible = None
+        self.definition_scrollbar_manager = None
+        self.definition_scroll_update_job = None
+        self.answer_boxes_frame = None
+        self.answer_box_labels = []
+        self.keyboard_frame = None
+        self.keyboard_buttons = []
+        self.delete_button = None
+        self.key_button_map = {}
+        self.action_buttons_frame = None
+        self.skip_button = None
+        self.check_button = None
+        self.current_image = None
+        self.audio_icon_on = None
+        self.audio_icon_off = None
+        self.clock_icon = None
+        self.star_icon = None
+        self.delete_icon = None
+        self.freeze_icon = None
+        self.info_icon = None
+        self.info_icon_label = None
+        self.lightning_icon = None
+        self.lightning_icon_label = None
+        self.freeze_wildcard_icon = None
+        self.wildcards_frame = None
+        self.wildcard_x2_btn = None
+        self.wildcard_hint_btn = None
+        self.wildcard_freeze_btn = None
+        self.charges_frame = None
+        self.charges_label = None
+        self.feedback_label = None
+        self.feedback_animation_job = None
+        self.completion_modal = None
+        self.summary_modal = None
+        self.skip_modal = None
+        self.timer_font = None
+        self.score_font = None
+        self.definition_font = None
+        self.keyboard_font = None
+        self.answer_box_font = None
+        self.button_font = None
+        self.header_button_font = None
+        self.header_label_font = None
+        self.feedback_font = None
+        self.wildcard_font = None
+        self.charges_font = None
+        self.multiplier_font = None
 
         # Inicializar todos los atributos de estado
         self.init_game_state()
@@ -152,7 +251,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.definition_label = None
         self.definition_scrollbar_visible = None
         self.definition_scrollbar_manager = None
-        self.definition_scroll_update_job = None
         self.answer_boxes_frame = None
         self.answer_box_labels = []
 

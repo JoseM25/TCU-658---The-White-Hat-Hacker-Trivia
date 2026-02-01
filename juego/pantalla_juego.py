@@ -8,21 +8,19 @@ from juego.pantalla_juego_logica import GameScreenLogic
 
 class GameScreen(GameScreenLogic):
 
-    # Declaraciones de tipo para atributos heredados de clases padre
-    resize_job: str | None
-    key_feedback_job: str | None
-
     def __init__(
         self, parent, on_return_callback=None, tts_service=None, sfx_service=None
     ):
+        # Pre-inicializar atributos para satisfacer al linter
+        self.resize_job = None
+        self.key_feedback_job = None
+        self.feedback_animation_job = None
+        self.definition_scroll_update_job = None
+        self.keypress_bind_id = None
+        self.keyrelease_bind_id = None
+        self.ultimo_tam_imagen = 0
+
         super().__init__(parent, on_return_callback, tts_service, sfx_service)
-
-        # Inicializar IDs de vinculación de teclado
-        self.keypress_bind_id: str | None = None
-        self.keyrelease_bind_id: str | None = None
-
-        # Inicializar seguimiento de tamaño de imagen
-        self.ultimo_tam_imagen: int = 0
 
         # Vincular evento de redimensionamiento
         self.parent.bind("<Configure>", self.on_resize)
