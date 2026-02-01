@@ -1,4 +1,5 @@
 import atexit
+import threading
 
 import customtkinter as ctk
 
@@ -32,15 +33,26 @@ root.configure(fg_color="#F5F7FA")
 ensure_user_data()
 
 tts_service = TTSService(AUDIO_DIR)
-tts_service.preload()
 
 sfx_service = SFXService(AUDIO_DIR)
-sfx_service.preload()
 hover_binder = HoverSoundBinder(root, sfx_service)
 
 # Register cleanup on application exit
 atexit.register(sfx_service.shutdown)
 atexit.register(tts_service.shutdown)
+
+
+def preloadtodo():
+    tts_service.preload()
+    sfx_service.preload()
+
+
+def iniciarprecarga():
+    hilo = threading.Thread(target=preloadtodo, daemon=True)
+    hilo.start()
+
+
+root.after(120, iniciarprecarga)
 
 app = AppController(root, tts_service=tts_service, sfx_service=sfx_service)
 

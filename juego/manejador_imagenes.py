@@ -27,6 +27,9 @@ class ImageHandler:
         self.resource_root = Path(resource_root) if resource_root is not None else None
         if self.user_images_dir is None and self.data_root is not None:
             self.user_images_dir = self.data_root / "recursos" / "imagenes"
+        self.iconcache = {}
+        self.detailcache = {}
+        self.cachemax = 128
 
     def load_svg_image(self, svg_path, scale=1.0):
         try:
@@ -68,6 +71,11 @@ class ImageHandler:
             # Rasterizar a 2x el tamaño objetivo para nitidez, luego reducir
             scale = (target_max * 2) / base_max
 
+        key = (str(svg_path), size, round(scale, 4))
+        cached = self.iconcache.get(key)
+        if cached is not None:
+            return cached
+
         pil_image = self.load_svg_image(svg_path, scale)
         if not pil_image:
             return None
@@ -90,7 +98,12 @@ class ImageHandler:
         else:
             final = cropped
 
-        return ctk.CTkImage(light_image=final, dark_image=final, size=size)
+        icon = ctk.CTkImage(light_image=final, dark_image=final, size=size)
+        self.iconcache[key] = icon
+        if len(self.iconcache) > self.cachemax:
+            viejo = next(iter(self.iconcache))
+            self.iconcache.pop(viejo, None)
+        return icon
 
     def resolve_image_path(self, image_path):
         if not image_path:
@@ -118,6 +131,11 @@ class ImageHandler:
         if not resolved_path:
             return None
 
+        key = (str(resolved_path), max_size)
+        cached = self.detailcache.get(key)
+        if cached is not None:
+            return cached
+
         try:
             with Image.open(resolved_path) as img:
                 prepared_image = img.convert("RGBA").copy()
@@ -141,11 +159,16 @@ class ImageHandler:
         paste_y = (max_height - new_height) // 2
         final_image.paste(resized_image, (paste_x, paste_y))
 
-        return ctk.CTkImage(
+        image = ctk.CTkImage(
             light_image=final_image,
             dark_image=final_image,
             size=max_size,
         )
+        self.detailcache[key] = image
+        if len(self.detailcache) > self.cachemax:
+            viejo = next(iter(self.detailcache))
+            self.detailcache.pop(viejo, None)
+        return image
 
     def truncate_filename(self, name):
         if not name or len(name) <= self.MAX_DISPLAY_NAME_LENGTH:

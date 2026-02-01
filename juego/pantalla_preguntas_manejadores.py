@@ -21,9 +21,22 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
                 pass
 
     def handle_search(self):
-        query = self.search_entry.get() if self.search_entry else ""
-        self.filter_questions(query)
-        self.render_question_list()
+        if self.searchjob:
+            try:
+                self.parent.after_cancel(self.searchjob)
+            except tk.TclError:
+                pass
+
+        def ejecutar():
+            self.searchjob = None
+            query = self.search_entry.get() if self.search_entry else ""
+            self.filter_questions(query)
+            self.render_question_list()
+
+        try:
+            self.searchjob = self.parent.after(180, ejecutar)
+        except tk.TclError:
+            ejecutar()
 
     def handle_global_click(self, event):
         if not self.search_entry or not self.search_entry.winfo_exists():
@@ -178,12 +191,18 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
         if not self.list_container or not self.list_container.winfo_exists():
             return
 
-        for child in self.list_container.winfo_children():
-            child.destroy()
-
         s = self.size_state
         questions = self.filtered_questions
         search_query = self.search_entry.get() if self.search_entry else ""
+
+        titulos = tuple(q.get("title", "") for q in questions)
+        actual = self.current_question.get("title", "") if self.current_question else ""
+        firma = (titulos, actual, search_query)
+        if self.lastrender == firma and self.list_container.winfo_children():
+            return
+
+        for child in self.list_container.winfo_children():
+            child.destroy()
 
         selected_visible = (
             any(q is self.current_question for q in questions)
@@ -252,6 +271,7 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
             self.on_question_selected(
                 self.current_question, self.selected_question_button
             )
+        self.lastrender = firma
 
     def queue_detail_scroll_update(self):
         if not self.parent or not self.parent.winfo_exists():

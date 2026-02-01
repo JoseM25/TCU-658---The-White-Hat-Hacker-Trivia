@@ -26,6 +26,10 @@ class TTSService:
         self.temp_lock = threading.Lock()
         self.cleanup_timer = None
         self.cleanup_timer_lock = threading.Lock()
+        self.audiocache = {}
+        self.audiocacheorder = []
+        self.audiocachemax = 20
+        self.cachelock = threading.Lock()
 
     def preload(self):
         self.ensure_voice_loaded()
@@ -33,12 +37,27 @@ class TTSService:
     def speak(self, text):
         if not text or not text.strip():
             return
+        text = text.strip()
+
+        cachedpath = None
+        with self.cachelock:
+            cachedpath = self.audiocache.get(text)
+
+        if cachedpath and os.path.exists(cachedpath):
+            self.stop()
+            self.speaking_cancelled.clear()
+            winsound.PlaySound(cachedpath, winsound.SND_FILENAME | winsound.SND_ASYNC)
+            self.schedule_cleanup_timer()
+            return
+        if cachedpath and not os.path.exists(cachedpath):
+            with self.cachelock:
+                if self.audiocache.get(text) == cachedpath:
+                    self.audiocache.pop(text, None)
 
         if not self.ensure_voice_loaded():
             return
 
         self.stop()
-        # Clear cancellation flag for new speech
         self.speaking_cancelled.clear()
         self.speaking_thread = threading.Thread(
             target=self.speak_worker, args=(text,), daemon=True
@@ -84,6 +103,18 @@ class TTSService:
             with self.temp_lock:
                 self.temp_files.append(tmp_path)
 
+            with self.cachelock:
+                self.audiocache[text] = tmp_path
+                self.audiocacheorder.append(text)
+                while len(self.audiocacheorder) > self.audiocachemax:
+                    viejo = self.audiocacheorder.pop(0)
+                    pathviejo = self.audiocache.pop(viejo, None)
+                    if pathviejo and pathviejo != tmp_path:
+                        try:
+                            os.unlink(pathviejo)
+                        except OSError:
+                            pass
+
             winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
             # Schedule cleanup with deduplication - cancel existing timer first
@@ -107,6 +138,9 @@ class TTSService:
         with self.cleanup_timer_lock:
             self.cleanup_timer = None
 
+        with self.cachelock:
+            cachepaths = set(self.audiocache.values())
+
         with self.temp_lock:
             # Mantener los últimos 2 archivos por seguridad en lugar de 1
             # Esto reduce drásticamente el riesgo de borrar el archivo en reproducción
@@ -117,6 +151,8 @@ class TTSService:
                 files_to_remove = []
 
         for tmp_path in files_to_remove:
+            if tmp_path in cachepaths:
+                continue
             try:
                 os.unlink(tmp_path)
             except OSError:
@@ -140,12 +176,18 @@ class TTSService:
 
         # Limpiar todos los archivos temporales al detener
         with self.temp_lock:
+            with self.cachelock:
+                cachepaths = set(self.audiocache.values())
+            restantes = []
             for tmp_path in self.temp_files:
+                if tmp_path in cachepaths:
+                    restantes.append(tmp_path)
+                    continue
                 try:
                     os.unlink(tmp_path)
                 except OSError:
                     pass
-            self.temp_files.clear()
+            self.temp_files = restantes
 
     def shutdown(self):
         """Clean up all resources. Call on application exit."""
@@ -154,6 +196,15 @@ class TTSService:
         if self.speaking_thread is not None and self.speaking_thread.is_alive():
             self.speaking_thread.join(timeout=1.0)
         self.speaking_thread = None
+        with self.cachelock:
+            cachepaths = list(self.audiocache.values())
+            self.audiocache.clear()
+            self.audiocacheorder.clear()
+        for path in cachepaths:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
         self.voice = None
 
     def ensure_voice_loaded(self):

@@ -49,6 +49,8 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         self.current_window_width = self.BASE_DIMENSIONS[0]
         self.current_window_height = self.BASE_DIMENSIONS[1]
         self.current_modal = None
+        self.searchjob = None
+        self.lastrender = None
 
     def init_icons(self):
         self.detail_image_placeholder = (
