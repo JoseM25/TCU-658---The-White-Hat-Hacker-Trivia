@@ -37,9 +37,14 @@ tts_service = TTSService(AUDIO_DIR)
 sfx_service = SFXService(AUDIO_DIR)
 hover_binder = HoverSoundBinder(root, sfx_service)
 
-# Register cleanup on application exit
-atexit.register(sfx_service.shutdown)
-atexit.register(tts_service.shutdown)
+
+def limpiar_al_salir():
+    hover_binder.unbind_events()
+    sfx_service.shutdown()
+    tts_service.shutdown()
+
+
+atexit.register(limpiar_al_salir)
 
 
 def preloadtodo():

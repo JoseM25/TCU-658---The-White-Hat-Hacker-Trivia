@@ -87,10 +87,9 @@ class WildcardManager:
     # Comodín de Puntos Dobles (acumulable: x2, x4, x8, x16, ...)
 
     def activate_double_points(self):
-        # Limitar la acumulación para evitar overflow de puntos (Máx 3 stacks -> 8x)
         max_stack = 3
         if self.double_points_stacks >= max_stack:
-            return self.double_points_stacks
+            return 0
 
         if not self.can_afford(self.COST_DOUBLE_POINTS):
             return 0
@@ -189,7 +188,12 @@ class WildcardManager:
 
         # Respuesta perfecta (0 errores)
         potential_charges = 0
-        ratio = raw_points / max_raw if max_raw > 0 else 0
+        if max_raw <= 0:
+            self.questions_without_charge += 1
+            actual = self.check_anti_frustration()
+            return (actual, False)
+
+        ratio = raw_points / max_raw
 
         # Rango A: correcto con 0 errores Y raw >= 0.80 * maxRaw
         if ratio >= self.A_RANK_THRESHOLD:

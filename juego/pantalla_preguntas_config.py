@@ -1,4 +1,5 @@
 import json
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -251,7 +252,6 @@ class QuestionFileStorage:
                 tmp_path.rename(self.json_path)
             except OSError:
                 # En Windows entre unidades, usar copiar + eliminar
-                import shutil
 
                 shutil.copy2(str(tmp_path), str(self.json_path))
                 tmp_path.unlink()

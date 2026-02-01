@@ -211,7 +211,7 @@ GAME_KEY_SIZE_PROFILE = [
     (3840, 100),
 ]
 
-# Perfil de escala del teclado (basado en altura) para mantener el teclado compacto en pantallas pequeñas
+# Perfil de escala del teclado (basado en altura) para mantener el teclado compacto
 # Escalado menos agresivo para evitar desbordamiento en pantallas con DPI escalado
 # (ej. 1080p al 125% da 864 píxeles lógicos pero no es realmente baja resolución)
 GAME_KEYBOARD_SCALE_PROFILE = [
@@ -574,7 +574,7 @@ class GameSizeCalculator:
         sizes["is_height_constrained"] = is_height_constrained
 
         # Si la altura real está por debajo de la base 720p, reducir tamaños basados en perfil
-        # para evitar desbordamiento de contenido causado por el cromo de ventana reduciendo la altura del cliente.
+        # para evitar desbordamiento de contenido
         if is_height_constrained and scale < 1.0:
             compact_scale = scale
             sizes["header_height"] = self.apply_compact_scale(

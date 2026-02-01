@@ -147,7 +147,7 @@ class GameScreenLogic(GameScreenBase):
             return
 
         try:
-            # Inicializar caché si no existe (por si load_random_question no fue llamado primero o reinicio)
+            # Inicializar caché si no existe
             if not hasattr(self, "_cached_original_image"):
                 self._cached_original_image = None
 

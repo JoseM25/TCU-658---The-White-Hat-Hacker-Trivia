@@ -21,6 +21,9 @@ class GameScreen(GameScreenLogic):
         self._keypress_bind_id: str | None = None
         self._keyrelease_bind_id: str | None = None
 
+        # Initialize image size tracking
+        self.ultimo_tam_imagen: int = 0
+
         # Vincular evento de redimensionamiento
         self.parent.bind("<Configure>", self.on_resize)
 
@@ -320,9 +323,13 @@ class GameScreen(GameScreenLogic):
         if self.image_label and self.image_label.winfo_exists():
             self.image_label.configure(width=img_sz, height=img_sz)
 
-        # Recargar imagen al nuevo tamaño
+        # Recargar imagen solo si el tamanio cambio significativamente
         if self.current_image and self.current_question:
-            self.load_question_image()
+            nuevo_tam = self.size_state.get("image_size", img_sz)
+            tam_actual = getattr(self, "ultimo_tam_imagen", 0)
+            if abs(nuevo_tam - tam_actual) > 2:
+                self.ultimo_tam_imagen = nuevo_tam
+                self.load_question_image()
 
     def update_definition(self):
         sizes = self.size_state
@@ -376,7 +383,7 @@ class GameScreen(GameScreenLogic):
         gap = sizes["answer_box_gap"]
         extra_pad = self.scale_value(16, scale, 8, 20)
 
-        # Actualizar etiquetas de casillas de respuesta - solo actualizar casillas visibles (administradas)
+        # Actualizar etiquetas de casillas de respuesta
         # Usar grid_configure en un widget con grid_remove() lo volvería a mostrar!
         visible_boxes = [b for b in self.answer_box_labels if b.winfo_manager()]
         for box in visible_boxes:
@@ -490,7 +497,7 @@ class GameScreen(GameScreenLogic):
         wc_font_size = sizes["wildcard_font"]
         charges_font_size = sizes["charges_font"]
 
-        # Calcular ancho del botón igual que build_wildcards_panel (1.5x altura para forma de píldora)
+        # Calcular ancho del botón igual que build_wildcards_panel
         wc_btn_width = int(wc_sz * 1.5)
 
         # Escalar espaciado de botones - reducir en baja res, expandir en alta res

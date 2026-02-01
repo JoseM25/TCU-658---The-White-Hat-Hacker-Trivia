@@ -116,6 +116,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         # Seguimiento del estado visual
         self.timer_frozen_visually = False
         self.double_points_visually_active = False
+        self.ultimo_tam_imagen = 0
 
     def init_ui_references(self):
         # Diseño principal
