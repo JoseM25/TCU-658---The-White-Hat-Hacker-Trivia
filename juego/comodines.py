@@ -87,6 +87,11 @@ class WildcardManager:
     # Comodín de Puntos Dobles (acumulable: x2, x4, x8, x16, ...)
 
     def activate_double_points(self):
+        # Limitar la acumulación para evitar overflow de puntos (Máx 3 stacks -> 8x)
+        max_stack = 3
+        if self.double_points_stacks >= max_stack:
+            return self.double_points_stacks
+
         if not self.can_afford(self.COST_DOUBLE_POINTS):
             return 0
 

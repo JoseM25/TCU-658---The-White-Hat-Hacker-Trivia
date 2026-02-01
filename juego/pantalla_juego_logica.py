@@ -36,6 +36,7 @@ class GameScreenLogic(GameScreenBase):
     skip_modal: SkipConfirmationModal | None
     completion_modal: GameCompletionModal | None
     summary_modal: QuestionSummaryModal | None
+    _cached_original_image: Image.Image | None = None
 
     def on_wildcard_x2(self):
         if (
@@ -106,6 +107,9 @@ class GameScreenLogic(GameScreenBase):
         self.reset_timer_visuals()
         self.reset_double_points_visuals()
 
+        # Limpiar caché de imagen
+        self._cached_original_image = None
+
         if not self.questions:
             self.set_definition_text("No questions available!")
             return
@@ -139,27 +143,47 @@ class GameScreenLogic(GameScreenBase):
         if not image_path:
             self.image_label.configure(image=None, text="No Image")
             self.current_image = None
+            self._cached_original_image = None
             return
 
         try:
-            resolved_path = None
-            if self.image_handler:
-                resolved_path = self.image_handler.resolve_image_path(image_path)
-            if resolved_path and resolved_path.exists():
-                with Image.open(resolved_path) as img:
-                    pil_img = img.convert("RGBA").copy()
+            # Inicializar caché si no existe (por si load_random_question no fue llamado primero o reinicio)
+            if not hasattr(self, "_cached_original_image"):
+                self._cached_original_image = None
+
+            # Cargar imagen solo si no está en caché
+            if self._cached_original_image is None:
+                resolved_path = None
+                if self.image_handler:
+                    resolved_path = self.image_handler.resolve_image_path(image_path)
+
+                if resolved_path and resolved_path.exists():
+                    with Image.open(resolved_path) as img:
+                        # Guardamos copia RGBA en memoria
+                        self._cached_original_image = img.convert("RGBA").copy()
+                else:
+                    self.image_label.configure(image=None, text="Image not found")
+                    self.current_image = None
+                    self._cached_original_image = None
+                    return
+
+            # Si tenemos imagen en caché, redimensionar
+            if self._cached_original_image:
                 max_sz = self.get_scaled_image_size()
-                w, h = pil_img.size
-                sc = min(max_sz / w, max_sz / h)
-                self.current_image = ctk.CTkImage(
-                    light_image=pil_img,
-                    dark_image=pil_img,
-                    size=(int(w * sc), int(h * sc)),
-                )
-                self.image_label.configure(image=self.current_image, text="")
+                w, h = self._cached_original_image.size
+                if w > 0 and h > 0:
+                    sc = min(max_sz / w, max_sz / h)
+
+                    self.current_image = ctk.CTkImage(
+                        light_image=self._cached_original_image,
+                        dark_image=self._cached_original_image,
+                        size=(int(w * sc), int(h * sc)),
+                    )
+                    self.image_label.configure(image=self.current_image, text="")
             else:
-                self.image_label.configure(image=None, text="Image not found")
+                self.image_label.configure(image=None, text="Image Error")
                 self.current_image = None
+
         except (FileNotFoundError, OSError, ValueError) as e:
             print(f"Error loading image: {e}")
             self.image_label.configure(image=None, text="Error loading image")

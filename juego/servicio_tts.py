@@ -108,9 +108,13 @@ class TTSService:
             self.cleanup_timer = None
 
         with self.temp_lock:
-            # Mantener solo el archivo más reciente (podría estar reproduciéndose)
-            files_to_remove = self.temp_files[:-1]
-            self.temp_files = self.temp_files[-1:] if self.temp_files else []
+            # Mantener los últimos 2 archivos por seguridad en lugar de 1
+            # Esto reduce drásticamente el riesgo de borrar el archivo en reproducción
+            if len(self.temp_files) > 2:
+                files_to_remove = self.temp_files[:-2]
+                self.temp_files = self.temp_files[-2:]
+            else:
+                files_to_remove = []
 
         for tmp_path in files_to_remove:
             try:

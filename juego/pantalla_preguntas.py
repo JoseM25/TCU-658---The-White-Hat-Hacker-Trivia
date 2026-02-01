@@ -27,7 +27,7 @@ from juego.pantalla_preguntas_config import (
     QuestionRepository,
     ScreenFontRegistry,
 )
-from juego.pantalla_preguntas_handlers import QuestionScreenHandlersMixin
+from juego.pantalla_preguntas_manejadores import QuestionScreenHandlersMixin
 from juego.rutas_app import (
     get_data_questions_path,
     get_data_root,
@@ -68,6 +68,7 @@ class ManageQuestionsScreen(QuestionScreenHandlersMixin):
     AUDIO_DIR = get_resource_audio_dir()
 
     def __init__(self, parent, on_return_callback=None, tts_service=None):
+        super().__init__()
         self.parent = parent
         self.on_return_callback = on_return_callback
 

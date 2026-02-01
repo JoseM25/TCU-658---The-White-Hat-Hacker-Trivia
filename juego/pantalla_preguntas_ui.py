@@ -2,7 +2,7 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from juego.pantalla_preguntas_layout import QuestionScreenLayoutMixin
+from juego.pantalla_preguntas_orden import QuestionScreenLayoutMixin
 
 
 class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
