@@ -17,6 +17,10 @@ class GameScreen(GameScreenLogic):
     ):
         super().__init__(parent, on_return_callback, tts_service, sfx_service)
 
+        # Initialize keyboard binding IDs
+        self._keypress_bind_id: str | None = None
+        self._keyrelease_bind_id: str | None = None
+
         # Vincular evento de redimensionamiento
         self.parent.bind("<Configure>", self.on_resize)
 
@@ -628,14 +632,22 @@ class GameScreen(GameScreenLogic):
 
     def bind_physical_keyboard(self):
         root = self.parent.winfo_toplevel()
-        root.bind("<KeyPress>", self.on_physical_key_press)
-        root.bind("<KeyRelease>", self.on_physical_key_release)
+        # Store binding IDs to unbind only our specific handlers
+        self._keypress_bind_id = root.bind("<KeyPress>", self.on_physical_key_press)
+        self._keyrelease_bind_id = root.bind(
+            "<KeyRelease>", self.on_physical_key_release
+        )
 
     def unbind_physical_keyboard(self):
         try:
             root = self.parent.winfo_toplevel()
-            root.unbind("<KeyPress>")
-            root.unbind("<KeyRelease>")
+            # Unbind only our specific handlers using the stored IDs
+            if hasattr(self, "_keypress_bind_id") and self._keypress_bind_id:
+                root.unbind("<KeyPress>", self._keypress_bind_id)
+                self._keypress_bind_id = None
+            if hasattr(self, "_keyrelease_bind_id") and self._keyrelease_bind_id:
+                root.unbind("<KeyRelease>", self._keyrelease_bind_id)
+                self._keyrelease_bind_id = None
         except tk.TclError:
             pass
 

@@ -19,10 +19,13 @@ class TTSService:
         self.config_path = Path(model_dir) / f"{model_name}.json"
         self.voice = None
         self.speaking_thread = None
+        self.speaking_cancelled = threading.Event()
         self.load_lock = threading.Lock()
         self.load_error = None
         self.temp_files = []
         self.temp_lock = threading.Lock()
+        self.cleanup_timer = None
+        self.cleanup_timer_lock = threading.Lock()
 
     def preload(self):
         self.ensure_voice_loaded()
@@ -35,6 +38,8 @@ class TTSService:
             return
 
         self.stop()
+        # Clear cancellation flag for new speech
+        self.speaking_cancelled.clear()
         self.speaking_thread = threading.Thread(
             target=self.speak_worker, args=(text,), daemon=True
         )
@@ -45,11 +50,19 @@ class TTSService:
             if not self.voice:
                 return
 
+            # Check if cancelled before starting
+            if self.speaking_cancelled.is_set():
+                return
+
             buffer = io.BytesIO()
             wav_file = wave.open(buffer, "wb")
             wav_configured = False
 
             for chunk in self.voice.synthesize(text):
+                # Check cancellation during synthesis
+                if self.speaking_cancelled.is_set():
+                    wav_file.close()
+                    return
                 if not wav_configured:
                     wav_file.setnchannels(chunk.sample_channels)
                     wav_file.setsampwidth(chunk.sample_width)
@@ -58,6 +71,10 @@ class TTSService:
                 wav_file.writeframes(chunk.audio_int16_bytes)
 
             wav_file.close()
+
+            # Check if cancelled after synthesis
+            if self.speaking_cancelled.is_set():
+                return
 
             with NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp_path = tmp.name
@@ -69,13 +86,27 @@ class TTSService:
 
             winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
-            # Programar limpieza de archivos temporales viejos después de un retraso
-            threading.Timer(5.0, self.cleanup_old_temp_files).start()
+            # Schedule cleanup with deduplication - cancel existing timer first
+            self.schedule_cleanup_timer()
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
             logging.exception("Failed to synthesize speech: %s", error)
 
+    def schedule_cleanup_timer(self):
+        """Schedule cleanup with deduplication - only one timer runs at a time."""
+        with self.cleanup_timer_lock:
+            # Cancel existing cleanup timer if any
+            if self.cleanup_timer is not None:
+                self.cleanup_timer.cancel()
+            # Schedule new cleanup timer
+            self.cleanup_timer = threading.Timer(5.0, self.cleanup_old_temp_files)
+            self.cleanup_timer.daemon = True
+            self.cleanup_timer.start()
+
     def cleanup_old_temp_files(self):
+        with self.cleanup_timer_lock:
+            self.cleanup_timer = None
+
         with self.temp_lock:
             # Mantener solo el archivo más reciente (podría estar reproduciéndose)
             files_to_remove = self.temp_files[:-1]
@@ -88,11 +119,20 @@ class TTSService:
                 pass
 
     def stop(self):
+        # Signal any running thread to stop
+        self.speaking_cancelled.set()
+
         try:
             winsound.PlaySound(None, winsound.SND_PURGE)
         except (RuntimeError, OSError):
             # Ignorar errores de reproducción al detener audio.
             pass
+
+        # Cancel any pending cleanup timer
+        with self.cleanup_timer_lock:
+            if self.cleanup_timer is not None:
+                self.cleanup_timer.cancel()
+                self.cleanup_timer = None
 
         # Limpiar todos los archivos temporales al detener
         with self.temp_lock:
@@ -106,6 +146,10 @@ class TTSService:
     def shutdown(self):
         """Clean up all resources. Call on application exit."""
         self.stop()
+        # Wait for speaking thread to finish if running (with timeout)
+        if self.speaking_thread is not None and self.speaking_thread.is_alive():
+            self.speaking_thread.join(timeout=1.0)
+        self.speaking_thread = None
         self.voice = None
 
     def ensure_voice_loaded(self):

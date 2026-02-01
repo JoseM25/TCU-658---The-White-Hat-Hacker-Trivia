@@ -31,6 +31,7 @@ class ModalBase:
         self.current_scale = initial_scale
         self.resizable_widgets = {}
         self.resizable_fonts = {}
+        self._closing = False  # Flag to prevent new animation jobs during close
 
     def calculate_scale_factor(self, root):
         if not root or not root.winfo_exists():
@@ -161,6 +162,9 @@ class ModalBase:
             self.animation_jobs.append(job)
 
     def fade_in_row(self, label_widget, value_widget, bg_color, step):
+        # Check closing flag to prevent scheduling during close
+        if self._closing:
+            return
         if not self.modal or not self.modal.winfo_exists():
             return
         label_target = self.widget_target_colors.get(id(label_widget))
@@ -180,6 +184,9 @@ class ModalBase:
                 text_color=self.interpolate_color(bg_color, value_target, progress)
             )
         )
+        # Check closing flag again before scheduling
+        if self._closing:
+            return
         job = self.modal.after(
             self.FADE_STEP_MS,
             lambda: self.fade_in_row(label_widget, value_widget, bg_color, step + 1),
@@ -194,6 +201,8 @@ class ModalBase:
             return None
 
     def close(self):
+        # Set closing flag first to prevent new animation jobs
+        self._closing = True
         modal = self.modal
         # Copy the list to avoid modification during iteration
         jobs_to_cancel = list(self.animation_jobs)
@@ -212,6 +221,7 @@ class ModalBase:
                 pass
         self.modal = None
         self.root = None
+        self._closing = False  # Reset for potential reuse
 
     def safe_try(self, func):
         try:

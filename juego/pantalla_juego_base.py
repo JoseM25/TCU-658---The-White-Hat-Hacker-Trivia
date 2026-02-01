@@ -89,6 +89,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.audio_enabled = not self.sfx.is_muted()
         self.timer_running = False
         self.timer_job = None
+        self.timer_generation = 0  # Counter to invalidate stale timer callbacks
         self.questions_answered = 0
         self.game_completed = False
         self.scoring_system = None
@@ -109,6 +110,8 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         # Manejo del teclado físico
         self.physical_key_pressed = None
         self.key_feedback_job = None
+        self._keypress_bind_id = None
+        self._keyrelease_bind_id = None
 
         # Seguimiento del estado visual
         self.timer_frozen_visually = False

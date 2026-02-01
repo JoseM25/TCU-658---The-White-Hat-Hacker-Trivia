@@ -308,7 +308,6 @@ class GameScreenLogic(GameScreenBase):
             "total_score": self.score,
             "question": self.current_question,
             "answer": self.current_answer,
-            "current_image": self.current_image,
             "was_skipped": True,
             "multiplier": 1,
             "streak": streak,
@@ -422,7 +421,6 @@ class GameScreenLogic(GameScreenBase):
                 "total_score": self.score,
                 "question": self.current_question,
                 "answer": self.current_answer,
-                "current_image": self.current_image,
                 "was_skipped": False,
                 "multiplier": mult,
                 "streak": streak,
@@ -673,16 +671,23 @@ class GameScreenLogic(GameScreenBase):
 
     def start_timer(self):
         self.timer_running = True
+        # Increment generation to invalidate any pending timer callbacks
+        self.timer_generation += 1
+        current_gen = self.timer_generation
         if self.timer_job:
             try:
                 self.parent.after_cancel(self.timer_job)
             except tk.TclError:
                 pass
             self.timer_job = None
-        self.timer_job = self.parent.after(1000, self.update_timer)
+        self.timer_job = self.parent.after(
+            1000, lambda gen=current_gen: self.update_timer(gen)
+        )
 
     def stop_timer(self):
         self.timer_running = False
+        # Increment generation to invalidate any pending timer callbacks
+        self.timer_generation += 1
         if self.timer_job:
             try:
                 self.parent.after_cancel(self.timer_job)
@@ -690,7 +695,10 @@ class GameScreenLogic(GameScreenBase):
                 pass
             self.timer_job = None
 
-    def update_timer(self):
+    def update_timer(self, generation=None):
+        # Check if this callback belongs to the current timer generation
+        if generation is not None and generation != self.timer_generation:
+            return  # Stale callback, ignore
         if not self.timer_running:
             self.timer_job = None
             return
@@ -698,6 +706,9 @@ class GameScreenLogic(GameScreenBase):
         m, s = divmod(self.question_timer, 60)
         self.timer_label.configure(text=f"{m:02d}:{s:02d}")
         if self.timer_running:  # Verificar antes de programar
-            self.timer_job = self.parent.after(1000, self.update_timer)
+            current_gen = self.timer_generation
+            self.timer_job = self.parent.after(
+                1000, lambda gen=current_gen: self.update_timer(gen)
+            )
         else:
             self.timer_job = None
