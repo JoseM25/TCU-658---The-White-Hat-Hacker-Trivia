@@ -5,6 +5,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.modales_confirmacion import ConfirmationModal
 from juego.rutas_app import get_resource_images_dir
 
 
@@ -30,6 +31,7 @@ class MenuScreen:
         self.logo_label = None
         self.title_label = None
         self.logo_image = None
+        self.exit_modal = None
 
         self.footer_items = []
 
@@ -311,6 +313,17 @@ class MenuScreen:
             self.resize_job = None
 
     def exit_game(self):
-        result = messagebox.askyesno("Salir", "¿Estás seguro que quieres salir?")
-        if result:
-            self.parent.destroy()
+        self.exit_modal = ConfirmationModal(
+            self.parent,
+            "Exit",
+            "Are you sure you want to exit?",
+            on_confirm_callback=self.on_exit_confirmed,
+            on_cancel_callback=None,
+            confirm_text="Yes",
+            cancel_text="No",
+            initial_scale=1.0,
+        )
+        self.exit_modal.show()
+
+    def on_exit_confirmed(self):
+        self.parent.destroy()
