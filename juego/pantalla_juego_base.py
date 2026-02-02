@@ -90,6 +90,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.double_points_visually_active = False
         self.ultimo_tam_imagen = 0
         self.cached_original_image = None
+        self.cached_image_path = None
 
         # Atributos de UI
         self.main = None

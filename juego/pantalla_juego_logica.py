@@ -40,6 +40,7 @@ class GameScreenLogic(GameScreenBase):
         self.completion_modal = None
         self.summary_modal = None
         self.cached_original_image = None
+        self.cached_image_path = None  # Track which image path is cached
 
         super().__init__(parent, on_return_callback, tts_service, sfx_service)
 
@@ -114,6 +115,7 @@ class GameScreenLogic(GameScreenBase):
 
         # Limpiar caché de imagen
         self.cached_original_image = None
+        self.cached_image_path = None
 
         if not self.questions:
             self.set_definition_text("No questions available!")
@@ -149,15 +151,21 @@ class GameScreenLogic(GameScreenBase):
             self.image_label.configure(image=None, text="No Image")
             self.current_image = None
             self.cached_original_image = None
+            self.cached_image_path = None
             return
 
         try:
             # Inicializar caché si no existe
             if not hasattr(self, "cached_original_image"):
                 self.cached_original_image = None
+            if not hasattr(self, "cached_image_path"):
+                self.cached_image_path = None
 
-            # Cargar imagen solo si no está en caché
-            if self.cached_original_image is None:
+            # Cargar imagen solo si no está en caché O si la ruta cambió
+            if (
+                self.cached_original_image is None
+                or self.cached_image_path != image_path
+            ):
                 resolved_path = None
                 if self.image_handler:
                     resolved_path = self.image_handler.resolve_image_path(image_path)
@@ -166,10 +174,12 @@ class GameScreenLogic(GameScreenBase):
                     with Image.open(resolved_path) as img:
                         # Guardamos copia RGBA en memoria
                         self.cached_original_image = img.convert("RGBA").copy()
+                        self.cached_image_path = image_path
                 else:
                     self.image_label.configure(image=None, text="Image not found")
                     self.current_image = None
                     self.cached_original_image = None
+                    self.cached_image_path = None
                     return
 
             # Si tenemos imagen en caché, redimensionar
