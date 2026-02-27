@@ -72,9 +72,13 @@ class ResponsiveScaler:
             return value if value is not None else (profile[-1][0] if profile else 1.0)
 
         sample_value = profile[0][1]
-        cast_func = (
-            float if isinstance(sample_value, float) else lambda x: int(round(x))
-        )
+
+        def cast_to_int_rounded(x):
+            return int(round(x))
+
+        cast_func = cast_to_int_rounded
+        if hasattr(sample_value, "is_integer"):
+            cast_func = float
 
         lower_bound, lower_value = profile[0]
         if value <= lower_bound:

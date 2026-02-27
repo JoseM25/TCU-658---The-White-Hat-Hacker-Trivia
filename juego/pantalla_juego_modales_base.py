@@ -94,7 +94,7 @@ class ModalBase:
             self.modal.transient(root)
             self.modal.grab_set()
         self.modal.resizable(False, False)
-        # Re-center modal after widgets are rendered
+        # Volver a centrar el modal después de renderizar los widgets
         self.modal.update_idletasks()
         final_w = self.modal.winfo_width()
         final_h = self.modal.winfo_height()

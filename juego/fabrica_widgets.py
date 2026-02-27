@@ -155,18 +155,20 @@ class ScaledWidgetResizer:
 
         s = self.scaler.scale_value
 
-        if isinstance(base_padding, dict):
+        try:
             padx = base_padding.get("padx", 0)
             pady = base_padding.get("pady", 0)
+        except AttributeError:
+            return
 
-            if isinstance(padx, tuple):
-                padx = tuple(s(p, scale) for p in padx)
-            else:
-                padx = s(padx, scale)
+        try:
+            padx = tuple(s(p, scale) for p in padx)
+        except TypeError:
+            padx = s(padx, scale)
 
-            if isinstance(pady, tuple):
-                pady = tuple(s(p, scale) for p in pady)
-            else:
-                pady = s(pady, scale)
+        try:
+            pady = tuple(s(p, scale) for p in pady)
+        except TypeError:
+            pady = s(pady, scale)
 
-            widget.grid_configure(padx=padx, pady=pady)
+        widget.grid_configure(padx=padx, pady=pady)

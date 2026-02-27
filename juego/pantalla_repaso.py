@@ -45,7 +45,7 @@ class ReviewScreen:
         self.on_return_callback = on_return_callback
         self.sfx = sfx_service
 
-        # State
+        # Estado
         self.questions, self.answer_box_labels = [], []
         self.current_index, self.ultimo_tam_imagen = 0, 0
         self.current_question = self.current_image = self.cached_original_image = (
@@ -56,7 +56,7 @@ class ReviewScreen:
         ) = None
         self.audio_enabled = True
 
-        # UI references
+        # Referencias de interfaz
         self.main = self.header_frame = self.header_left_container = (
             self.header_center_container
         ) = self.header_right_container = None
@@ -79,7 +79,7 @@ class ReviewScreen:
         self.nav_buttons_frame = self.prev_button = self.next_button = None
         self.menu_button = None
 
-        # Fonts (set by font_registry.attach_attributes)
+        # Fuentes (se asignan con font_registry.attach_attributes)
         self.timer_font = None
         self.score_font = None
         self.definition_font = None
@@ -93,7 +93,7 @@ class ReviewScreen:
         self.charges_font = None
         self.multiplier_font = None
 
-        # Paths & services
+        # Rutas y servicios
         resource_images_dir = get_resource_images_dir()
         resource_audio_dir = get_resource_audio_dir()
         data_root = get_data_root()
@@ -115,7 +115,7 @@ class ReviewScreen:
         if self.sfx and hasattr(self.sfx, "is_muted"):
             self.audio_enabled = not self.sfx.is_muted()
 
-        # Responsive system
+        # Sistema responsivo
         self.scaler = ResponsiveScaler(
             self.BASE_DIMENSIONS,
             self.SCALE_LIMITS,
@@ -132,22 +132,22 @@ class ReviewScreen:
         self.current_window_height = self.BASE_DIMENSIONS[1]
         self.size_state = {}
 
-        # Load questions and build
+        # Cargar preguntas y construir interfaz
         self.load_questions()
         self.build_ui()
 
-        # Bind resize
+        # Vincular redimensionamiento
         self.parent.bind("<Configure>", self.on_resize)
 
-        # Bind keyboard for navigation
+        # Vincular teclado para navegación
         self._keypress_bind_id = self.parent.winfo_toplevel().bind(
             "<KeyPress>", self._on_key_press
         )
 
-        # Initial layout
+        # Diseño inicial
         self.apply_responsive()
 
-        # Show first question
+        # Mostrar primera pregunta
         if self.questions:
             self.show_question(0)
 

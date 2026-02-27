@@ -454,8 +454,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.update_definition_scrollbar_visibility()
 
     def _on_scroll_idle_check(self):
-        """Primer chequeo inmediato, luego programar un segundo chequeo
-        diferido para capturar cambios de geometría que aún no se resolvieron."""
         self.definition_scroll_update_job = None
         self.update_definition_scrollbar_visibility()
         # Programar un segundo chequeo diferido: las etiquetas con wraplength
@@ -469,7 +467,6 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
                 pass
 
     def _on_scroll_delayed_check(self):
-        """Segundo chequeo diferido para capturar geometría resuelta."""
         self.definition_scroll_delayed_job = None
         self.update_definition_scrollbar_visibility()
 

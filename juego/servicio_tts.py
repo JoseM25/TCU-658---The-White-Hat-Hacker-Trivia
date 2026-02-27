@@ -92,7 +92,7 @@ class TTSService:
                 wav_file.writeframes(chunk.audio_int16_bytes)
 
             if wav_file is None:
-                # No audio was generated (e.g. empty text or unpronounceable)
+                # No se generó audio (ej. texto vacío o impronunciable)
                 return
 
             wav_file.close()

@@ -587,7 +587,7 @@ class QuestionFormModal(BaseQuestionModal):
         config,
         image_handler,
         on_save_callback,
-        mode: QuestionFormMode,
+        mode,
         question=None,
     ):
         super().__init__(parent, config, image_handler)

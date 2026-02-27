@@ -40,7 +40,7 @@ class GameScreenLogic(GameScreenBase):
         self.completion_modal = None
         self.summary_modal = None
         self.cached_original_image = None
-        self.cached_image_path = None  # Track which image path is cached
+        self.cached_image_path = None  # Guarda qué ruta de imagen está en caché
 
         super().__init__(parent, on_return_callback, tts_service, sfx_service)
 
