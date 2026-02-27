@@ -200,9 +200,9 @@ GAME_ANSWER_BOX_PROFILE = [
 
 # Perfil de tamaño de teclas (reducido agresivamente en baja resolución)
 GAME_KEY_SIZE_PROFILE = [
-    (720, 60),
-    (900, 65),
-    (1080, 70),
+    (720, 52),
+    (900, 58),
+    (1080, 68),
     (1280, 75),
     (1600, 80),
     (1920, 85),
@@ -212,11 +212,11 @@ GAME_KEY_SIZE_PROFILE = [
 ]
 
 # Perfil de escala del teclado (basado en altura) para mantener el teclado compacto
-# Escalado menos agresivo para evitar desbordamiento en pantallas con DPI escalado
+# Escalado más agresivo en 720p para evitar desbordamiento vertical
 # (ej. 1080p al 125% da 864 píxeles lógicos pero no es realmente baja resolución)
 GAME_KEYBOARD_SCALE_PROFILE = [
-    (720, 0.90),
-    (800, 0.90),
+    (720, 0.86),
+    (800, 0.88),
     (900, 0.90),
     (1080, 0.95),
     (1440, 1.00),
@@ -225,8 +225,8 @@ GAME_KEYBOARD_SCALE_PROFILE = [
 
 # Perfil de relleno horizontal del teclado
 GAME_KEYBOARD_PAD_PROFILE = [
-    (720, 100),
-    (900, 168),
+    (720, 80),
+    (900, 140),
     (1080, 220),
     (1280, 260),
     (1600, 320),
@@ -252,8 +252,8 @@ GAME_DEFINITION_WRAP_PROFILE = [
 
 # Perfil de altura de scroll de definición
 GAME_DEFINITION_HEIGHT_PROFILE = [
-    (720, 50),
-    (900, 60),
+    (720, 56),
+    (900, 62),
     (1080, 70),
     (1280, 80),
     (1600, 100),

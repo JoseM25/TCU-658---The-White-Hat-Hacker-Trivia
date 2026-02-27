@@ -4,6 +4,7 @@ import customtkinter as ctk
 from PIL import ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.ayudantes_responsivos import get_dpi_scaling, get_logical_dimensions
 from juego.rutas_app import get_resource_images_dir
 
 
@@ -189,8 +190,10 @@ class CreditsScreen:
         self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def apply_responsive(self):
-        w = max(self.parent.winfo_width(), 1)
-        h = max(self.parent.winfo_height(), 1)
+        w, h = get_logical_dimensions(self.parent, self.BASE_DIMENSIONS)
+
+        # grid_configure() no pasa por el escalado de CTk, necesitamos escalar manualmente
+        dpi = get_dpi_scaling(self.body_container)
 
         scale = min(w / self.BASE_DIMENSIONS[0], h / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
@@ -217,16 +220,17 @@ class CreditsScreen:
 
         divider_base = 900
         divider_target = int(divider_base * scale)
-        divider_w = max(320, min(capacity_w, 1100, divider_target))
+        divider_soft_cap = min(int(w * 0.92), 1100)
+        divider_w = max(320, min(capacity_w, divider_soft_cap, divider_target))
         divider_padx = max(min_gutter, (w - divider_w) // 2)
-        self.divider_container.grid_configure(padx=divider_padx)
+        self.divider_container.grid_configure(padx=int(divider_padx * dpi))
 
         body_base = 1100
         body_target = int(body_base * scale)
-        body_soft_cap = min(int(w * 0.94), 1600)
-        body_w = max(520, min(capacity_w, body_soft_cap, body_target))
+        body_soft_cap = min(int(w * 0.92), 1600)
+        body_w = max(520, min(capacity_w, body_soft_cap, max(body_target, divider_w)))
         body_padx = max(min_gutter, (w - body_w) // 2)
-        self.body_container.grid_configure(padx=body_padx)
+        self.body_container.grid_configure(padx=int(body_padx * dpi))
 
         if self.divider_bar:
             self.divider_bar.configure(height=int(max(3, min(10, 8 * scale))))
@@ -241,7 +245,9 @@ class CreditsScreen:
             int(max(12, self.BUTTON_BOTTOM_PAD_BASE * scale))
             + self.BUTTON_EXTRA_BOTTOM_PAD
         )
-        self.button_container.grid_configure(pady=(top_pad, bottom_pad))
+        self.button_container.grid_configure(
+            pady=(int(top_pad * dpi), int(bottom_pad * dpi))
+        )
 
         if self.body_label:
             self.body_label.configure(wraplength=max(260, body_w - 40))

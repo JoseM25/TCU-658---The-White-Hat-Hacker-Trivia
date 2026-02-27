@@ -5,6 +5,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.ayudantes_responsivos import get_dpi_scaling, get_logical_dimensions
 from juego.modales_confirmacion import ConfirmationModal
 from juego.rutas_app import get_resource_images_dir
 
@@ -200,8 +201,8 @@ class MenuScreen:
         self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def apply_responsive(self):
-        w = max(self.parent.winfo_width(), 1)
-        h = max(self.parent.winfo_height(), 1)
+        w, h = get_logical_dimensions(self.parent, self.BASE_DIMENSIONS)
+        dpi = get_dpi_scaling(self.parent)
 
         scale = min(w / self.BASE_DIMENSIONS[0], h / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
@@ -216,7 +217,7 @@ class MenuScreen:
         pad_y = int(max(4, min(12, 10 * scale)))
         height = int(max(24, 48 * scale))
         for button in self.menu_buttons:
-            button.grid_configure(pady=pad_y)
+            button.grid_configure(pady=int(pad_y * dpi))
             button.configure(height=height)
 
         if self.logo_image is not None:

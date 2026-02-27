@@ -4,6 +4,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from tksvg import SvgImage as TkSvgImage
 
+from juego.ayudantes_responsivos import get_dpi_scaling, get_logical_dimensions
 from juego.rutas_app import get_resource_images_dir
 
 
@@ -39,10 +40,10 @@ class InstructionsScreen:
     WRAP_BASE = 600
     WRAP_MIN = 300
     WRAP_MAX = 1200
-    WRAP_MAX_FRACTION = 0.78
-    WRAP_FILL = 0.78
-    WRAP_SMALL_FRACTION = 0.78
-    WRAP_SMALL_FILL = 0.78
+    WRAP_MAX_FRACTION = 1.0
+    WRAP_FILL = 0.95
+    WRAP_SMALL_FRACTION = 0.90
+    WRAP_SMALL_FILL = 0.95
 
     HEADER_PAD_BASE = 32
     CARD_PAD_BASE = 24
@@ -472,8 +473,7 @@ class InstructionsScreen:
         self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def apply_responsive(self):
-        width = max(self.parent.winfo_width(), 1)
-        height = max(self.parent.winfo_height(), 1)
+        width, height = get_logical_dimensions(self.parent, self.BASE_DIMENSIONS)
 
         scale = min(width / self.BASE_DIMENSIONS[0], height / self.BASE_DIMENSIONS[1])
         scale = max(self.SCALE_LIMITS[0], min(self.SCALE_LIMITS[1], scale))
@@ -504,10 +504,13 @@ class InstructionsScreen:
             )
             self.logo_image.configure(size=(desired, desired))
 
+        dpi = get_dpi_scaling(self.parent)
+
         header_pad = int(max(16, min(64, self.HEADER_PAD_BASE * scale)))
         header_bottom = int(max(10, min(32, header_pad * 0.6)))
         self.header_frame.grid_configure(
-            padx=header_pad, pady=(header_pad, header_bottom)
+            padx=int(header_pad * dpi),
+            pady=(int(header_pad * dpi), int(header_bottom * dpi)),
         )
 
         toggle_width = int(max(42, min(160, self.TOGGLE_WIDTH_BASE * scale)))
@@ -523,7 +526,7 @@ class InstructionsScreen:
             )
         )
         card_padx = max(card_pad, (width - target_card_width) // 2)
-        self.card_container.grid_configure(padx=card_padx)
+        self.card_container.grid_configure(padx=int(card_padx * dpi))
 
         inner_pad = int(max(14, min(48, self.CARD_PAD_BASE * scale)))
         section_gap = int(max(10, min(30, self.SECTION_PAD_BASE * scale)))
@@ -569,7 +572,10 @@ class InstructionsScreen:
                 top_pad = inner_pad if is_first else section_gap
                 bottom_pad = inner_pad if is_last else section_gap
 
-            widget["frame"].grid_configure(padx=inner_pad, pady=(top_pad, bottom_pad))
+            widget["frame"].grid_configure(
+                padx=int(inner_pad * dpi),
+                pady=(int(top_pad * dpi), int(bottom_pad * dpi)),
+            )
             widget["icon_frame"].configure(width=icon_size, height=icon_size)
             if widget["icon_image"]:
                 widget["icon_image"].configure(size=(icon_size, icon_size))
@@ -580,8 +586,8 @@ class InstructionsScreen:
         button_pad_top = int(max(10, min(40, self.BUTTON_PAD_TOP_BASE * scale)))
         button_pad_bottom = int(max(18, min(72, self.BUTTON_PAD_BOTTOM_BASE * scale)))
         self.button_container.grid_configure(
-            padx=card_padx,
-            pady=(button_pad_top, button_pad_bottom),
+            padx=int(card_padx * dpi),
+            pady=(int(button_pad_top * dpi), int(button_pad_bottom * dpi)),
         )
 
         button_width = int(max(160, min(320, 220 * scale)))

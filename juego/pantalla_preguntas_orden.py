@@ -1,5 +1,7 @@
 import tkinter as tk
 
+from juego.ayudantes_responsivos import get_logical_dimensions
+
 
 class QuestionScreenLayoutMixin:
 
@@ -424,8 +426,7 @@ class QuestionScreenLayoutMixin:
         if not self.parent or not self.parent.winfo_exists():
             return
 
-        width = max(self.parent.winfo_width(), 1)
-        height = max(self.parent.winfo_height(), 1)
+        width, height = get_logical_dimensions(self.parent, self.BASE_DIMENSIONS)
         self.current_window_width = width
         self.current_window_height = height
 

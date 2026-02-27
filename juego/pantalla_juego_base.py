@@ -3,7 +3,7 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from juego.ayudantes_responsivos import ResponsiveScaler
+from juego.ayudantes_responsivos import ResponsiveScaler, get_logical_dimensions
 from juego.comodines import WildcardManager
 from juego.logica import ScoringSystem
 from juego.manejador_imagenes import ImageHandler
@@ -120,6 +120,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.definition_scrollbar_visible = None
         self.definition_scrollbar_manager = None
         self.definition_scroll_update_job = None
+        self.definition_scroll_delayed_job = None
         self.answer_boxes_frame = None
         self.answer_box_labels = []
         self.keyboard_frame = None
@@ -373,12 +374,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         return scaling
 
     def get_logical_dimensions(self):
-        if not self.parent or not self.parent.winfo_exists():
-            return self.BASE_DIMENSIONS
-        scaling = self.get_window_scaling()
-        width = max(int(round(self.parent.winfo_width() / scaling)), 1)
-        height = max(int(round(self.parent.winfo_height() / scaling)), 1)
-        return width, height
+        return get_logical_dimensions(self.parent, self.BASE_DIMENSIONS)
 
     def get_current_scale(self):
         w, h = self.get_logical_dimensions()
@@ -443,13 +439,39 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             except tk.TclError:
                 pass
             self.definition_scroll_update_job = None
+        if self.definition_scroll_delayed_job:
+            try:
+                self.parent.after_cancel(self.definition_scroll_delayed_job)
+            except tk.TclError:
+                pass
+            self.definition_scroll_delayed_job = None
         try:
             self.definition_scroll_update_job = self.parent.after_idle(
-                self.update_definition_scrollbar_visibility
+                self._on_scroll_idle_check
             )
         except tk.TclError:
             self.definition_scroll_update_job = None
             self.update_definition_scrollbar_visibility()
+
+    def _on_scroll_idle_check(self):
+        """Primer chequeo inmediato, luego programar un segundo chequeo
+        diferido para capturar cambios de geometría que aún no se resolvieron."""
+        self.definition_scroll_update_job = None
+        self.update_definition_scrollbar_visibility()
+        # Programar un segundo chequeo diferido: las etiquetas con wraplength
+        # a menudo no reportan su altura final en after_idle.
+        if self.parent and self.parent.winfo_exists():
+            try:
+                self.definition_scroll_delayed_job = self.parent.after(
+                    150, self._on_scroll_delayed_check
+                )
+            except tk.TclError:
+                pass
+
+    def _on_scroll_delayed_check(self):
+        """Segundo chequeo diferido para capturar geometría resuelta."""
+        self.definition_scroll_delayed_job = None
+        self.update_definition_scrollbar_visibility()
 
     def update_definition_scrollbar_visibility(self):
         self.definition_scroll_update_job = None
@@ -480,7 +502,8 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             wrapper_height = self.definition_scroll_wrapper.winfo_reqheight()
         content_height = content.winfo_reqheight()
 
-        needs_scroll = content_height > (wrapper_height + 2)
+        # Usar tolerancia mínima para detectar corte de texto con mayor fiabilidad
+        needs_scroll = content_height > wrapper_height
         self.set_definition_scrollbar_visible(needs_scroll)
 
     def set_definition_scrollbar_visible(self, visible):

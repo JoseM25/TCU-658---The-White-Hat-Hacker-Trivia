@@ -202,7 +202,7 @@ class GameScreen(GameScreenLogic):
             return
 
         is_compact = sizes.get("is_height_constrained", False)
-        min_ratio = 0.72 if is_compact else 0.8
+        min_ratio = 0.68 if is_compact else 0.78
         target_height = max(kb_height - overflow, kb_height * min_ratio)
         squeeze = max(min_ratio, min(1.0, target_height / kb_height))
         if squeeze >= 0.999:
@@ -626,6 +626,13 @@ class GameScreen(GameScreenLogic):
             except (tk.TclError, ValueError):
                 pass
             self.definition_scroll_update_job = None
+
+        if self.definition_scroll_delayed_job:
+            try:
+                self.parent.after_cancel(self.definition_scroll_delayed_job)
+            except (tk.TclError, ValueError):
+                pass
+            self.definition_scroll_delayed_job = None
 
         self.close_all_modals()
 

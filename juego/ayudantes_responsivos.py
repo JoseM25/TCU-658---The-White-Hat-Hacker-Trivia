@@ -1,3 +1,39 @@
+import customtkinter as ctk
+
+
+def get_logical_dimensions(widget, fallback=(1280, 720)):
+    """Obtener dimensiones lógicas de un widget, compensando el factor de escala DPI."""
+    if not widget or not widget.winfo_exists():
+        return fallback
+    try:
+        root = widget.winfo_toplevel()
+        scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
+    except (AttributeError, KeyError, ValueError):
+        scaling = 1.0
+    if not scaling or scaling <= 0:
+        scaling = 1.0
+    width = max(int(round(widget.winfo_width() / scaling)), 1)
+    height = max(int(round(widget.winfo_height() / scaling)), 1)
+    return width, height
+
+
+def get_dpi_scaling(widget):
+    """Obtener el factor de escala DPI del widget (widget_scaling de CTk).
+
+    Útil para convertir valores lógicos a físicos cuando se usa grid_configure(),
+    que no pasa por el escalado automático de CTk (a diferencia de .grid()).
+    """
+    if not widget or not widget.winfo_exists():
+        return 1.0
+    try:
+        scaling = ctk.ScalingTracker.get_widget_scaling(widget)
+    except (AttributeError, KeyError, ValueError):
+        return 1.0
+    if not scaling or scaling <= 0:
+        return 1.0
+    return scaling
+
+
 class ResponsiveScaler:
 
     def __init__(self, base_dimensions, scale_limits, global_scale_factor):
