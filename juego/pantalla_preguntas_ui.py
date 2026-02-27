@@ -198,7 +198,7 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         )
         self.add_button.grid(row=0, column=1, padx=(0, 16), pady=16)
 
-    def on_search_event(self):
+    def on_search_event(self, _event=None):
         self.handle_search()
 
     def build_question_list_container(self, parent):

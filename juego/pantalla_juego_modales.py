@@ -375,12 +375,12 @@ class GameCompletionModal(ModalBase):
             return "Expert"
         return "Master"
 
-    def handle_previous(self):
+    def handle_previous(self, _event=None):
         self.close()
         if self.on_previous_callback:
             self.on_previous_callback()
 
-    def handle_close(self):
+    def handle_close(self, _event=None):
         self.close()
         if self.on_close_callback:
             self.on_close_callback()
@@ -422,6 +422,7 @@ class QuestionSummaryModal(ModalBase):
         self.charges_earned = charges_earned
         self.charges_max_reached = charges_max_reached
         self.confirmation_modal = None
+        self.next_button = None
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
@@ -576,7 +577,7 @@ class QuestionSummaryModal(ModalBase):
             height=sizes["btn_h"],
             corner_radius=sizes["btn_r"],
         ).grid(row=0, column=1, padx=btn_gap)
-        ctk.CTkButton(
+        self.next_button = ctk.CTkButton(
             btn_container,
             text="Next",
             font=sizes["button_font"],
@@ -587,7 +588,8 @@ class QuestionSummaryModal(ModalBase):
             width=sizes["btn_w"],
             height=sizes["btn_h"],
             corner_radius=sizes["btn_r"],
-        ).grid(row=0, column=2, padx=(btn_gap, 0))
+        )
+        self.next_button.grid(row=0, column=2, padx=(btn_gap, 0))
         ctk.CTkButton(
             btn_container,
             text="Main Menu",
@@ -603,6 +605,9 @@ class QuestionSummaryModal(ModalBase):
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
         self.modal.bind("<Escape>", self.handle_close)
         self.modal.bind("<Return>", self.handle_next)
+        self.modal.bind("<KP_Enter>", self.handle_next)
+        self.safe_try(self.modal.focus_force)
+        self.safe_try(self.next_button.focus_set)
         self.start_fade_in_animation(bg)
 
     def calc_sizes(self, scale, modal_width, modal_height):
@@ -632,17 +637,17 @@ class QuestionSummaryModal(ModalBase):
             "modal_scale": m_scale,
         }
 
-    def handle_next(self):
+    def handle_next(self, _event=None):
         self.close()
         if self.on_next_callback:
             self.on_next_callback()
 
-    def handle_close(self):
+    def handle_close(self, _event=None):
         self.close()
         if self.on_close_callback:
             self.on_close_callback()
 
-    def handle_previous(self):
+    def handle_previous(self, _event=None):
         self.close()
         if self.on_previous_callback:
             self.on_previous_callback()
@@ -762,10 +767,10 @@ class SkipConfirmationModal(ModalBase):
             "border_w": sv(3, 2, 5),
         }
 
-    def handle_skip(self):
+    def handle_skip(self, _event=None):
         self.close()
         if self.on_skip_callback:
             self.on_skip_callback()
 
-    def handle_close(self):
+    def handle_close(self, _event=None):
         self.close()

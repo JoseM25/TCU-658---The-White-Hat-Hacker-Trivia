@@ -149,7 +149,7 @@ class BaseModal:
             self.modal.lift()
             self.modal.focus_force()
 
-    def close_from_event(self):
+    def close_from_event(self, _event=None):
         self.close()
 
 
@@ -208,7 +208,7 @@ class BaseQuestionModal(BaseModal):
         self.image_input_frame = None
         self.image_picker_frame = None
 
-    def limit_title_length(self):
+    def limit_title_length(self, *_):
         value = self.title_var.get()
         if len(value) > TITLE_MAX_LENGTH:
             self.title_var.set(value[:TITLE_MAX_LENGTH])
@@ -347,7 +347,7 @@ class BaseQuestionModal(BaseModal):
         )
         return container
 
-    def handle_modal_event_callback(self, callback):
+    def handle_modal_event_callback(self, callback, _event=None):
         callback()
 
     def show_existing_modal(self):

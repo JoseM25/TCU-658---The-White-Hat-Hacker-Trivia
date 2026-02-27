@@ -97,10 +97,10 @@ class ConfirmationModal(ModalBase):
         self.modal.bind("<Escape>", self.handle_cancel_event)
         self.modal.bind("<Return>", self.handle_confirm_event)
 
-    def handle_cancel_event(self):
+    def handle_cancel_event(self, _event=None):
         self.handle_cancel()
 
-    def handle_confirm_event(self):
+    def handle_confirm_event(self, _event=None):
         self.handle_confirm()
 
     def calc_sizes(self, scale):
