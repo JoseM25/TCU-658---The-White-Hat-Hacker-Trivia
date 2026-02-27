@@ -164,7 +164,6 @@ class HoverSoundBinder:
         self.sfx = sfx_service
         self.hovered_button = None
         self.hover_cooldown_ms = 80
-        # Guardar referencia débil a nivel de clase para que el closure no mantenga referencia fuerte
         HoverSoundBinder.active_sfx_ref = weakref.ref(sfx_service)
         self.bind_events()
         self.install_click_hook()
@@ -249,8 +248,7 @@ class HoverSoundBinder:
 
         self.hovered_button = None
 
-    @staticmethod
-    def find_button(widget):
+    def find_button(self, widget):
         while widget is not None:
             try:
                 if widget.winfo_class() == "CTkButton":

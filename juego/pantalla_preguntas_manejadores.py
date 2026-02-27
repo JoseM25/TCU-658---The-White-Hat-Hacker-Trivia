@@ -306,7 +306,7 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
 
         try:
             textbox.update_idletasks()
-            _, last = target.yview()
+            last = target.yview()[1]
         except (tk.TclError, AttributeError, TypeError, ValueError):
             return
 

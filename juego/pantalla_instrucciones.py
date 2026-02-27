@@ -1,4 +1,5 @@
-﻿from tkinter import TclError
+﻿from functools import partial
+from tkinter import TclError
 
 import customtkinter as ctk
 from PIL import Image, ImageTk
@@ -302,7 +303,7 @@ class InstructionsScreen:
                 height=self.TOGGLE_HEIGHT_BASE,
                 fg_color="transparent",
                 hover_color=self.parent.cget("fg_color"),
-                command=lambda value=lang: self.set_language(value),
+                command=partial(self.set_language, lang),
             )
             button.grid(row=0, column=column, padx=4, pady=4, sticky="nsew")
             self.toggle_container.grid_columnconfigure(column, weight=1)

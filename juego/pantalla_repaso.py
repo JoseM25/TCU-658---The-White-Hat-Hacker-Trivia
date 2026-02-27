@@ -139,12 +139,12 @@ class ReviewScreen:
         # Vincular redimensionamiento
         self.parent.bind("<Configure>", self.on_resize)
 
-        # Vincular teclado para navegación
-        self._keypress_bind_id = self.parent.winfo_toplevel().bind(
-            "<KeyPress>", self._on_key_press
+        # Vincular teclado para navegacion
+        self.keypress_bind_id = self.parent.winfo_toplevel().bind(
+            "<KeyPress>", self.on_key_press
         )
 
-        # Diseño inicial
+        # Diseno inicial
         self.apply_responsive()
 
         # Mostrar primera pregunta
@@ -200,7 +200,7 @@ class ReviewScreen:
         self.header_frame = hf
 
         pad_x = self.BASE_SIZES["header_pad_x"]
-        conts = [ctk.CTkFrame(hf, fg_color="transparent") for _ in range(3)]
+        conts = [ctk.CTkFrame(hf, fg_color="transparent") for index in range(3)]
         (
             self.header_left_container,
             self.header_center_container,
@@ -350,7 +350,7 @@ class ReviewScreen:
         self.answer_boxes_frame.grid_rowconfigure(0, weight=1)
         self.answer_boxes_frame.grid_anchor("center")
 
-    def _create_btn(
+    def create_btn(
         self, parent, text, fg, hover, txt_col, cmd, border=0, border_col=""
     ):
         return ctk.CTkButton(
@@ -373,9 +373,9 @@ class ReviewScreen:
         nf.grid(row=0, column=0, pady=(16, 8), sticky="s")
         self.nav_buttons_frame = nf
 
-        self.prev_button = self._create_btn(
+        self.prev_button = self.create_btn(
             nf,
-            "← Previous",
+            "Previous",
             self.COLORS["bg_light"],
             self.COLORS["border_medium"],
             "black",
@@ -383,9 +383,9 @@ class ReviewScreen:
             2,
             "black",
         )
-        self.next_button = self._create_btn(
+        self.next_button = self.create_btn(
             nf,
-            "Next →",
+            "Next",
             self.COLORS["primary_blue"],
             self.COLORS["primary_hover"],
             "white",
@@ -493,7 +493,7 @@ class ReviewScreen:
         for i in range(word_length, len(self.answer_box_labels)):
             self.answer_box_labels[i].grid_remove()
 
-        self._safe_config(
+        self.safe_config(
             self.answer_boxes_frame,
             width=max(box_sz, word_length * (box_sz + gap * 2)),
             height=box_sz + extra_pad,
@@ -504,14 +504,14 @@ class ReviewScreen:
             6 if is_compact else 8,
             12 if is_compact else 28,
         )
-        self._safe_grid(self.answer_boxes_frame, pady=(pad_y, pad_y // 2))
+        self.safe_grid(self.answer_boxes_frame, pady=(pad_y, pad_y // 2))
 
     def load_question_image(self):
         if not self.current_question:
             return
         image_path = self.current_question.get("image", "")
         if not image_path:
-            self._clear_image("No Image")
+            self.clear_image("No Image")
             return
 
         try:
@@ -529,7 +529,7 @@ class ReviewScreen:
                         self.cached_original_image = img.convert("RGBA").copy()
                         self.cached_image_path = image_path
                 else:
-                    self._clear_image("Image not found")
+                    self.clear_image("Image not found")
                     return
 
             if self.cached_original_image:
@@ -544,12 +544,12 @@ class ReviewScreen:
                     )
                     self.image_label.configure(image=self.current_image, text="")
             else:
-                self._clear_image("Image Error")
+                self.clear_image("Image Error")
         except (IOError, OSError, ValueError) as e:
             print(f"Error loading image: {e}")
-            self._clear_image("Error loading image")
+            self.clear_image("Error loading image")
 
-    def _clear_image(self, text):
+    def clear_image(self, text):
         self.image_label.configure(image=None, text=text)
         self.current_image = self.cached_original_image = self.cached_image_path = None
 
@@ -618,7 +618,7 @@ class ReviewScreen:
         if self.on_return_callback:
             self.on_return_callback()
 
-    def _on_key_press(self, event):
+    def on_key_press(self, event):
         key_sym = event.keysym
         if key_sym in ("Right", "Next"):
             self.next_question()
@@ -627,15 +627,15 @@ class ReviewScreen:
         elif key_sym == "Escape":
             self.return_to_menu()
 
-    def _safe_config(self, widget, **kwargs):
+    def safe_config(self, widget, **kwargs):
         if widget and widget.winfo_exists():
             widget.configure(**kwargs)
 
-    def _safe_grid(self, widget, **kwargs):
+    def safe_grid(self, widget, **kwargs):
         if widget and widget.winfo_exists():
             widget.grid_configure(**kwargs)
 
-    def _cancel_job(self, job_attr):
+    def cancel_job(self, job_attr):
         job = getattr(self, job_attr, None)
         if job:
             try:
@@ -653,7 +653,7 @@ class ReviewScreen:
     def get_scaled_image_size(self, scale=None):
         if self.size_state and "image_size" in self.size_state:
             return self.size_state["image_size"]
-        s = scale or self._get_current_scale()
+        s = scale or self.get_current_scale()
         return self.scale_value(
             self.BASE_SIZES["image_base"],
             s,
@@ -664,7 +664,7 @@ class ReviewScreen:
     def get_scaled_box_size(self, scale=None):
         if self.size_state and "answer_box" in self.size_state:
             return self.size_state["answer_box"]
-        s = scale or self._get_current_scale()
+        s = scale or self.get_current_scale()
         return self.scale_value(
             self.BASE_SIZES["answer_box_base"],
             s,
@@ -672,7 +672,7 @@ class ReviewScreen:
             self.BASE_SIZES["answer_box_max"],
         )
 
-    def _get_current_scale(self):
+    def get_current_scale(self):
         w, h = self.get_logical_dimensions()
         return self.scaler.calculate_scale(w, h, GAME_PROFILES.get("low_res"))
 
@@ -704,12 +704,12 @@ class ReviewScreen:
 
     def update_header(self, scale):
         sz = self.size_state
-        self._safe_config(self.header_frame, height=sz["header_height"])
+        self.safe_config(self.header_frame, height=sz["header_height"])
         px, py = sz["header_pad_x"], sz["header_pad_y"]
-        self._safe_grid(self.header_left_container, padx=(px, 0), pady=py)
-        self._safe_grid(self.header_right_container, padx=(0, px), pady=py)
-        self._safe_grid(self.header_center_container, pady=py)
-        self._safe_config(
+        self.safe_grid(self.header_left_container, padx=(px, 0), pady=py)
+        self.safe_grid(self.header_right_container, padx=(0, px), pady=py)
+        self.safe_grid(self.header_center_container, pady=py)
+        self.safe_config(
             self.menu_button,
             width=self.scale_value(130, scale, 80, 280),
             height=self.scale_value(44, scale, 30, 88),
@@ -724,7 +724,7 @@ class ReviewScreen:
             if icon:
                 icon.configure(size=(icon_sz, icon_sz))
 
-        self._safe_config(
+        self.safe_config(
             self.audio_toggle_btn,
             width=sz["audio_button_width"],
             height=sz["audio_button_height"],
@@ -733,12 +733,12 @@ class ReviewScreen:
 
     def update_question_container(self):
         sz = self.size_state
-        self._safe_grid(
+        self.safe_grid(
             self.question_container,
             padx=sz["container_pad_x"],
             pady=(sz["container_pad_y"], 0),
         )
-        self._safe_config(
+        self.safe_config(
             self.question_container, corner_radius=sz["container_corner_radius"]
         )
 
@@ -752,7 +752,7 @@ class ReviewScreen:
         is_compact = sz.get("is_height_constrained", False)
         img_sz = sz["image_size"]
 
-        self._safe_config(self.image_frame, height=img_sz)
+        self.safe_config(self.image_frame, height=img_sz)
         if self.image_frame and self.image_frame.winfo_exists():
             pt = (
                 self.scale_value(12, scale, 6, 20)
@@ -766,7 +766,7 @@ class ReviewScreen:
             )
             self.image_frame.grid_configure(pady=(pt, pb))
 
-        self._safe_config(self.image_label, width=img_sz, height=img_sz)
+        self.safe_config(self.image_label, width=img_sz, height=img_sz)
 
         if self.current_image and self.current_question:
             nuevo_tam = sz.get("image_size", img_sz)
@@ -781,7 +781,7 @@ class ReviewScreen:
 
         pad_x = sz.get("definition_pad_x", self.scale_value(36, scale, 20, 80))
         pad_y = sz.get("definition_pad_y", self.scale_value(14, scale, 8, 36))
-        self._safe_grid(self.definition_frame, padx=pad_x, pady=pad_y)
+        self.safe_grid(self.definition_frame, padx=pad_x, pady=pad_y)
 
         max_height = sz.get("definition_height")
         if max_height is None:
@@ -793,8 +793,8 @@ class ReviewScreen:
                     if sz.get("window_height", 0) >= 1080
                     else self.scale_value(50, scale, 42, 65)
                 )
-        self._safe_config(self.definition_scroll_wrapper, height=max_height)
-        self._safe_config(self.definition_label, wraplength=sz["definition_wrap"])
+        self.safe_config(self.definition_scroll_wrapper, height=max_height)
+        self.safe_config(self.definition_label, wraplength=sz["definition_wrap"])
 
         if self.info_icon:
             isz = sz["info_icon"]
@@ -811,11 +811,11 @@ class ReviewScreen:
 
         visible_boxes = [b for b in self.answer_box_labels if b.winfo_manager()]
         for box in visible_boxes:
-            self._safe_config(box, width=box_sz, height=box_sz)
-            self._safe_grid(box, padx=gap, pady=4)
+            self.safe_config(box, width=box_sz, height=box_sz)
+            self.safe_grid(box, padx=gap, pady=4)
 
         if visible_boxes:
-            self._safe_config(
+            self.safe_config(
                 self.answer_boxes_frame,
                 width=len(visible_boxes) * (box_sz + gap * 2),
                 height=box_sz + extra_pad,
@@ -825,7 +825,7 @@ class ReviewScreen:
                 if is_compact
                 else self.scale_value(14, scale, 8, 28)
             )
-            self._safe_grid(self.answer_boxes_frame, pady=(pad_y, pad_y // 2))
+            self.safe_grid(self.answer_boxes_frame, pady=(pad_y, pad_y // 2))
 
     def update_nav_buttons(self, scale):
         sz = self.size_state
@@ -833,11 +833,11 @@ class ReviewScreen:
         bgap, cr = sz["action_button_gap"] * 2, sz["action_corner_radius"]
 
         for btn in [self.prev_button, self.next_button]:
-            self._safe_config(btn, width=bw, height=bh, corner_radius=cr)
-            self._safe_grid(btn, padx=bgap // 2)
+            self.safe_config(btn, width=bw, height=bh, corner_radius=cr)
+            self.safe_grid(btn, padx=bgap // 2)
 
         pad_y = self.scale_value(16, scale, 8, 32)
-        self._safe_grid(self.nav_buttons_frame, pady=(pad_y, pad_y))
+        self.safe_grid(self.nav_buttons_frame, pady=(pad_y, pad_y))
 
         if self.bottom_container and self.bottom_container.winfo_exists():
             ks = sz.get("keyboard_scale", 1.0)
@@ -860,28 +860,28 @@ class ReviewScreen:
     def queue_definition_scroll_update(self):
         if not self.parent or not self.parent.winfo_exists():
             return
-        self._cancel_job("definition_scroll_update_job")
-        self._cancel_job("definition_scroll_delayed_job")
+        self.cancel_job("definition_scroll_update_job")
+        self.cancel_job("definition_scroll_delayed_job")
         try:
             self.definition_scroll_update_job = self.parent.after_idle(
-                self._on_scroll_idle_check
+                self.on_scroll_idle_check
             )
         except tk.TclError:
             self.definition_scroll_update_job = None
             self.update_definition_scrollbar_visibility()
 
-    def _on_scroll_idle_check(self):
+    def on_scroll_idle_check(self):
         self.definition_scroll_update_job = None
         self.update_definition_scrollbar_visibility()
         if self.parent and self.parent.winfo_exists():
             try:
                 self.definition_scroll_delayed_job = self.parent.after(
-                    150, self._on_scroll_delayed_check
+                    150, self.on_scroll_delayed_check
                 )
             except tk.TclError:
                 pass
 
-    def _on_scroll_delayed_check(self):
+    def on_scroll_delayed_check(self):
         self.definition_scroll_delayed_job = None
         self.update_definition_scrollbar_visibility()
 
@@ -924,7 +924,7 @@ class ReviewScreen:
         if self.definition_scrollbar_visible is visible:
             return
 
-        scrollbar = self._get_scrollbar_widget(self.definition_scroll)
+        scrollbar = self.get_scrollbar_widget(self.definition_scroll)
         if not scrollbar or not scrollbar.winfo_exists():
             return
 
@@ -946,7 +946,7 @@ class ReviewScreen:
 
         self.definition_scrollbar_visible = visible
 
-    def _get_scrollbar_widget(self, scrollable):
+    def get_scrollbar_widget(self, scrollable):
         if not scrollable:
             return None
         for attr in (
@@ -968,7 +968,7 @@ class ReviewScreen:
             "definition_scroll_update_job",
             "definition_scroll_delayed_job",
         ):
-            self._cancel_job(job_attr)
+            self.cancel_job(job_attr)
 
         try:
             self.parent.unbind("<Configure>")
@@ -977,8 +977,8 @@ class ReviewScreen:
 
         try:
             root = self.parent.winfo_toplevel()
-            if hasattr(self, "_keypress_bind_id") and self._keypress_bind_id:
-                root.unbind("<KeyPress>", self._keypress_bind_id)
-                self._keypress_bind_id = None
+            if hasattr(self, "keypress_bind_id") and self.keypress_bind_id:
+                root.unbind("<KeyPress>", self.keypress_bind_id)
+                self.keypress_bind_id = None
         except tk.TclError:
             pass

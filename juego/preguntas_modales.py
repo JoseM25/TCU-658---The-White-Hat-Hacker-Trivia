@@ -1,4 +1,5 @@
 import tkinter as tk
+from functools import partial
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
@@ -143,6 +144,14 @@ class BaseModal:
             self.safe_try(self.modal.destroy)
         self.modal = None
 
+    def lift_and_focus_modal(self):
+        if self.modal:
+            self.modal.lift()
+            self.modal.focus_force()
+
+    def close_from_event(self):
+        self.close()
+
 
 class BaseQuestionModal(BaseModal):
 
@@ -199,7 +208,7 @@ class BaseQuestionModal(BaseModal):
         self.image_input_frame = None
         self.image_picker_frame = None
 
-    def limit_title_length(self, *_):
+    def limit_title_length(self):
         value = self.title_var.get()
         if len(value) > TITLE_MAX_LENGTH:
             self.title_var.set(value[:TITLE_MAX_LENGTH])
@@ -333,8 +342,13 @@ class BaseQuestionModal(BaseModal):
         cancel_callback = on_cancel_callback or self.close
         self.create_buttons(container, on_save_callback, cancel_callback)
         modal.protocol("WM_DELETE_WINDOW", cancel_callback)
-        modal.bind("<Escape>", lambda e: cancel_callback())
+        modal.bind(
+            "<Escape>", partial(self.handle_modal_event_callback, cancel_callback)
+        )
         return container
+
+    def handle_modal_event_callback(self, callback):
+        callback()
 
     def show_existing_modal(self):
         if self.modal and self.modal.winfo_exists():
@@ -615,7 +629,9 @@ class QuestionFormModal(BaseQuestionModal):
         if current_title:
             self.title_var.set(current_title)
         if current_definition:
-            self.safe_try(lambda: self.definition_textbox.insert(0, current_definition))
+            self.safe_try(
+                partial(self.definition_textbox.insert, 0, current_definition)
+            )
 
         if existing_image_path:
             try:
@@ -766,7 +782,7 @@ class DeleteConfirmationModal(BaseModal):
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(self.lift_and_focus_modal)
             return
 
         root = self.parent.winfo_toplevel() if self.parent else None
@@ -848,7 +864,7 @@ class DeleteConfirmationModal(BaseModal):
 
         self.modal = modal
         modal.protocol("WM_DELETE_WINDOW", self.close)
-        modal.bind("<Escape>", lambda e: self.close())
+        modal.bind("<Escape>", self.close_from_event)
 
         scale = self.get_responsive_scale(root)
         self.resize(scale)

@@ -447,13 +447,13 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.definition_scroll_delayed_job = None
         try:
             self.definition_scroll_update_job = self.parent.after_idle(
-                self._on_scroll_idle_check
+                self.on_scroll_idle_check
             )
         except tk.TclError:
             self.definition_scroll_update_job = None
             self.update_definition_scrollbar_visibility()
 
-    def _on_scroll_idle_check(self):
+    def on_scroll_idle_check(self):
         self.definition_scroll_update_job = None
         self.update_definition_scrollbar_visibility()
         # Programar un segundo chequeo diferido: las etiquetas con wraplength
@@ -461,12 +461,12 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         if self.parent and self.parent.winfo_exists():
             try:
                 self.definition_scroll_delayed_job = self.parent.after(
-                    150, self._on_scroll_delayed_check
+                    150, self.on_scroll_delayed_check
                 )
             except tk.TclError:
                 pass
 
-    def _on_scroll_delayed_check(self):
+    def on_scroll_delayed_check(self):
         self.definition_scroll_delayed_job = None
         self.update_definition_scrollbar_visibility()
 

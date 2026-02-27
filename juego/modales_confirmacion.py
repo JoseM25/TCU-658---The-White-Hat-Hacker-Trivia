@@ -27,7 +27,7 @@ class ConfirmationModal(ModalBase):
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(self.lift_and_focus_modal)
             return
         root = self.parent.winfo_toplevel() if self.parent else None
         self.current_scale = self.calculate_scale_factor(root)
@@ -94,8 +94,14 @@ class ConfirmationModal(ModalBase):
             corner_radius=sizes["btn_r"],
         ).grid(row=0, column=1, padx=(sizes["pad"], 0))
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_cancel)
-        self.modal.bind("<Escape>", lambda e: self.handle_cancel())
-        self.modal.bind("<Return>", lambda e: self.handle_confirm())
+        self.modal.bind("<Escape>", self.handle_cancel_event)
+        self.modal.bind("<Return>", self.handle_confirm_event)
+
+    def handle_cancel_event(self):
+        self.handle_cancel()
+
+    def handle_confirm_event(self):
+        self.handle_confirm()
 
     def calc_sizes(self, scale):
         def sv(b, mn, mx):

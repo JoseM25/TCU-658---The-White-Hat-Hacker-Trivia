@@ -1,4 +1,5 @@
 import tkinter as tk
+from functools import partial
 
 import customtkinter as ctk
 
@@ -182,7 +183,7 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         )
         self.search_entry.grid(row=0, column=1, padx=(4, 18), pady=4, sticky="nsew")
         for event in ("<KeyRelease>", "<<Paste>>", "<<Cut>>"):
-            self.search_entry.bind(event, lambda e: self.handle_search())
+            self.search_entry.bind(event, self.on_search_event)
 
         self.add_button = ctk.CTkButton(
             self.controls_frame,
@@ -196,6 +197,9 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
             corner_radius=12,
         )
         self.add_button.grid(row=0, column=1, padx=(0, 16), pady=16)
+
+    def on_search_event(self):
+        self.handle_search()
 
     def build_question_list_container(self, parent):
         self.list_container = ctk.CTkFrame(parent, fg_color="transparent")
@@ -381,8 +385,8 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
             "border_width": 0,
             "corner_radius": 0,
         }
-        FrameClass = ctk.CTkScrollableFrame if is_scrollable else ctk.CTkFrame
-        list_frame = FrameClass(outer_frame, **frame_config)
+        frame_class = ctk.CTkScrollableFrame if is_scrollable else ctk.CTkFrame
+        list_frame = frame_class(outer_frame, **frame_config)
 
         inner_padding = 4
         list_frame.grid(
@@ -431,7 +435,5 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
             **button_config,
         )
 
-        button.configure(
-            command=lambda q=question, b=button: self.on_question_selected(q, b)
-        )
+        button.configure(command=partial(self.on_question_selected, question, button))
         return button

@@ -1,3 +1,5 @@
+from functools import partial
+
 import customtkinter as ctk
 
 from juego.pantalla_juego_config import KEYBOARD_LAYOUT
@@ -434,7 +436,7 @@ class GameUIBuilderMixin:
                     border_width=2,
                     border_color=self.COLORS["header_bg"],
                     corner_radius=8,
-                    command=lambda k=key: self.on_key_press(k),
+                    command=partial(self.on_key_press, key),
                 )
                 btn.grid(row=0, column=col, padx=key_gap // 2)
                 self.keyboard_buttons.append(btn)

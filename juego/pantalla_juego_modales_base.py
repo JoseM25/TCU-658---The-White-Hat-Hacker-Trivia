@@ -1,4 +1,5 @@
 import tkinter as tk
+from functools import partial
 
 import customtkinter as ctk
 from PIL import ImageTk
@@ -75,7 +76,8 @@ class ModalBase:
         root = self.parent.winfo_toplevel() if self.parent else None
         self.root = root
         self.modal = ctk.CTkToplevel(root if root else self.parent)
-        self.modal.after_cancel(self.modal.after(0, lambda: None))
+        no_op_job = self.modal.after(0, self.no_op)
+        self.modal.after_cancel(no_op_job)
         self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))
         scaling = self.get_window_scaling(root or self.modal)
         scaled_width = max(int(round(width * scaling)), 1)
@@ -182,7 +184,8 @@ class ModalBase:
         for i, (lw, vw) in enumerate(self.animated_widgets):
             delay = i * self.ANIMATION_DELAY_MS
             job = self.modal.after(
-                delay, lambda l=lw, v=vw, bg=bg_color: self.fade_in_row(l, v, bg, 0)
+                delay,
+                partial(self.fade_in_row, lw, vw, bg_color, 0),
             )
             self.animation_jobs.append(job)
 
@@ -195,18 +198,20 @@ class ModalBase:
         label_target = self.widget_target_colors.get(id(label_widget))
         value_target = self.widget_target_colors.get(id(value_widget))
         if step >= self.FADE_STEPS:
-            self.safe_try(lambda: label_widget.configure(text_color=label_target))
-            self.safe_try(lambda: value_widget.configure(text_color=value_target))
+            self.safe_try(partial(label_widget.configure, text_color=label_target))
+            self.safe_try(partial(value_widget.configure, text_color=value_target))
             return
         progress = (step + 1) / self.FADE_STEPS
         self.safe_try(
-            lambda: label_widget.configure(
-                text_color=self.interpolate_color(bg_color, label_target, progress)
+            partial(
+                label_widget.configure,
+                text_color=self.interpolate_color(bg_color, label_target, progress),
             )
         )
         self.safe_try(
-            lambda: value_widget.configure(
-                text_color=self.interpolate_color(bg_color, value_target, progress)
+            partial(
+                value_widget.configure,
+                text_color=self.interpolate_color(bg_color, value_target, progress),
             )
         )
         # Verificar bandera de cierre de nuevo antes de programar
@@ -214,7 +219,13 @@ class ModalBase:
             return
         job = self.modal.after(
             self.FADE_STEP_MS,
-            lambda: self.fade_in_row(label_widget, value_widget, bg_color, step + 1),
+            partial(
+                self.fade_in_row,
+                label_widget,
+                value_widget,
+                bg_color,
+                step + 1,
+            ),
         )
         self.animation_jobs.append(job)
 
@@ -234,7 +245,7 @@ class ModalBase:
         self.animation_jobs.clear()
         for job in jobs_to_cancel:
             if modal:
-                self.safe_try(lambda j=job, m=modal: m.after_cancel(j))
+                self.safe_try(partial(modal.after_cancel, job))
         self.animated_widgets.clear()
         self.widget_target_colors.clear()
         if modal:
@@ -253,6 +264,14 @@ class ModalBase:
             func()
         except tk.TclError:
             pass
+
+    def lift_and_focus_modal(self):
+        if self.modal:
+            self.modal.lift()
+            self.modal.focus_force()
+
+    def no_op(self):
+        return None
 
     def resize(self, scale):
         self.current_scale = scale

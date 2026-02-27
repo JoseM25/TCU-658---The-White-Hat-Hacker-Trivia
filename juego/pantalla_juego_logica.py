@@ -1,5 +1,6 @@
 import random
 import tkinter as tk
+from functools import partial
 
 import customtkinter as ctk
 from PIL import Image
@@ -274,7 +275,7 @@ class GameScreenLogic(GameScreenBase):
             pass
         self.parent.after(
             150,
-            lambda: self.safe_configure(box, fg_color=self.COLORS["success_green"]),
+            partial(self.safe_configure, box, fg_color=self.COLORS["success_green"]),
         )
 
     def safe_configure(self, widget, **kw):
@@ -488,7 +489,8 @@ class GameScreenLogic(GameScreenBase):
                 "charges_max_reached": charges_max_reached,
             }
             self.parent.after(
-                600, lambda: self.show_summary_modal_for_state(self.stored_modal_data)
+                600,
+                partial(self.show_summary_modal_for_state, self.stored_modal_data),
             )
         else:
             self.question_mistakes += 1
@@ -715,7 +717,7 @@ class GameScreenLogic(GameScreenBase):
             )
         if step < 5:
             self.feedback_animation_job = self.parent.after(
-                40, lambda: self.animate_feedback(step + 1, target)
+                40, partial(self.animate_feedback, step + 1, target)
             )
         else:
             self.feedback_animation_job = None
@@ -749,7 +751,7 @@ class GameScreenLogic(GameScreenBase):
                 pass
             self.timer_job = None
         self.timer_job = self.parent.after(
-            1000, lambda gen=current_gen: self.update_timer(gen)
+            1000, partial(self.update_timer, current_gen)
         )
 
     def stop_timer(self):
@@ -776,7 +778,7 @@ class GameScreenLogic(GameScreenBase):
         if self.timer_running:  # Verificar antes de programar
             current_gen = self.timer_generation
             self.timer_job = self.parent.after(
-                1000, lambda gen=current_gen: self.update_timer(gen)
+                1000, partial(self.update_timer, current_gen)
             )
         else:
             self.timer_job = None

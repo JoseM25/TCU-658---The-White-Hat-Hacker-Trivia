@@ -38,7 +38,7 @@ class GameCompletionModal(ModalBase):
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(self.lift_and_focus_modal)
             return
         self.show_with_scale()
 
@@ -114,8 +114,8 @@ class GameCompletionModal(ModalBase):
                 self.show_with_scale(scale_override=target_scale, attempt=1)
                 return
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
-        self.modal.bind("<Escape>", lambda e: self.handle_close())
-        self.modal.bind("<Return>", lambda e: self.handle_close())
+        self.modal.bind("<Escape>", self.handle_close)
+        self.modal.bind("<Return>", self.handle_close)
 
     def calc_sizes(self, scale, modal_width, modal_height):
         base_w = MODAL_BASE_SIZES["completion_width"]
@@ -347,15 +347,21 @@ class GameCompletionModal(ModalBase):
             img = Image.merge(
                 "RGBA",
                 (
-                    ir.point(lambda x: int(x * r / 255)),
-                    ig.point(lambda x: int(x * g / 255)),
-                    ib.point(lambda x: int(x * b / 255)),
+                    self.apply_channel_tint(ir, r),
+                    self.apply_channel_tint(ig, g),
+                    self.apply_channel_tint(ib, b),
                     ia,
                 ),
             )
             self.star_icon = ctk.CTkImage(
                 light_image=img, dark_image=img, size=(size, size)
             )
+
+    def apply_channel_tint(self, channel, component):
+        def tint_value(value):
+            return int(value * component / 255)
+
+        return channel.point(tint_value)
 
     def knowledge_level_from_pct(self, mastery_pct):
         pct = max(0.0, min(100.0, float(mastery_pct)))
@@ -419,7 +425,7 @@ class QuestionSummaryModal(ModalBase):
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(self.lift_and_focus_modal)
             return
         root = self.parent.winfo_toplevel() if self.parent else None
         win_width, win_height = (
@@ -595,8 +601,8 @@ class QuestionSummaryModal(ModalBase):
             corner_radius=sizes["btn_r"],
         ).grid(row=1, column=0, columnspan=3, pady=(menu_gap, 0))
         self.modal.protocol("WM_DELETE_WINDOW", self.handle_close)
-        self.modal.bind("<Escape>", lambda e: self.handle_close())
-        self.modal.bind("<Return>", lambda e: self.handle_next())
+        self.modal.bind("<Escape>", self.handle_close)
+        self.modal.bind("<Return>", self.handle_next)
         self.start_fade_in_animation(bg)
 
     def calc_sizes(self, scale, modal_width, modal_height):
@@ -670,7 +676,7 @@ class SkipConfirmationModal(ModalBase):
 
     def show(self):
         if self.modal and self.modal.winfo_exists():
-            self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
+            self.safe_try(self.lift_and_focus_modal)
             return
         root = self.parent.winfo_toplevel() if self.parent else None
         self.current_scale = self.calculate_scale_factor(root)
@@ -737,7 +743,7 @@ class SkipConfirmationModal(ModalBase):
             corner_radius=sizes["btn_r"],
         ).grid(row=0, column=1, padx=(sizes["pad"], 0))
         self.modal.protocol("WM_DELETE_WINDOW", self.close)
-        self.modal.bind("<Escape>", lambda e: self.close())
+        self.modal.bind("<Escape>", self.handle_close)
 
     def calc_sizes(self, scale):
         def sv(b, mn, mx):
@@ -760,3 +766,6 @@ class SkipConfirmationModal(ModalBase):
         self.close()
         if self.on_skip_callback:
             self.on_skip_callback()
+
+    def handle_close(self):
+        self.close()
