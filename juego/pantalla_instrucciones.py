@@ -121,7 +121,7 @@ class InstructionsScreen:
                         "El objetivo principal es que los y las estudiantes identifiquen "
                         "y emparejen definiciones relacionadas con el Hacking Ético con sus "
                         "respectivos términos de vocabulario. Esto se verá facilitado por "
-                        "imágenes y audio. Además, los docentes pueden introducir nuevas "
+                        "imágenes y audio. Además, los y las docentes pueden introducir nuevas "
                         "definiciones y términos de vocabulario.",
                     ],
                 },
@@ -136,10 +136,10 @@ class InstructionsScreen:
                         "a la longitud de la palabra que se debe adivinar, donde cada "
                         "espacio representa una letra. Se proporcionará un teclado "
                         "virtual para la entrada de letras. La pantalla también mostrará "
-                        "un temporizador, opciones de comodín y tu puntuación total.",
-                        "Para ingresar tu respuesta, selecciona letras usando el "
+                        "un temporizador, opciones de comodín y su puntuación total.",
+                        "Para ingresar su respuesta, seleccione letras usando el "
                         "teclado virtual para llenar los espacios proporcionados y luego "
-                        "presiona el botón para verificar tu respuesta. Las respuestas no "
+                        "presione el botón para verificar su respuesta. Las respuestas no "
                         "pueden ser verificadas hasta que todos los espacios de la palabra "
                         "estén llenos.",
                     ],
@@ -148,18 +148,18 @@ class InstructionsScreen:
                     "title": "Puntaje",
                     "body": [
                         "Si la respuesta es incorrecta, el juego indicará que ha cometido "
-                        "un error y podrás intentarlo nuevamente. Si es correcta, se "
+                        "un error y podrá intentarlo nuevamente. Si es correcta, se "
                         "mostrarán la puntuación obtenida y el puntaje total acumulado. "
-                        "Si desconoces la respuesta, puedes saltar la palabra; la respuesta "
+                        "Si desconoce la respuesta, puede saltar la palabra; la respuesta "
                         "correcta será revelada, pero no se otorgarán puntos. La puntuación "
                         "total se calcula en función de la rapidez con la que se proporciona "
                         "la respuesta correcta y el número de errores cometidos.",
                         "Lograr puntuaciones más altas desbloquea comodines o salvavidas "
                         "(como multiplicadores de puntuación, revelaciones de letras y "
                         "congelaciones de temporizador) que facilitarán adivinar las palabras "
-                        "posteriores y mejorar así tu puntaje general.",
+                        "posteriores y mejorar así su puntaje general.",
                         "Al final del juego, después de responder todas las preguntas, una "
-                        "pantalla final mostrará tu puntuación total y tu nivel de "
+                        "pantalla final mostrará su puntuación total y su nivel de "
                         "conocimiento sobre el tema (principiante, estudiante, profesional, "
                         "experto, maestro).",
                     ],
