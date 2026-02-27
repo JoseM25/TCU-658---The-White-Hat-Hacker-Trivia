@@ -46,47 +46,38 @@ class ReviewScreen:
         self.sfx = sfx_service
 
         # State
-        self.questions = []
-        self.current_index = 0
-        self.current_question = None
-        self.current_image = None
-        self.cached_original_image = None
-        self.cached_image_path = None
+        self.questions, self.answer_box_labels = [], []
+        self.current_index, self.ultimo_tam_imagen = 0, 0
+        self.current_question = self.current_image = self.cached_original_image = (
+            self.cached_image_path
+        ) = None
+        self.resize_job = self.definition_scroll_update_job = (
+            self.definition_scroll_delayed_job
+        ) = None
         self.audio_enabled = True
-        self.resize_job = None
-        self.definition_scroll_update_job = None
-        self.definition_scroll_delayed_job = None
-        self.ultimo_tam_imagen = 0
 
         # UI references
-        self.main = None
-        self.header_frame = None
-        self.header_left_container = None
-        self.header_center_container = None
-        self.header_right_container = None
-        self.audio_container = None
-        self.audio_toggle_btn = None
-        self.audio_icon_on = None
-        self.audio_icon_off = None
-        self.question_counter_label = None
-        self.question_container = None
-        self.image_frame = None
-        self.image_label = None
-        self.definition_frame = None
-        self.definition_scroll_wrapper = None
-        self.definition_scroll = None
-        self.def_inner = None
-        self.definition_label = None
-        self.definition_scrollbar_visible = None
-        self.definition_scrollbar_manager = None
-        self.info_icon = None
-        self.info_icon_label = None
-        self.answer_boxes_frame = None
-        self.answer_box_labels = []
-        self.nav_buttons_frame = None
-        self.prev_button = None
-        self.next_button = None
-        self.return_button = None
+        self.main = self.header_frame = self.header_left_container = (
+            self.header_center_container
+        ) = self.header_right_container = None
+        self.audio_container = self.audio_toggle_btn = self.audio_icon_on = (
+            self.audio_icon_off
+        ) = None
+        self.question_counter_label = self.question_container = self.image_frame = (
+            self.image_label
+        ) = None
+        self.definition_frame = self.definition_scroll_wrapper = (
+            self.definition_scroll
+        ) = self.def_inner = None
+        self.definition_label = self.definition_scrollbar_visible = (
+            self.definition_scrollbar_manager
+        ) = None
+        self.info_icon = self.info_icon_label = self.answer_boxes_frame = (
+            self.bottom_container
+        ) = None
+        self.nav_buttons_frame = self.prev_button = self.next_button = (
+            self.return_button
+        ) = None
 
         # Fonts (set by font_registry.attach_attributes)
         self.timer_font = None
@@ -179,77 +170,56 @@ class ReviewScreen:
         self.main = ctk.CTkFrame(self.parent, fg_color=self.COLORS["bg_light"])
         self.main.grid(row=0, column=0, sticky="nsew")
 
-        # Layout: header, question container, nav buttons, return button
-        self.main.grid_rowconfigure(0, weight=0)  # Header
-        self.main.grid_rowconfigure(1, weight=1)  # Question container
-        self.main.grid_rowconfigure(2, weight=0)  # Navigation buttons
-        self.main.grid_rowconfigure(3, weight=0)  # Return button
+        for i, w in enumerate([0, 1, 0, 0]):
+            self.main.grid_rowconfigure(i, weight=w)
         self.main.grid_columnconfigure(0, weight=1)
 
         self.build_header()
         self.build_question_container()
+
+        self.bottom_container = ctk.CTkFrame(self.main, fg_color="transparent")
+        self.bottom_container.grid(row=2, column=0, rowspan=2, sticky="nsew")
+        self.bottom_container.grid_columnconfigure(0, weight=1)
+        for i in (0, 1):
+            self.bottom_container.grid_rowconfigure(i, weight=1)
+
         self.build_nav_buttons()
         self.build_return_button()
 
     def build_header(self):
-        header_height = self.BASE_SIZES["header_height"]
-
-        self.header_frame = ctk.CTkFrame(
+        hf = ctk.CTkFrame(
             self.main,
             fg_color=self.COLORS["header_bg"],
-            height=header_height,
+            height=self.BASE_SIZES["header_height"],
             corner_radius=0,
         )
-        self.header_frame.grid(row=0, column=0, sticky="ew")
-        self.header_frame.grid_propagate(False)
+        hf.grid(row=0, column=0, sticky="ew")
+        hf.grid_propagate(False)
+        hf.grid_columnconfigure((0, 2), weight=1, uniform="header_side")
+        hf.grid_columnconfigure(1, weight=0)
+        hf.grid_rowconfigure(0, weight=1)
+        self.header_frame = hf
 
-        self.header_frame.grid_columnconfigure(0, weight=1, uniform="header_side")
-        self.header_frame.grid_columnconfigure(1, weight=0)
-        self.header_frame.grid_columnconfigure(2, weight=1, uniform="header_side")
-        self.header_frame.grid_rowconfigure(0, weight=1)
+        pad_x = self.BASE_SIZES["header_pad_x"]
+        conts = [ctk.CTkFrame(hf, fg_color="transparent") for _ in range(3)]
+        (
+            self.header_left_container,
+            self.header_center_container,
+            self.header_right_container,
+        ) = conts
 
-        # Left container - empty placeholder for symmetry
-        self.header_left_container = ctk.CTkFrame(
-            self.header_frame, fg_color="transparent"
-        )
-        self.header_left_container.grid(
-            row=0, column=0, sticky="w", padx=(self.BASE_SIZES["header_pad_x"], 0)
-        )
-
-        # Center - question counter
-        self.header_center_container = ctk.CTkFrame(
-            self.header_frame, fg_color="transparent"
-        )
-        self.header_center_container.grid(row=0, column=1)
+        conts[0].grid(row=0, column=0, sticky="w", padx=(pad_x, 0))
+        conts[1].grid(row=0, column=1)
+        conts[2].grid(row=0, column=2, sticky="e", padx=(0, pad_x))
 
         self.question_counter_label = ctk.CTkLabel(
-            self.header_center_container,
-            text="0 / 0",
-            font=self.score_font,
-            text_color="white",
+            conts[1], text="0 / 0", font=self.score_font, text_color="white"
         )
         self.question_counter_label.grid(row=0, column=0)
 
-        # Right container - audio toggle
-        self.header_right_container = ctk.CTkFrame(
-            self.header_frame, fg_color="transparent"
-        )
-        self.header_right_container.grid(
-            row=0, column=2, sticky="e", padx=(0, self.BASE_SIZES["header_pad_x"])
-        )
-
-        self.build_audio_section()
-
-    def build_audio_section(self):
-        self.audio_container = ctk.CTkFrame(
-            self.header_right_container, fg_color="transparent"
-        )
-        self.audio_container.grid(row=0, column=0)
-
         self.load_audio_icons()
-
         self.audio_toggle_btn = ctk.CTkButton(
-            self.audio_container,
+            conts[2],
             text="",
             image=self.audio_icon_on,
             font=self.timer_font,
@@ -279,7 +249,6 @@ class ReviewScreen:
             padx=self.BASE_SIZES["container_pad_x"],
             pady=(self.BASE_SIZES["container_pad_y"], 0),
         )
-
         self.question_container.grid_columnconfigure(0, weight=1)
         for r in range(3):
             self.question_container.grid_rowconfigure(r, weight=0)
@@ -290,7 +259,6 @@ class ReviewScreen:
 
     def build_image_section(self):
         img_sz = self.get_scaled_image_size()
-
         self.image_frame = ctk.CTkFrame(
             self.question_container, fg_color="transparent", height=img_sz
         )
@@ -309,45 +277,41 @@ class ReviewScreen:
         self.image_label.grid(row=0, column=0)
 
     def build_definition_section(self):
-        self.definition_frame = ctk.CTkFrame(
-            self.question_container, fg_color="transparent"
-        )
-        self.definition_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=2)
-        self.definition_frame.grid_columnconfigure(0, weight=1)
+        df = ctk.CTkFrame(self.question_container, fg_color="transparent")
+        df.grid(row=1, column=0, sticky="ew", padx=24, pady=2)
+        df.grid_columnconfigure(0, weight=1)
+        self.definition_frame = df
 
         self.load_info_icon()
 
-        self.definition_scroll_wrapper = ctk.CTkFrame(
-            self.definition_frame,
-            fg_color="transparent",
-            height=45,
-        )
-        self.definition_scroll_wrapper.grid(row=0, column=0, sticky="ew")
-        self.definition_scroll_wrapper.grid_propagate(False)
-        self.definition_scroll_wrapper.grid_rowconfigure(0, weight=1)
-        self.definition_scroll_wrapper.grid_columnconfigure(0, weight=1)
+        dsw = ctk.CTkFrame(df, fg_color="transparent", height=45)
+        dsw.grid(row=0, column=0, sticky="ew")
+        dsw.grid_propagate(False)
+        dsw.grid_rowconfigure(0, weight=1)
+        dsw.grid_columnconfigure(0, weight=1)
+        self.definition_scroll_wrapper = dsw
 
-        self.definition_scroll = ctk.CTkScrollableFrame(
-            self.definition_scroll_wrapper,
+        ds = ctk.CTkScrollableFrame(
+            dsw,
             fg_color="transparent",
             scrollbar_button_color="#9B9B9B",
             scrollbar_button_hover_color="#666666",
         )
-        self.definition_scroll.grid(row=0, column=0, sticky="nsew")
-        self.definition_scroll.grid_columnconfigure(0, weight=1)
+        ds.grid(row=0, column=0, sticky="nsew")
+        ds.grid_columnconfigure(0, weight=1)
+        self.definition_scroll = ds
 
-        self.def_inner = ctk.CTkFrame(self.definition_scroll, fg_color="transparent")
-        self.def_inner.master.grid_columnconfigure(0, weight=1)
-        self.def_inner.grid(row=0, column=0, sticky="")
-        self.def_inner.grid_columnconfigure(1, weight=1)
+        di = ctk.CTkFrame(ds, fg_color="transparent")
+        di.master.grid_columnconfigure(0, weight=1)
+        di.grid(row=0, column=0, sticky="")
+        di.grid_columnconfigure(1, weight=1)
+        self.def_inner = di
 
-        self.info_icon_label = ctk.CTkLabel(
-            self.def_inner, text="", image=self.info_icon
-        )
+        self.info_icon_label = ctk.CTkLabel(di, text="", image=self.info_icon)
         self.info_icon_label.grid(row=0, column=0, sticky="n", padx=(0, 8), pady=(2, 0))
 
         self.definition_label = ctk.CTkLabel(
-            self.def_inner,
+            di,
             text="Loading questions...",
             font=self.definition_font,
             text_color=self.COLORS["text_medium"],
@@ -359,7 +323,6 @@ class ReviewScreen:
 
     def build_answer_boxes_section(self):
         box_sz = self.get_scaled_box_size()
-
         self.answer_boxes_frame = ctk.CTkFrame(
             self.question_container,
             fg_color="transparent",
@@ -370,59 +333,66 @@ class ReviewScreen:
         self.answer_boxes_frame.grid_rowconfigure(0, weight=1)
         self.answer_boxes_frame.grid_anchor("center")
 
+    def _create_btn(
+        self, parent, text, fg, hover, txt_col, cmd, border=0, border_col=""
+    ):
+        return ctk.CTkButton(
+            parent,
+            text=text,
+            font=self.button_font,
+            width=self.BASE_SIZES["action_button_width"],
+            height=self.BASE_SIZES["action_button_height"],
+            fg_color=fg,
+            hover_color=hover,
+            text_color=txt_col,
+            border_width=border,
+            border_color=border_col,
+            corner_radius=self.BASE_SIZES["action_corner_radius"],
+            command=cmd,
+        )
+
     def build_nav_buttons(self):
-        self.nav_buttons_frame = ctk.CTkFrame(self.main, fg_color="transparent")
-        self.nav_buttons_frame.grid(row=2, column=0, pady=(16, 8))
+        nf = ctk.CTkFrame(self.bottom_container, fg_color="transparent")
+        nf.grid(row=0, column=0, pady=(16, 8), sticky="s")
+        self.nav_buttons_frame = nf
 
-        btn_width = self.BASE_SIZES["action_button_width"]
-        btn_height = self.BASE_SIZES["action_button_height"]
-        btn_gap = self.BASE_SIZES["action_button_gap"] * 2  # More gap between buttons
-        corner_r = self.BASE_SIZES["action_corner_radius"]
-
-        self.prev_button = ctk.CTkButton(
-            self.nav_buttons_frame,
-            text="← Previous",
-            font=self.button_font,
-            width=btn_width,
-            height=btn_height,
-            fg_color=self.COLORS["bg_light"],
-            hover_color=self.COLORS["border_medium"],
-            text_color="black",
-            border_width=2,
-            border_color="black",
-            corner_radius=corner_r,
-            command=self.prev_question,
+        self.prev_button = self._create_btn(
+            nf,
+            "← Previous",
+            self.COLORS["bg_light"],
+            self.COLORS["border_medium"],
+            "black",
+            self.prev_question,
+            2,
+            "black",
         )
-        self.prev_button.grid(row=0, column=0, padx=btn_gap // 2)
-
-        self.next_button = ctk.CTkButton(
-            self.nav_buttons_frame,
-            text="Next →",
-            font=self.button_font,
-            width=btn_width,
-            height=btn_height,
-            fg_color=self.COLORS["primary_blue"],
-            hover_color=self.COLORS["primary_hover"],
-            text_color="white",
-            corner_radius=corner_r,
-            command=self.next_question,
+        self.next_button = self._create_btn(
+            nf,
+            "Next →",
+            self.COLORS["primary_blue"],
+            self.COLORS["primary_hover"],
+            "white",
+            self.next_question,
         )
-        self.next_button.grid(row=0, column=1, padx=btn_gap // 2)
+
+        bgap = self.BASE_SIZES["action_button_gap"]
+        self.prev_button.grid(row=0, column=0, padx=bgap)
+        self.next_button.grid(row=0, column=1, padx=bgap)
 
     def build_return_button(self):
         self.return_button = ctk.CTkButton(
-            self.main,
+            self.bottom_container,
             text="Return to Menu",
             font=self.button_font,
             width=self.BASE_SIZES["action_button_width"] + 40,
             height=self.BASE_SIZES["action_button_height"],
-            fg_color=self.COLORS["danger_red"],
-            hover_color=self.COLORS["danger_hover"],
+            fg_color=self.COLORS["header_bg"],
+            hover_color=self.COLORS["header_hover"],
             text_color="white",
             corner_radius=self.BASE_SIZES["action_corner_radius"],
             command=self.return_to_menu,
         )
-        self.return_button.grid(row=3, column=0, pady=(8, 24))
+        self.return_button.grid(row=1, column=0, pady=(48, 24), sticky="n")
 
     def load_icon(self, icon_key, size):
         return self.image_handler.create_ctk_icon(self.ICONS[icon_key], (size, size))
@@ -454,31 +424,25 @@ class ReviewScreen:
         self.current_index = max(0, min(index, len(self.questions) - 1))
         self.current_question = self.questions[self.current_index]
 
-        # Update counter
         self.question_counter_label.configure(
             text=f"{self.current_index + 1} / {len(self.questions)}"
         )
 
-        # Update definition
         definition = self.current_question.get("definition", "No definition")
         self.set_definition_text(definition)
 
-        # Create answer boxes filled with correct answer
         title = self.current_question.get("title", "")
         title_no_spaces = title.replace(" ", "")
         self.create_answer_boxes_filled(title_no_spaces)
 
-        # Load image
         self.cached_original_image = None
         self.cached_image_path = None
         self.load_question_image()
 
-        # Speak definition if audio enabled
         self.tts.stop()
         if self.audio_enabled and definition and definition != "No definition":
             self.tts.speak(definition)
 
-        # Update nav button states
         self.update_nav_buttons_state()
 
     def create_answer_boxes_filled(self, answer_text):
@@ -491,10 +455,8 @@ class ReviewScreen:
             else False
         )
         extra_pad = self.scale_value(16, scale, 8, 20)
-
         word_length = len(answer_text)
 
-        # Create new boxes if needed
         for i in range(len(self.answer_box_labels), word_length):
             box = ctk.CTkLabel(
                 self.answer_boxes_frame,
@@ -508,24 +470,20 @@ class ReviewScreen:
             )
             self.answer_box_labels.append(box)
 
-        # Fill boxes with correct answer
         for i in range(word_length):
             box = self.answer_box_labels[i]
-            letter = answer_text[i].upper()
             box.configure(
-                text=letter,
+                text=answer_text[i].upper(),
                 fg_color=self.COLORS["success_green"],
                 width=box_sz,
                 height=box_sz,
             )
             box.grid(row=0, column=i, padx=gap, pady=4)
 
-        # Hide excess boxes
-        excess_count = len(self.answer_box_labels) - word_length
-        if excess_count > 10:
-            for i in range(word_length + 10, len(self.answer_box_labels)):
+        if len(self.answer_box_labels) - word_length > 10:
+            for box in self.answer_box_labels[word_length + 10 :]:
                 try:
-                    self.answer_box_labels[i].destroy()
+                    box.destroy()
                 except tk.TclError:
                     pass
             del self.answer_box_labels[word_length + 10 :]
@@ -533,28 +491,25 @@ class ReviewScreen:
         for i in range(word_length, len(self.answer_box_labels)):
             self.answer_box_labels[i].grid_remove()
 
-        # Update frame size
-        self.answer_boxes_frame.configure(
+        self._safe_config(
+            self.answer_boxes_frame,
             width=max(box_sz, word_length * (box_sz + gap * 2)),
             height=box_sz + extra_pad,
         )
-        if self.answer_boxes_frame and self.answer_boxes_frame.winfo_exists():
-            if is_compact:
-                pad_y = self.scale_value(8, scale, 6, 12)
-            else:
-                pad_y = self.scale_value(14, scale, 8, 28)
-            self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))
+        pad_y = self.scale_value(
+            8 if is_compact else 14,
+            scale,
+            6 if is_compact else 8,
+            12 if is_compact else 28,
+        )
+        self._safe_grid(self.answer_boxes_frame, pady=(pad_y, pad_y // 2))
 
     def load_question_image(self):
         if not self.current_question:
             return
-
         image_path = self.current_question.get("image", "")
         if not image_path:
-            self.image_label.configure(image=None, text="No Image")
-            self.current_image = None
-            self.cached_original_image = None
-            self.cached_image_path = None
+            self._clear_image("No Image")
             return
 
         try:
@@ -562,19 +517,17 @@ class ReviewScreen:
                 self.cached_original_image is None
                 or self.cached_image_path != image_path
             ):
-                resolved_path = None
-                if self.image_handler:
-                    resolved_path = self.image_handler.resolve_image_path(image_path)
-
+                resolved_path = (
+                    self.image_handler.resolve_image_path(image_path)
+                    if self.image_handler
+                    else None
+                )
                 if resolved_path and resolved_path.exists():
                     with Image.open(resolved_path) as img:
                         self.cached_original_image = img.convert("RGBA").copy()
                         self.cached_image_path = image_path
                 else:
-                    self.image_label.configure(image=None, text="Image not found")
-                    self.current_image = None
-                    self.cached_original_image = None
-                    self.cached_image_path = None
+                    self._clear_image("Image not found")
                     return
 
             if self.cached_original_image:
@@ -589,13 +542,14 @@ class ReviewScreen:
                     )
                     self.image_label.configure(image=self.current_image, text="")
             else:
-                self.image_label.configure(image=None, text="Image Error")
-                self.current_image = None
-
-        except (FileNotFoundError, OSError, ValueError) as e:
+                self._clear_image("Image Error")
+        except (IOError, OSError, ValueError) as e:
             print(f"Error loading image: {e}")
-            self.image_label.configure(image=None, text="Error loading image")
-            self.current_image = None
+            self._clear_image("Error loading image")
+
+    def _clear_image(self, text):
+        self.image_label.configure(image=None, text=text)
+        self.current_image = self.cached_original_image = self.cached_image_path = None
 
     def next_question(self):
         if self.questions and self.current_index < len(self.questions) - 1:
@@ -611,33 +565,39 @@ class ReviewScreen:
             self.next_button.configure(state="disabled")
             return
 
-        if self.current_index <= 0:
-            self.prev_button.configure(
-                state="disabled",
-                fg_color=self.COLORS["border_medium"],
-                border_color=self.COLORS["border_medium"],
-                text_color=self.COLORS["text_light"],
-            )
-        else:
-            self.prev_button.configure(
-                state="normal",
-                fg_color=self.COLORS["bg_light"],
-                border_color="black",
-                text_color="black",
-            )
+        is_first = self.current_index <= 0
+        p_cfg = (
+            {
+                "state": "disabled",
+                "fg_color": self.COLORS["border_medium"],
+                "border_color": self.COLORS["border_medium"],
+                "text_color": self.COLORS["text_light"],
+            }
+            if is_first
+            else {
+                "state": "normal",
+                "fg_color": self.COLORS["bg_light"],
+                "border_color": "black",
+                "text_color": "black",
+            }
+        )
+        self.prev_button.configure(**p_cfg)
 
-        if self.current_index >= len(self.questions) - 1:
-            self.next_button.configure(
-                state="disabled",
-                fg_color=self.COLORS["border_medium"],
-                hover_color=self.COLORS["border_medium"],
-            )
-        else:
-            self.next_button.configure(
-                state="normal",
-                fg_color=self.COLORS["primary_blue"],
-                hover_color=self.COLORS["primary_hover"],
-            )
+        is_last = self.current_index >= len(self.questions) - 1
+        n_cfg = (
+            {
+                "state": "disabled",
+                "fg_color": self.COLORS["border_medium"],
+                "hover_color": self.COLORS["border_medium"],
+            }
+            if is_last
+            else {
+                "state": "normal",
+                "fg_color": self.COLORS["primary_blue"],
+                "hover_color": self.COLORS["primary_hover"],
+            }
+        )
+        self.next_button.configure(**n_cfg)
 
     def toggle_audio(self):
         self.audio_enabled = not self.audio_enabled
@@ -664,6 +624,23 @@ class ReviewScreen:
             self.prev_question()
         elif key_sym == "Escape":
             self.return_to_menu()
+
+    def _safe_config(self, widget, **kwargs):
+        if widget and widget.winfo_exists():
+            widget.configure(**kwargs)
+
+    def _safe_grid(self, widget, **kwargs):
+        if widget and widget.winfo_exists():
+            widget.grid_configure(**kwargs)
+
+    def _cancel_job(self, job_attr):
+        job = getattr(self, job_attr, None)
+        if job:
+            try:
+                self.parent.after_cancel(job)
+            except (tk.TclError, ValueError):
+                pass
+            setattr(self, job_attr, None)
 
     def get_logical_dimensions(self):
         return get_logical_dimensions(self.parent, self.BASE_DIMENSIONS)
@@ -695,8 +672,7 @@ class ReviewScreen:
 
     def _get_current_scale(self):
         w, h = self.get_logical_dimensions()
-        low_res_profile = GAME_PROFILES.get("low_res")
-        return self.scaler.calculate_scale(w, h, low_res_profile)
+        return self.scaler.calculate_scale(w, h, GAME_PROFILES.get("low_res"))
 
     def on_resize(self, event):
         if event.widget is not self.parent:
@@ -710,211 +686,177 @@ class ReviewScreen:
             return
 
         width, height = self.get_logical_dimensions()
-
-        low_res_profile = GAME_PROFILES.get("low_res")
-        scale = self.scaler.calculate_scale(width, height, low_res_profile)
+        scale = self.scaler.calculate_scale(width, height, GAME_PROFILES.get("low_res"))
 
         self.size_state = self.size_calc.calculate_sizes(scale, width, height)
         self.current_scale = scale
         self.current_window_width = width
         self.current_window_height = height
 
-        # Update fonts
         self.font_registry.update_scale(scale, self.scaler)
-
-        # Update header
         self.update_header(scale)
-
-        # Update question container
         self.update_question_container()
-
-        # Update nav buttons
         self.update_nav_buttons(scale)
-
-        # Update return button
         self.update_return_button(scale)
 
         self.resize_job = None
 
     def update_header(self, scale):
-        sizes = self.size_state
+        sz = self.size_state
+        self._safe_config(self.header_frame, height=sz["header_height"])
+        px, py = sz["header_pad_x"], sz["header_pad_y"]
+        self._safe_grid(self.header_left_container, padx=(px, 0), pady=py)
+        self._safe_grid(self.header_right_container, padx=(0, px), pady=py)
+        self._safe_grid(self.header_center_container, pady=py)
 
-        if self.header_frame and self.header_frame.winfo_exists():
-            self.header_frame.configure(height=sizes["header_height"])
-
-        pad_x = sizes["header_pad_x"]
-        pad_y = sizes["header_pad_y"]
-
-        if self.header_left_container and self.header_left_container.winfo_exists():
-            self.header_left_container.grid_configure(padx=(pad_x, 0), pady=pad_y)
-
-        if self.header_right_container and self.header_right_container.winfo_exists():
-            self.header_right_container.grid_configure(padx=(0, pad_x), pady=pad_y)
-
-        if self.header_center_container and self.header_center_container.winfo_exists():
-            self.header_center_container.grid_configure(pady=pad_y)
-
-        # Audio button
-        icon_sz = sizes["audio_icon"]
-        btn_width = sizes["audio_button_width"]
-        btn_height = sizes["audio_button_height"]
-        corner_r = self.scale_value(8, scale, 6, 16)
-
+        icon_sz = sz["audio_icon"]
         for icon in (self.audio_icon_on, self.audio_icon_off):
             if icon:
                 icon.configure(size=(icon_sz, icon_sz))
 
-        if self.audio_toggle_btn and self.audio_toggle_btn.winfo_exists():
-            self.audio_toggle_btn.configure(
-                width=btn_width, height=btn_height, corner_radius=corner_r
-            )
+        self._safe_config(
+            self.audio_toggle_btn,
+            width=sz["audio_button_width"],
+            height=sz["audio_button_height"],
+            corner_radius=self.scale_value(8, scale, 6, 16),
+        )
 
     def update_question_container(self):
-        sizes = self.size_state
-
-        if not self.question_container or not self.question_container.winfo_exists():
-            return
-
-        pad_x = sizes["container_pad_x"]
-        pad_y = sizes["container_pad_y"]
-        corner_r = sizes["container_corner_radius"]
-
-        self.question_container.grid_configure(padx=pad_x, pady=(pad_y, 0))
-        self.question_container.configure(corner_radius=corner_r)
+        sz = self.size_state
+        self._safe_grid(
+            self.question_container,
+            padx=sz["container_pad_x"],
+            pady=(sz["container_pad_y"], 0),
+        )
+        self._safe_config(
+            self.question_container, corner_radius=sz["container_corner_radius"]
+        )
 
         self.update_image()
         self.update_definition()
         self.update_answer_boxes()
 
     def update_image(self):
-        sizes = self.size_state
-        scale = sizes.get("scale", 1.0)
-        is_compact = sizes.get("is_height_constrained", False)
-        img_sz = sizes["image_size"]
+        sz = self.size_state
+        scale = sz.get("scale", 1.0)
+        is_compact = sz.get("is_height_constrained", False)
+        img_sz = sz["image_size"]
 
+        self._safe_config(self.image_frame, height=img_sz)
         if self.image_frame and self.image_frame.winfo_exists():
-            self.image_frame.configure(height=img_sz)
-            if is_compact:
-                pad_top = self.scale_value(12, scale, 6, 20)
-                pad_bottom = self.scale_value(6, scale, 3, 10)
-            else:
-                pad_top = self.scale_value(24, scale, 12, 60)
-                pad_bottom = self.scale_value(12, scale, 6, 30)
-            self.image_frame.grid_configure(pady=(pad_top, pad_bottom))
+            pt = (
+                self.scale_value(12, scale, 6, 20)
+                if is_compact
+                else self.scale_value(24, scale, 12, 60)
+            )
+            pb = (
+                self.scale_value(6, scale, 3, 10)
+                if is_compact
+                else self.scale_value(12, scale, 6, 30)
+            )
+            self.image_frame.grid_configure(pady=(pt, pb))
 
-        if self.image_label and self.image_label.winfo_exists():
-            self.image_label.configure(width=img_sz, height=img_sz)
+        self._safe_config(self.image_label, width=img_sz, height=img_sz)
 
-        # Reload image if size changed significantly
         if self.current_image and self.current_question:
-            nuevo_tam = self.size_state.get("image_size", img_sz)
+            nuevo_tam = sz.get("image_size", img_sz)
             tam_actual = getattr(self, "ultimo_tam_imagen", 0)
             if abs(nuevo_tam - tam_actual) > 2:
                 self.ultimo_tam_imagen = nuevo_tam
                 self.load_question_image()
 
     def update_definition(self):
-        sizes = self.size_state
-        scale = sizes.get("scale", 1.0)
+        sz = self.size_state
+        scale = sz.get("scale", 1.0)
 
-        if self.definition_frame and self.definition_frame.winfo_exists():
-            pad_x = sizes.get("definition_pad_x")
-            pad_y = sizes.get("definition_pad_y")
-            if pad_x is None:
-                pad_x = self.scale_value(36, scale, 20, 80)
-            if pad_y is None:
-                pad_y = self.scale_value(14, scale, 8, 36)
-            self.definition_frame.grid_configure(padx=pad_x, pady=pad_y)
+        pad_x = sz.get("definition_pad_x", self.scale_value(36, scale, 20, 80))
+        pad_y = sz.get("definition_pad_y", self.scale_value(14, scale, 8, 36))
+        self._safe_grid(self.definition_frame, padx=pad_x, pady=pad_y)
 
-        if (
-            self.definition_scroll_wrapper
-            and self.definition_scroll_wrapper.winfo_exists()
-        ):
-            max_height = sizes.get("definition_height")
-            if max_height is None:
-                if sizes.get("is_height_constrained", False):
-                    max_height = self.scale_value(42, scale, 38, 50)
-                else:
-                    if sizes.get("window_height", 0) >= 1080:
-                        max_height = self.scale_value(70, scale, 50, 110)
-                    else:
-                        max_height = self.scale_value(50, scale, 42, 65)
-            self.definition_scroll_wrapper.configure(height=max_height)
-
-        if self.definition_label and self.definition_label.winfo_exists():
-            wrap = sizes["definition_wrap"]
-            self.definition_label.configure(wraplength=wrap)
+        max_height = sz.get("definition_height")
+        if max_height is None:
+            if sz.get("is_height_constrained", False):
+                max_height = self.scale_value(42, scale, 38, 50)
+            else:
+                max_height = (
+                    self.scale_value(70, scale, 50, 110)
+                    if sz.get("window_height", 0) >= 1080
+                    else self.scale_value(50, scale, 42, 65)
+                )
+        self._safe_config(self.definition_scroll_wrapper, height=max_height)
+        self._safe_config(self.definition_label, wraplength=sz["definition_wrap"])
 
         if self.info_icon:
-            sz = sizes["info_icon"]
-            self.info_icon.configure(size=(sz, sz))
+            isz = sz["info_icon"]
+            self.info_icon.configure(size=(isz, isz))
 
         self.queue_definition_scroll_update()
 
     def update_answer_boxes(self):
-        sizes = self.size_state
-        scale = sizes.get("scale", 1.0)
-        is_compact = sizes.get("is_height_constrained", False)
-        box_sz = sizes["answer_box"]
-        gap = sizes["answer_box_gap"]
+        sz = self.size_state
+        scale = sz.get("scale", 1.0)
+        is_compact = sz.get("is_height_constrained", False)
+        box_sz, gap = sz["answer_box"], sz["answer_box_gap"]
         extra_pad = self.scale_value(16, scale, 8, 20)
 
         visible_boxes = [b for b in self.answer_box_labels if b.winfo_manager()]
         for box in visible_boxes:
-            if box and box.winfo_exists():
-                box.configure(width=box_sz, height=box_sz)
-                box.grid_configure(padx=gap, pady=4)
+            self._safe_config(box, width=box_sz, height=box_sz)
+            self._safe_grid(box, padx=gap, pady=4)
 
-        if (
-            visible_boxes
-            and self.answer_boxes_frame
-            and self.answer_boxes_frame.winfo_exists()
-        ):
-            frame_width = len(visible_boxes) * (box_sz + gap * 2)
-            frame_height = box_sz + extra_pad
-            self.answer_boxes_frame.configure(width=frame_width, height=frame_height)
-            if is_compact:
-                pad_y = self.scale_value(8, scale, 6, 12)
-            else:
-                pad_y = self.scale_value(14, scale, 8, 28)
-            self.answer_boxes_frame.grid_configure(pady=(pad_y, pad_y // 2))
+        if visible_boxes:
+            self._safe_config(
+                self.answer_boxes_frame,
+                width=len(visible_boxes) * (box_sz + gap * 2),
+                height=box_sz + extra_pad,
+            )
+            pad_y = (
+                self.scale_value(8, scale, 6, 12)
+                if is_compact
+                else self.scale_value(14, scale, 8, 28)
+            )
+            self._safe_grid(self.answer_boxes_frame, pady=(pad_y, pad_y // 2))
 
     def update_nav_buttons(self, scale):
-        sizes = self.size_state
-        btn_width = sizes["action_button_width"]
-        btn_height = sizes["action_button_height"]
-        btn_gap = sizes["action_button_gap"] * 2
-        corner_r = sizes["action_corner_radius"]
+        sz = self.size_state
+        bw, bh = sz["action_button_width"], sz["action_button_height"]
+        bgap, cr = sz["action_button_gap"] * 2, sz["action_corner_radius"]
 
         for btn in [self.prev_button, self.next_button]:
-            if btn and btn.winfo_exists():
-                btn.configure(
-                    width=btn_width,
-                    height=btn_height,
-                    corner_radius=corner_r,
-                )
-                btn.grid_configure(padx=btn_gap // 2)
+            self._safe_config(btn, width=bw, height=bh, corner_radius=cr)
+            self._safe_grid(btn, padx=bgap // 2)
 
-        if self.nav_buttons_frame and self.nav_buttons_frame.winfo_exists():
-            pad_top = self.scale_value(16, scale, 8, 32)
-            pad_bottom = self.scale_value(8, scale, 4, 16)
-            self.nav_buttons_frame.grid_configure(pady=(pad_top, pad_bottom))
+        pad_y = self.scale_value(16, scale, 8, 32)
+        self._safe_grid(self.nav_buttons_frame, pady=(pad_y, pad_y))
+
+        if self.bottom_container and self.bottom_container.winfo_exists():
+            ks = sz.get("keyboard_scale", 1.0)
+            kh = 3 * (
+                max(1, int(round(sz["key_size"] * ks)))
+                + max(0, int(round(sz["key_row_gap"] * ks))) * 2
+            ) + max(0, int(round(sz["keyboard_pad_y"] * ks)))
+            self.bottom_container.configure(
+                height=kh
+                + sz["action_button_height"]
+                + self.scale_value(24, scale, 12, 48)
+            )
+            self.bottom_container.grid_propagate(False)
 
     def update_return_button(self, scale):
-        sizes = self.size_state
-        btn_width = sizes["action_button_width"] + 40
-        btn_height = sizes["action_button_height"]
-        corner_r = sizes["action_corner_radius"]
-
-        if self.return_button and self.return_button.winfo_exists():
-            self.return_button.configure(
-                width=btn_width,
-                height=btn_height,
-                corner_radius=corner_r,
-            )
-            pad_top = self.scale_value(8, scale, 4, 16)
-            pad_bottom = self.scale_value(24, scale, 12, 48)
-            self.return_button.grid_configure(pady=(pad_top, pad_bottom))
+        sz = self.size_state
+        self._safe_config(
+            self.return_button,
+            width=sz["action_button_width"] + 40,
+            height=sz["action_button_height"],
+            corner_radius=sz["action_corner_radius"],
+        )
+        self._safe_grid(
+            self.return_button,
+            pady=(
+                self.scale_value(48, scale, 24, 96),
+                self.scale_value(24, scale, 12, 48),
+            ),
+        )
 
     def set_definition_text(self, text):
         if self.definition_label and self.definition_label.winfo_exists():
@@ -924,18 +866,8 @@ class ReviewScreen:
     def queue_definition_scroll_update(self):
         if not self.parent or not self.parent.winfo_exists():
             return
-        if self.definition_scroll_update_job:
-            try:
-                self.parent.after_cancel(self.definition_scroll_update_job)
-            except tk.TclError:
-                pass
-            self.definition_scroll_update_job = None
-        if self.definition_scroll_delayed_job:
-            try:
-                self.parent.after_cancel(self.definition_scroll_delayed_job)
-            except tk.TclError:
-                pass
-            self.definition_scroll_delayed_job = None
+        self._cancel_job("definition_scroll_update_job")
+        self._cancel_job("definition_scroll_delayed_job")
         try:
             self.definition_scroll_update_job = self.parent.after_idle(
                 self._on_scroll_idle_check
@@ -969,11 +901,15 @@ class ReviewScreen:
         ):
             return
 
-        content = None
-        if self.def_inner and self.def_inner.winfo_exists():
-            content = self.def_inner
-        elif self.definition_label and self.definition_label.winfo_exists():
-            content = self.definition_label
+        content = (
+            self.def_inner
+            if self.def_inner and self.def_inner.winfo_exists()
+            else (
+                self.definition_label
+                if self.definition_label and self.definition_label.winfo_exists()
+                else None
+            )
+        )
         if not content:
             return
 
@@ -988,8 +924,7 @@ class ReviewScreen:
             wrapper_height = self.definition_scroll_wrapper.winfo_reqheight()
         content_height = content.winfo_reqheight()
 
-        needs_scroll = content_height > wrapper_height
-        self.set_definition_scrollbar_visible(needs_scroll)
+        self.set_definition_scrollbar_visible(content_height > wrapper_height)
 
     def set_definition_scrollbar_visible(self, visible):
         if self.definition_scrollbar_visible is visible:
@@ -999,25 +934,21 @@ class ReviewScreen:
         if not scrollbar or not scrollbar.winfo_exists():
             return
 
-        manager = self.definition_scrollbar_manager or scrollbar.winfo_manager()
-        if not manager:
-            manager = "grid"
+        manager = (
+            self.definition_scrollbar_manager or scrollbar.winfo_manager() or "grid"
+        )
         self.definition_scrollbar_manager = manager
 
-        if visible:
-            if manager == "grid":
-                scrollbar.grid()
-            elif manager == "pack":
-                scrollbar.pack()
-            elif manager == "place":
-                scrollbar.place()
-        else:
-            if manager == "grid":
-                scrollbar.grid_remove()
-            elif manager == "pack":
-                scrollbar.pack_forget()
-            elif manager == "place":
-                scrollbar.place_forget()
+        action_name = (
+            manager
+            if visible
+            else (
+                f"{manager}_forget" if manager in ("pack", "place") else "grid_remove"
+            )
+        )
+        action = getattr(scrollbar, action_name, None)
+        if action:
+            action()
 
         self.definition_scrollbar_visible = visible
 
@@ -1038,26 +969,12 @@ class ReviewScreen:
     def cleanup(self):
         self.tts.stop()
 
-        if self.resize_job:
-            try:
-                self.parent.after_cancel(self.resize_job)
-            except (tk.TclError, ValueError):
-                pass
-            self.resize_job = None
-
-        if self.definition_scroll_update_job:
-            try:
-                self.parent.after_cancel(self.definition_scroll_update_job)
-            except (tk.TclError, ValueError):
-                pass
-            self.definition_scroll_update_job = None
-
-        if self.definition_scroll_delayed_job:
-            try:
-                self.parent.after_cancel(self.definition_scroll_delayed_job)
-            except (tk.TclError, ValueError):
-                pass
-            self.definition_scroll_delayed_job = None
+        for job_attr in (
+            "resize_job",
+            "definition_scroll_update_job",
+            "definition_scroll_delayed_job",
+        ):
+            self._cancel_job(job_attr)
 
         try:
             self.parent.unbind("<Configure>")
