@@ -596,7 +596,10 @@ class QuestionSummaryModal(ModalBase):
         self.start_fade_in_animation(bg)
 
     def calc_sizes(self, scale, modal_width, modal_height):
-        w_scale, h_scale = modal_width / 450, modal_height / 380
+        w_scale, h_scale = (
+            modal_width / MODAL_BASE_SIZES["summary_width"],
+            modal_height / MODAL_BASE_SIZES["summary_height"],
+        )
         m_scale = min(w_scale, h_scale)
 
         def sz(b, mn, mx):
