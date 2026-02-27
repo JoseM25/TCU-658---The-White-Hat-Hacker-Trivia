@@ -3,6 +3,7 @@ from juego.pantalla_instrucciones import InstructionsScreen
 from juego.pantalla_juego import GameScreen
 from juego.pantalla_menu import MenuScreen
 from juego.pantalla_preguntas import ManageQuestionsScreen
+from juego.pantalla_repaso import ReviewScreen
 
 
 class AppController:
@@ -40,6 +41,15 @@ class AppController:
         self.cleanup_current_screen()
         self.current_screen = ManageQuestionsScreen(
             self.root, on_return_callback=self.show_menu, tts_service=self.tts
+        )
+
+    def show_review_questions(self):
+        self.cleanup_current_screen()
+        self.current_screen = ReviewScreen(
+            self.root,
+            on_return_callback=self.show_menu,
+            tts_service=self.tts,
+            sfx_service=self.sfx,
         )
 
     def start_game(self):

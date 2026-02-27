@@ -84,7 +84,8 @@ class TTSService:
             for chunk in self.voice.synthesize(text):
                 # Verificar cancelación durante síntesis
                 if self.speaking_cancelled.is_set() or gen != self.speakgen:
-                    wav_file.close()
+                    if wav_configured:
+                        wav_file.close()
                     return
                 if not wav_configured:
                     wav_file.setnchannels(chunk.sample_channels)
@@ -92,6 +93,10 @@ class TTSService:
                     wav_file.setframerate(chunk.sample_rate)
                     wav_configured = True
                 wav_file.writeframes(chunk.audio_int16_bytes)
+
+            if not wav_configured:
+                # No audio was generated (e.g. empty text or unpronounceable)
+                return
 
             wav_file.close()
 

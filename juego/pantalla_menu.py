@@ -120,6 +120,7 @@ class MenuScreen:
         button_configs = [
             ("Play", "#005DFF", "#003BB8", "start_game"),
             ("Instructions", "#00CFC5", "#009B94", "show_instructions"),
+            ("Review Questions", "#7C3AED", "#5B21B6", "review_questions"),
             ("Manage Questions", "#FFC553", "#CC9A42", "manage_questions"),
             ("Credits", "#FF8C00", "#CC6F00", "show_credits"),
             ("Exit", "#FF4F60", "#CC3F4D", "exit_game"),
@@ -293,6 +294,14 @@ class MenuScreen:
         else:
             messagebox.showinfo(
                 "Manage Questions", "Manage questions screen coming soon."
+            )
+
+    def review_questions(self):
+        if self.app_controller:
+            self.app_controller.show_review_questions()
+        else:
+            messagebox.showinfo(
+                "Review Questions", "Review questions screen coming soon."
             )
 
     def show_credits(self):
