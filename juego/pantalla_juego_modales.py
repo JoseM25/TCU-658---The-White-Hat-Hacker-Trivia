@@ -423,9 +423,7 @@ class QuestionSummaryModal(ModalBase):
             return
         root = self.parent.winfo_toplevel() if self.parent else None
         win_width, win_height = (
-            self.get_logical_window_size(root, (1280, 720))
-            if root
-            else (1280, 720)
+            self.get_logical_window_size(root, (1280, 720)) if root else (1280, 720)
         )
         self.current_scale = self.calculate_scale_factor(root)
         scale = self.current_scale

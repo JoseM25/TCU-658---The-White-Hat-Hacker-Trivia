@@ -63,6 +63,7 @@ class ReviewScreen:
         self.audio_container = self.audio_toggle_btn = self.audio_icon_on = (
             self.audio_icon_off
         ) = None
+        self.menu_icon = None
         self.question_counter_label = self.question_container = self.image_frame = (
             self.image_label
         ) = None
@@ -75,9 +76,8 @@ class ReviewScreen:
         self.info_icon = self.info_icon_label = self.answer_boxes_frame = (
             self.bottom_container
         ) = None
-        self.nav_buttons_frame = self.prev_button = self.next_button = (
-            self.return_button
-        ) = None
+        self.nav_buttons_frame = self.prev_button = self.next_button = None
+        self.menu_button = None
 
         # Fonts (set by font_registry.attach_attributes)
         self.timer_font = None
@@ -184,7 +184,6 @@ class ReviewScreen:
             self.bottom_container.grid_rowconfigure(i, weight=1)
 
         self.build_nav_buttons()
-        self.build_return_button()
 
     def build_header(self):
         hf = ctk.CTkFrame(
@@ -211,6 +210,24 @@ class ReviewScreen:
         conts[0].grid(row=0, column=0, sticky="w", padx=(pad_x, 0))
         conts[1].grid(row=0, column=1)
         conts[2].grid(row=0, column=2, sticky="e", padx=(0, pad_x))
+
+        self.menu_icon = self.load_icon("arrow", self.BASE_SIZES["audio_icon_base"])
+        self.menu_button = ctk.CTkButton(
+            conts[0],
+            text="Menu",
+            font=self.header_button_font or self.button_font,
+            text_color="white",
+            image=self.menu_icon,
+            compound="left",
+            fg_color="transparent",
+            hover_color=self.COLORS["header_hover"],
+            corner_radius=8,
+            width=110,
+            height=44,
+            anchor="w",
+            command=self.return_to_menu,
+        )
+        self.menu_button.grid(row=0, column=0, sticky="w")
 
         self.question_counter_label = ctk.CTkLabel(
             conts[1], text="0 / 0", font=self.score_font, text_color="white"
@@ -378,21 +395,6 @@ class ReviewScreen:
         bgap = self.BASE_SIZES["action_button_gap"]
         self.prev_button.grid(row=0, column=0, padx=bgap)
         self.next_button.grid(row=0, column=1, padx=bgap)
-
-    def build_return_button(self):
-        self.return_button = ctk.CTkButton(
-            self.bottom_container,
-            text="Return to Menu",
-            font=self.button_font,
-            width=self.BASE_SIZES["action_button_width"] + 40,
-            height=self.BASE_SIZES["action_button_height"],
-            fg_color=self.COLORS["header_bg"],
-            hover_color=self.COLORS["header_hover"],
-            text_color="white",
-            corner_radius=self.BASE_SIZES["action_corner_radius"],
-            command=self.return_to_menu,
-        )
-        self.return_button.grid(row=1, column=0, pady=(48, 24), sticky="n")
 
     def load_icon(self, icon_key, size):
         return self.image_handler.create_ctk_icon(self.ICONS[icon_key], (size, size))
@@ -697,7 +699,6 @@ class ReviewScreen:
         self.update_header(scale)
         self.update_question_container()
         self.update_nav_buttons(scale)
-        self.update_return_button(scale)
 
         self.resize_job = None
 
@@ -708,8 +709,17 @@ class ReviewScreen:
         self._safe_grid(self.header_left_container, padx=(px, 0), pady=py)
         self._safe_grid(self.header_right_container, padx=(0, px), pady=py)
         self._safe_grid(self.header_center_container, pady=py)
+        self._safe_config(
+            self.menu_button,
+            width=self.scale_value(130, scale, 80, 280),
+            height=self.scale_value(44, scale, 30, 88),
+            corner_radius=self.scale_value(8, scale, 6, 18),
+        )
 
         icon_sz = sz["audio_icon"]
+        if self.menu_icon:
+            self.menu_icon.configure(size=(icon_sz, icon_sz))
+
         for icon in (self.audio_icon_on, self.audio_icon_off):
             if icon:
                 icon.configure(size=(icon_sz, icon_sz))
@@ -841,22 +851,6 @@ class ReviewScreen:
                 + self.scale_value(24, scale, 12, 48)
             )
             self.bottom_container.grid_propagate(False)
-
-    def update_return_button(self, scale):
-        sz = self.size_state
-        self._safe_config(
-            self.return_button,
-            width=sz["action_button_width"] + 40,
-            height=sz["action_button_height"],
-            corner_radius=sz["action_corner_radius"],
-        )
-        self._safe_grid(
-            self.return_button,
-            pady=(
-                self.scale_value(48, scale, 24, 96),
-                self.scale_value(24, scale, 12, 48),
-            ),
-        )
 
     def set_definition_text(self, text):
         if self.definition_label and self.definition_label.winfo_exists():

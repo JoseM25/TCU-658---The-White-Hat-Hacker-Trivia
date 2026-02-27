@@ -69,6 +69,7 @@ class TTSService:
         self.speaking_thread.start()
 
     def speak_worker(self, text, gen):
+        wav_file = None
         try:
             if not self.voice:
                 return
@@ -78,29 +79,26 @@ class TTSService:
                 return
 
             buffer = io.BytesIO()
-            wav_file = wave.open(buffer, "wb")
-            wav_configured = False
 
             for chunk in self.voice.synthesize(text):
-                # Verificar cancelación durante síntesis
+                # Verificar cancelacion durante sintesis
                 if self.speaking_cancelled.is_set() or gen != self.speakgen:
-                    if wav_configured:
-                        wav_file.close()
                     return
-                if not wav_configured:
+                if wav_file is None:
+                    wav_file = wave.open(buffer, "wb")
                     wav_file.setnchannels(chunk.sample_channels)
                     wav_file.setsampwidth(chunk.sample_width)
                     wav_file.setframerate(chunk.sample_rate)
-                    wav_configured = True
                 wav_file.writeframes(chunk.audio_int16_bytes)
 
-            if not wav_configured:
+            if wav_file is None:
                 # No audio was generated (e.g. empty text or unpronounceable)
                 return
 
             wav_file.close()
+            wav_file = None
 
-            # Verificar si fue cancelado después de síntesis
+            # Verificar si fue cancelado despues de sintesis
             if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
@@ -129,11 +127,17 @@ class TTSService:
 
             winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
-            # Programar limpieza con deduplicación - cancelar temporizador existente primero
+            # Programar limpieza con deduplicacion - cancelar temporizador existente primero
             self.schedule_cleanup_timer()
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
             logging.exception("Failed to synthesize speech: %s", error)
+        finally:
+            if wav_file is not None:
+                try:
+                    wav_file.close()
+                except wave.Error:
+                    pass
 
     def schedule_cleanup_timer(self):
         with self.cleanup_timer_lock:

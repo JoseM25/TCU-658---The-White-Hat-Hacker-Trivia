@@ -103,7 +103,9 @@ class BaseModal:
         )
 
         if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            pos_x = root.winfo_rootx() + max((root.winfo_width() - scaled_width) // 2, 0)
+            pos_x = root.winfo_rootx() + max(
+                (root.winfo_width() - scaled_width) // 2, 0
+            )
             pos_y = root.winfo_rooty() + max(
                 (root.winfo_height() - scaled_height) // 2, 0
             )
