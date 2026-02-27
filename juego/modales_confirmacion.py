@@ -33,8 +33,9 @@ class ConfirmationModal(ModalBase):
         self.current_scale = self.calculate_scale_factor(root)
         scale = self.current_scale
         if root and root.winfo_width() > 1:
-            width = int(root.winfo_width() * MODAL_BASE_SIZES["skip_width_ratio"])
-            height = int(root.winfo_height() * MODAL_BASE_SIZES["skip_height_ratio"])
+            root_w, root_h = self.get_logical_window_size(root)
+            width = int(root_w * MODAL_BASE_SIZES["skip_width_ratio"])
+            height = int(root_h * MODAL_BASE_SIZES["skip_height_ratio"])
         else:
             width, height = (
                 MODAL_BASE_SIZES["skip_width"],

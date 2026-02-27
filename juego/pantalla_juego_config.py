@@ -348,7 +348,7 @@ MODAL_BASE_SIZES = {
     "summary_height": 420,
     "summary_width_ratio": 0.35,
     "summary_height_ratio": 0.60,
-    "summary_max_scale": 1.6,
+    "summary_max_scale": 1.2,
     # Modal de juego completado - altura aumentada para compatibilidad con 1080p
     "completion_width": 560,
     "completion_height": 520,

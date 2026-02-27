@@ -30,13 +30,30 @@ class ModalBase:
             False  # Bandera para prevenir nuevos trabajos de animación durante cierre
         )
 
+    def get_window_scaling(self, root):
+        try:
+            scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
+        except (AttributeError, KeyError, ValueError, tk.TclError):
+            scaling = 1.0
+        if not scaling or scaling <= 0:
+            return 1.0
+        return scaling
+
+    def get_logical_window_size(self, root, fallback=(1280, 720)):
+        if not root:
+            return fallback
+        scaling = self.get_window_scaling(root)
+        try:
+            width = max(int(round(root.winfo_width() / scaling)), 1)
+            height = max(int(round(root.winfo_height() / scaling)), 1)
+        except tk.TclError:
+            return fallback
+        return width, height
+
     def calculate_scale_factor(self, root):
         if not root or not root.winfo_exists():
             return 1.0
-        try:
-            width, height = root.winfo_width(), root.winfo_height()
-        except tk.TclError:
-            return 1.0
+        width, height = self.get_logical_window_size(root, (0, 0))
         if width <= 1 or height <= 1:
             return 1.0
         base_scale = min(width / 1280, height / 720)
@@ -60,17 +77,16 @@ class ModalBase:
         self.modal = ctk.CTkToplevel(root if root else self.parent)
         self.modal.after_cancel(self.modal.after(0, lambda: None))
         self.modal.iconphoto(False, tk.PhotoImage(width=1, height=1))
-        try:
-            scaling = ctk.ScalingTracker.get_window_scaling(root) if root else 1.0
-        except (AttributeError, KeyError):
-            scaling = 1.0
+        scaling = self.get_window_scaling(root or self.modal)
+        scaled_width = max(int(round(width * scaling)), 1)
+        scaled_height = max(int(round(height * scaling)), 1)
         if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            pos_x = root.winfo_rootx() + (root.winfo_width() - width) // 2
-            pos_y = root.winfo_rooty() + (root.winfo_height() - height) // 2
+            pos_x = root.winfo_rootx() + (root.winfo_width() - scaled_width) // 2
+            pos_y = root.winfo_rooty() + (root.winfo_height() - scaled_height) // 2
         else:
-            pos_x = (self.modal.winfo_screenwidth() - width) // 2
-            pos_y = (self.modal.winfo_screenheight() - height) // 2
-        pos_x, pos_y = int(pos_x / scaling), int(pos_y / scaling)
+            pos_x = (self.modal.winfo_screenwidth() - scaled_width) // 2
+            pos_y = (self.modal.winfo_screenheight() - scaled_height) // 2
+        pos_x, pos_y = int(pos_x), int(pos_y)
         self.modal.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.modal.attributes("-topmost", False)
         self.modal.title(title)
@@ -78,6 +94,18 @@ class ModalBase:
             self.modal.transient(root)
             self.modal.grab_set()
         self.modal.resizable(False, False)
+        # Re-center modal after widgets are rendered
+        self.modal.update_idletasks()
+        final_w = self.modal.winfo_width()
+        final_h = self.modal.winfo_height()
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            pos_x = root.winfo_rootx() + (root.winfo_width() - final_w) // 2
+            pos_y = root.winfo_rooty() + (root.winfo_height() - final_h) // 2
+        else:
+            pos_x = (self.modal.winfo_screenwidth() - final_w) // 2
+            pos_y = (self.modal.winfo_screenheight() - final_h) // 2
+        pos_x, pos_y = int(pos_x), int(pos_y)
+        self.modal.geometry(f"+{pos_x}+{pos_y}")
         self.modal.configure(fg_color=self.COLORS["bg_light"])
         self.modal.grid_rowconfigure(0, weight=1)
         self.modal.grid_columnconfigure(0, weight=1)

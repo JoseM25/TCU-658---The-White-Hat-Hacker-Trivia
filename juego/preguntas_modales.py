@@ -70,12 +70,32 @@ class BaseModal:
         except tk.TclError:
             pass
 
-    def calculate_position(self, modal, root, width, height):
-        # Obtener factor de escala - geometry() lo aplica internamente, así que dividimos
+    def get_window_scaling(self, root):
         try:
             scaling = ScalingTracker.get_window_scaling(root) if root else 1.0
         except (ValueError, KeyError, AttributeError, tk.TclError):
             scaling = 1.0
+        if not scaling or scaling <= 0:
+            return 1.0
+        return scaling
+
+    def get_logical_window_size(self, root, fallback=None):
+        if fallback is None:
+            fallback = self.BASE_DIMENSIONS
+        if not root:
+            return fallback
+        scaling = self.get_window_scaling(root)
+        try:
+            width = max(int(round(root.winfo_width() / scaling)), 1)
+            height = max(int(round(root.winfo_height() / scaling)), 1)
+        except tk.TclError:
+            return fallback
+        return width, height
+
+    def calculate_position(self, modal, root, width, height):
+        scaling = self.get_window_scaling(root or modal)
+        scaled_width = max(int(round(width * scaling)), 1)
+        scaled_height = max(int(round(height * scaling)), 1)
 
         screen_width, screen_height = (
             modal.winfo_screenwidth(),
@@ -83,24 +103,23 @@ class BaseModal:
         )
 
         if root and root.winfo_width() > 1 and root.winfo_height() > 1:
-            pos_x = root.winfo_rootx() + max((root.winfo_width() - width) // 2, 0)
-            pos_y = root.winfo_rooty() + max((root.winfo_height() - height) // 2, 0)
+            pos_x = root.winfo_rootx() + max((root.winfo_width() - scaled_width) // 2, 0)
+            pos_y = root.winfo_rooty() + max(
+                (root.winfo_height() - scaled_height) // 2, 0
+            )
         else:
-            pos_x = max((screen_width - width) // 2, 0)
-            pos_y = max((screen_height - height) // 2, 0)
+            pos_x = max((screen_width - scaled_width) // 2, 0)
+            pos_y = max((screen_height - scaled_height) // 2, 0)
 
-        # Dividir por escala ya que geometry() de CTk multiplica internamente
-        pos_x = int(pos_x / scaling)
-        pos_y = int(pos_y / scaling)
-
-        return pos_x, pos_y
+        return int(pos_x), int(pos_y)
 
     def get_responsive_scale(self, root, base_sizes=None):
         if not root:
             return 1.0
 
-        parent_width = root.winfo_width()
-        parent_height = root.winfo_height()
+        parent_width, parent_height = self.get_logical_window_size(
+            root, self.BASE_DIMENSIONS
+        )
         base_w, base_h = self.BASE_DIMENSIONS
 
         scale = min(parent_width / base_w, parent_height / base_h)
@@ -352,15 +371,16 @@ class BaseQuestionModal(BaseModal):
         min_width=480,
         min_height=360,
     ):
-        screen_width = modal.winfo_screenwidth()
-        screen_height = modal.winfo_screenheight()
+        scaling = self.get_window_scaling(root or modal)
+        screen_width = max(int(round(modal.winfo_screenwidth() / scaling)), 1)
+        screen_height = max(int(round(modal.winfo_screenheight() / scaling)), 1)
 
-        parent_width = (
-            root.winfo_width() if root and root.winfo_width() > 1 else screen_width
-        )
-        parent_height = (
-            root.winfo_height() if root and root.winfo_height() > 1 else screen_height
-        )
+        if root and root.winfo_width() > 1 and root.winfo_height() > 1:
+            parent_width, parent_height = self.get_logical_window_size(
+                root, (screen_width, screen_height)
+            )
+        else:
+            parent_width, parent_height = screen_width, screen_height
 
         width = min(max(min_width, int(parent_width * width_ratio)), screen_width - 80)
         height = min(

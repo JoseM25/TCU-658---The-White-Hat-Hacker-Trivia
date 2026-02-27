@@ -51,8 +51,11 @@ class GameCompletionModal(ModalBase):
             MODAL_BASE_SIZES["completion_width"],
             MODAL_BASE_SIZES["completion_height"],
         )
-        win_width = root.winfo_width() if root else base_w
-        win_height = root.winfo_height() if root else base_h
+        win_width, win_height = (
+            self.get_logical_window_size(root, (base_w, base_h))
+            if root
+            else (base_w, base_h)
+        )
         if root and win_width > 1 and win_height > 1:
             min_w = int(base_w * 0.85)
             min_h = int(base_h * 0.85)
@@ -419,15 +422,18 @@ class QuestionSummaryModal(ModalBase):
             self.safe_try(lambda: (self.modal.lift(), self.modal.focus_force()))
             return
         root = self.parent.winfo_toplevel() if self.parent else None
-        win_width = root.winfo_width() if root else 1280
-        win_height = root.winfo_height() if root else 720
+        win_width, win_height = (
+            self.get_logical_window_size(root, (1280, 720))
+            if root
+            else (1280, 720)
+        )
         self.current_scale = self.calculate_scale_factor(root)
         scale = self.current_scale
         width_ratio, height_ratio = (
             MODAL_BASE_SIZES["summary_width_ratio"],
             MODAL_BASE_SIZES["summary_height_ratio"],
         )
-        if root and win_width > 1:
+        if root and win_width > 1 and win_height > 1:
             width, height = int(win_width * width_ratio), int(win_height * height_ratio)
         else:
             width, height = (
@@ -672,8 +678,9 @@ class SkipConfirmationModal(ModalBase):
         self.current_scale = self.calculate_scale_factor(root)
         scale = self.current_scale
         if root and root.winfo_width() > 1:
-            width = int(root.winfo_width() * MODAL_BASE_SIZES["skip_width_ratio"])
-            height = int(root.winfo_height() * MODAL_BASE_SIZES["skip_height_ratio"])
+            root_w, root_h = self.get_logical_window_size(root)
+            width = int(root_w * MODAL_BASE_SIZES["skip_width_ratio"])
+            height = int(root_h * MODAL_BASE_SIZES["skip_height_ratio"])
         else:
             width, height = (
                 MODAL_BASE_SIZES["skip_width"],
