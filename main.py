@@ -8,8 +8,6 @@ from juego.rutas_app import ensure_user_data, get_resource_audio_dir
 from juego.servicio_sfx import HoverSoundBinder, SFXService
 from juego.servicio_tts import TTSService
 
-AUDIO_DIR = get_resource_audio_dir()
-
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 ctk.set_widget_scaling(1.0)
@@ -31,6 +29,7 @@ root.grid_columnconfigure(0, weight=1)
 root.configure(fg_color="#F5F7FA")
 
 ensure_user_data()
+AUDIO_DIR = get_resource_audio_dir()
 
 tts_service = TTSService(AUDIO_DIR)
 
