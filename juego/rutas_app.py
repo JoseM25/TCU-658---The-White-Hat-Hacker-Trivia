@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import sys
@@ -46,7 +47,10 @@ def get_data_root():
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
     if base:
         return Path(base) / APP_NAME
-    return get_app_root() / "userdata"
+
+    # Fallback to user home directory to ensure write permissions
+    # (Avoids crashing if installed in read-only Program Files)
+    return Path.home() / f".{APP_NAME.replace(' ', '_')}"
 
 
 def get_user_images_dir():
@@ -78,11 +82,43 @@ def _copy_missing_tree(source, destination):
             shutil.copy2(src, dst)
 
 
+def _merge_default_questions(default_path, user_path):
+    """Merges new questions from default_path into user_path without overwriting."""
+    try:
+        with open(default_path, "r", encoding="utf-8") as f:
+            default_data = json.load(f)
+            default_questions = default_data.get("questions", [])
+
+        with open(user_path, "r", encoding="utf-8") as f:
+            user_data = json.load(f)
+            user_questions = user_data.get("questions", [])
+
+        # Create a set of existing titles for checking duplicates (case-insensitive)
+        existing_titles = {q.get("title", "").strip().lower() for q in user_questions}
+
+        added_count = 0
+        for q in default_questions:
+            title = q.get("title", "").strip()
+            if title and title.lower() not in existing_titles:
+                user_questions.append(q)
+                added_count += 1
+
+        if added_count > 0:
+            user_data["questions"] = user_questions
+            with open(user_path, "w", encoding="utf-8") as f:
+                json.dump(user_data, f, indent=2, ensure_ascii=False)
+
+    except (OSError, json.JSONDecodeError):
+        # If there's corruption or IO error, we skip merging to avoid making things worse
+        pass
+
+
 def ensure_user_data():
     data_root = get_data_root()
     images_dir = get_user_images_dir()
     questions_path = get_data_questions_path()
     bundle_root = get_bundle_root()
+    default_questions = get_default_questions_path()
 
     images_dir.mkdir(parents=True, exist_ok=True)
 
@@ -93,10 +129,12 @@ def ensure_user_data():
 
     if not questions_path.exists():
         questions_path.parent.mkdir(parents=True, exist_ok=True)
-        default_questions = get_default_questions_path()
         if default_questions.exists():
             shutil.copy2(default_questions, questions_path)
         else:
             questions_path.write_text('{"questions": []}\n', encoding="utf-8")
+    elif default_questions.exists():
+        # Attempt to merge any new default questions into the user file
+        _merge_default_questions(default_questions, questions_path)
 
     return data_root

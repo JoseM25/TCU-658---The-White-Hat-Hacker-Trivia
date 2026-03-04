@@ -3,11 +3,14 @@ import logging
 import os
 import threading
 import wave
-import winsound
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from piper.voice import PiperVoice
+
+try:
+    import pygame
+except ImportError:
+    pygame = None
 
 logging.getLogger("piper.voice").setLevel(logging.ERROR)
 
@@ -23,16 +26,32 @@ class TTSService:
         self.load_lock = threading.Lock()
         self.load_error = None
         self.load_retries = 0
-        self.temp_files = []
-        self.temp_lock = threading.Lock()
-        self.cleanup_timer = None
-        self.cleanup_timer_lock = threading.Lock()
         self.audiocache = {}
         self.audiocacheorder = []
         self.audiocachemax = 20
         self.cachelock = threading.Lock()
         self.speakgen = 0
-        self.current_playing_path = None
+
+        # Audio Playback State
+        self.current_channel = None
+        self.playback_lock = threading.Lock()
+
+    def _play_sound(self, sound):
+        """Helper to play pygame Sound object."""
+        if pygame is None or sound is None:
+            return
+
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+
+            with self.playback_lock:
+                if self.current_channel:
+                    self.current_channel.stop()
+                self.current_channel = sound.play()
+
+        except (pygame.error, OSError, RuntimeError) as e:
+            logging.error("TTS Playback failed: %s", e)
 
     def preload(self):
         self.ensure_voice_loaded()
@@ -42,22 +61,16 @@ class TTSService:
             return
         text = text.strip()
 
-        cachedpath = None
+        cached_sound = None
         with self.cachelock:
-            cachedpath = self.audiocache.get(text)
+            cached_sound = self.audiocache.get(text)
 
-        if cachedpath and os.path.exists(cachedpath):
+        if cached_sound:
             self.stop()
             self.speakgen += 1
             self.speaking_cancelled.clear()
-            self.current_playing_path = cachedpath
-            winsound.PlaySound(cachedpath, winsound.SND_FILENAME | winsound.SND_ASYNC)
-            self.schedule_cleanup_timer()
+            self._play_sound(cached_sound)
             return
-        if cachedpath and not os.path.exists(cachedpath):
-            with self.cachelock:
-                if self.audiocache.get(text) == cachedpath:
-                    self.audiocache.pop(text, None)
 
         if not self.ensure_voice_loaded():
             return
@@ -77,14 +90,12 @@ class TTSService:
             if not self.voice:
                 return
 
-            # Verificar si fue cancelado antes de iniciar
             if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
             buffer = io.BytesIO()
 
             for chunk in self.voice.synthesize(text):
-                # Verificar cancelacion durante sintesis
                 if self.speaking_cancelled.is_set() or gen != self.speakgen:
                     return
                 if wav_file is None:
@@ -95,50 +106,36 @@ class TTSService:
                 wav_file.writeframes(chunk.audio_int16_bytes)
 
             if wav_file is None:
-                # No se generó audio (ej. texto vacío o impronunciable)
                 return
 
             wav_file.close()
             wav_file = None
 
-            # Verificar si fue cancelado despues de sintesis
             if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
-            with NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                tmp_path = tmp.name
-                tmp.write(buffer.getvalue())
-                tmp.flush()
+            # Create sound directly from memory buffer
+            buffer.seek(0)
+            if pygame is not None:
+                sound = pygame.mixer.Sound(file=buffer)
 
-            with self.temp_lock:
-                self.temp_files.append(tmp_path)
+                with self.cachelock:
+                    self.audiocache[text] = sound
+                    self.audiocacheorder.append(text)
+                    while len(self.audiocacheorder) > self.audiocachemax:
+                        viejo = self.audiocacheorder.pop(0)
+                        self.audiocache.pop(viejo, None)
 
-            with self.cachelock:
-                self.audiocache[text] = tmp_path
-                self.audiocacheorder.append(text)
-                while len(self.audiocacheorder) > self.audiocachemax:
-                    viejo = self.audiocacheorder.pop(0)
-                    pathviejo = self.audiocache.pop(viejo, None)
-                    if (
-                        pathviejo
-                        and pathviejo != tmp_path
-                        and pathviejo != self.current_playing_path
-                    ):
-                        try:
-                            os.unlink(pathviejo)
-                        except OSError:
-                            pass
-
-            if self.speaking_cancelled.is_set() or gen != self.speakgen:
-                return
-
-            self.current_playing_path = tmp_path
-            winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-
-            # Programar limpieza con deduplicacion - cancelar temporizador existente primero
-            self.schedule_cleanup_timer()
+                if not self.speaking_cancelled.is_set() and gen == self.speakgen:
+                    self._play_sound(sound)
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
+            try:
+                if pygame is not None:
+                    pygame.error
+            except:
+                pass  # ignore if pygame not imported
+
             logging.exception("Failed to synthesize speech: %s", error)
         finally:
             if wav_file is not None:
@@ -147,86 +144,24 @@ class TTSService:
                 except wave.Error:
                     pass
 
-    def schedule_cleanup_timer(self):
-        with self.cleanup_timer_lock:
-            # Cancelar temporizador de limpieza existente si hay
-            if self.cleanup_timer is not None:
-                self.cleanup_timer.cancel()
-            # Programar nuevo temporizador de limpieza
-            self.cleanup_timer = threading.Timer(5.0, self.cleanup_old_temp_files)
-            self.cleanup_timer.daemon = True
-            self.cleanup_timer.start()
-
-    def cleanup_old_temp_files(self):
-        with self.cleanup_timer_lock:
-            self.cleanup_timer = None
-
-        with self.cachelock:
-            cachepaths = set(self.audiocache.values())
-
-        with self.temp_lock:
-            # Mantener los últimos 2 archivos por seguridad en lugar de 1
-            # Esto reduce drásticamente el riesgo de borrar el archivo en reproducción
-            if len(self.temp_files) > 2:
-                files_to_remove = self.temp_files[:-2]
-                self.temp_files = self.temp_files[-2:]
-            else:
-                files_to_remove = []
-
-        for tmp_path in files_to_remove:
-            if tmp_path in cachepaths:
-                continue
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-
     def stop(self):
-        # Señalar a cualquier hilo en ejecución que se detenga
         self.speaking_cancelled.set()
-
         try:
-            winsound.PlaySound(None, winsound.SND_PURGE)
+            with self.playback_lock:
+                if self.current_channel:
+                    self.current_channel.stop()
+                    self.current_channel = None
         except (RuntimeError, OSError):
-            # Ignorar errores de reproducción al detener audio.
             pass
-
-        # Cancelar cualquier temporizador de limpieza pendiente
-        with self.cleanup_timer_lock:
-            if self.cleanup_timer is not None:
-                self.cleanup_timer.cancel()
-                self.cleanup_timer = None
-
-        # Limpiar todos los archivos temporales al detener
-        with self.temp_lock:
-            with self.cachelock:
-                cachepaths = set(self.audiocache.values())
-            restantes = []
-            for tmp_path in self.temp_files:
-                if tmp_path in cachepaths:
-                    restantes.append(tmp_path)
-                    continue
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-            self.temp_files = restantes
 
     def shutdown(self):
         self.stop()
-        # Esperar a que el hilo de voz termine si está corriendo (con timeout)
         if self.speaking_thread is not None and self.speaking_thread.is_alive():
             self.speaking_thread.join(timeout=1.0)
         self.speaking_thread = None
         with self.cachelock:
-            cachepaths = list(self.audiocache.values())
             self.audiocache.clear()
             self.audiocacheorder.clear()
-        for path in cachepaths:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
         self.voice = None
 
     MAX_LOAD_RETRIES = 3
