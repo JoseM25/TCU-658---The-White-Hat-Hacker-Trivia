@@ -33,7 +33,8 @@ class GameScreen(GameScreenLogic):
 
         # Iniciar el juego
         self.load_random_question()
-        self.start_timer()
+        if self.current_question:
+            self.start_timer()
 
     def on_resize(self, event):
         if event.widget is not self.parent:

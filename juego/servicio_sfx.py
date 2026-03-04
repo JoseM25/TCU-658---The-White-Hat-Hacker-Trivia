@@ -181,6 +181,7 @@ class HoverSoundBinder:
             self.root.unbind_all("<Leave>")
         except tk.TclError:
             pass
+        self.uninstall_click_hook()
 
     def install_click_hook(self):
         if type(self).CLICK_HOOK_INSTALLED:
@@ -204,6 +205,16 @@ class HoverSoundBinder:
         setattr(ctk.CTkButton, "_clicked", clicked_with_sfx)
         type(self).CLICK_HOOK_INSTALLED = True
         type(self).ORIGINAL_CTKBUTTON_CLICKED = original_clicked
+
+    @classmethod
+    def uninstall_click_hook(cls):
+        if not cls.CLICK_HOOK_INSTALLED:
+            return
+        if cls.ORIGINAL_CTKBUTTON_CLICKED is not None:
+            setattr(ctk.CTkButton, "_clicked", cls.ORIGINAL_CTKBUTTON_CLICKED)
+        cls.ORIGINAL_CTKBUTTON_CLICKED = None
+        cls.CLICK_HOOK_INSTALLED = False
+        cls.active_sfx_ref = None
 
     def on_enter(self, event):
         button = self.find_button(event.widget)

@@ -238,14 +238,20 @@ class QuestionFileStorage:
                 tmp_path = Path(tmp.name)
 
             # Crear respaldo del archivo existente (Windows requiere eliminar destino primero)
+            backup_ok = False
             if self.json_path.exists():
                 try:
                     if backup_path.exists():
                         backup_path.unlink()
                     self.json_path.rename(backup_path)
+                    backup_ok = True
                 except OSError:
-                    # Si el respaldo falla, intentar sobreescribir directamente
-                    pass
+                    # Si el respaldo falla, eliminar el original para que
+                    # el rename del temporal no falle y evitar sobreescritura
+                    try:
+                        self.json_path.unlink()
+                    except OSError:
+                        pass
 
             # Mover temporal al destino (atómico en mismo sistema de archivos)
             try:
@@ -308,10 +314,9 @@ class QuestionRepository:
             "definition": definition,
             "image": image_path,
         }
-        try:
-            index = self.questions.index(old_question)
-        except ValueError:
-            index = None
+        index = next(
+            (i for i, q in enumerate(self.questions) if q is old_question), None
+        )
 
         updated_questions = [q for q in self.questions if q is not old_question]
         insert_index = index if index is not None else len(updated_questions)

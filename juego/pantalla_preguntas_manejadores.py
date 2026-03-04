@@ -585,6 +585,18 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
             except tk.TclError:
                 pass
             self.resize_job = None
+        if self.searchjob:
+            try:
+                self.parent.after_cancel(self.searchjob)
+            except tk.TclError:
+                pass
+            self.searchjob = None
+        if self.detail_scroll_update_job:
+            try:
+                self.parent.after_cancel(self.detail_scroll_update_job)
+            except tk.TclError:
+                pass
+            self.detail_scroll_update_job = None
         # Cerrar cualquier modal abierto
         if self.current_modal and hasattr(self.current_modal, "close"):
             try:

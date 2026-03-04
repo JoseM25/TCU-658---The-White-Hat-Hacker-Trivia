@@ -1,3 +1,5 @@
+import tkinter as tk
+
 import customtkinter as ctk
 from PIL import Image
 
@@ -671,7 +673,11 @@ class QuestionSummaryModal(ModalBase):
             self.on_main_menu_callback()
 
     def on_main_menu_cancelled(self):
-        self.show()
+        try:
+            if self.parent and self.parent.winfo_exists():
+                self.show()
+        except tk.TclError:
+            pass
 
 
 class SkipConfirmationModal(ModalBase):

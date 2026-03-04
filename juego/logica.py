@@ -182,6 +182,14 @@ class ScoringSystem:
             time_seconds=0,
         )
 
+    def apply_wildcard_bonus(self, base_points, multiplier):
+        """Apply wildcard multiplier bonus to total_score only (not raw points)."""
+        if multiplier <= 1:
+            return base_points
+        bonus = base_points * (multiplier - 1)
+        self.total_score += bonus
+        return base_points * multiplier
+
     def process_wrong_answer(self):
         pass
 

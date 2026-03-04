@@ -126,8 +126,8 @@ class GameScreenLogic(GameScreenBase):
             self.handle_game_completion()
             return
 
-        self.current_question = random.choice(self.available_questions)
-        self.available_questions.remove(self.current_question)
+        idx = random.randrange(len(self.available_questions))
+        self.current_question = self.available_questions.pop(idx)
         self.current_answer = ""
         self.question_timer = 0
         self.question_mistakes = 0
@@ -446,10 +446,7 @@ class GameScreenLogic(GameScreenBase):
                     time_seconds=self.question_timer,
                     mistakes=self.question_mistakes,
                 )
-                pts = res.points_earned
-                if mult > 1:
-                    self.scoring_system.total_score += pts * (mult - 1)
-                    pts *= mult
+                pts = self.scoring_system.apply_wildcard_bonus(res.points_earned, mult)
                 self.score = self.scoring_system.total_score
                 self.questions_answered = self.scoring_system.questions_answered
             else:

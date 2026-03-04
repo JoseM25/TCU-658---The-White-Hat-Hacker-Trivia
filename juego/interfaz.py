@@ -1,4 +1,6 @@
-﻿from juego.pantalla_creditos import CreditsScreen
+﻿from tkinter import TclError
+
+from juego.pantalla_creditos import CreditsScreen
 from juego.pantalla_instrucciones import InstructionsScreen
 from juego.pantalla_juego import GameScreen
 from juego.pantalla_menu import MenuScreen
@@ -18,7 +20,7 @@ class AppController:
         if self.current_screen and hasattr(self.current_screen, "cleanup"):
             try:
                 self.current_screen.cleanup()
-            except (AttributeError, RuntimeError, TypeError):
+            except (AttributeError, RuntimeError, TypeError, TclError):
                 pass
 
     def show_menu(self):

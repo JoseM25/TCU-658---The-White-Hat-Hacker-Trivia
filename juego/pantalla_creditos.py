@@ -186,7 +186,10 @@ class CreditsScreen:
             return
 
         if self.resize_job:
-            self.parent.after_cancel(self.resize_job)
+            try:
+                self.parent.after_cancel(self.resize_job)
+            except tkinter.TclError:
+                pass
         self.resize_job = self.parent.after(self.RESIZE_DELAY, self.apply_responsive)
 
     def apply_responsive(self):

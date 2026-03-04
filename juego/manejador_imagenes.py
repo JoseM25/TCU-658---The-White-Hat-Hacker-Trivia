@@ -190,7 +190,7 @@ class ImageHandler:
         suffix = source_path.suffix or ".png"
 
         target_dir = self.user_images_dir or self.images_dir
-        destination = target_dir / source_path.name or "image.png"
+        destination = target_dir / (source_path.name or "image.png")
         counter = 1
         while destination.exists():
             destination = target_dir / f"{stem}_{counter}{suffix}"

@@ -22,6 +22,7 @@ class TTSService:
         self.speaking_cancelled = threading.Event()
         self.load_lock = threading.Lock()
         self.load_error = None
+        self.load_retries = 0
         self.temp_files = []
         self.temp_lock = threading.Lock()
         self.cleanup_timer = None
@@ -31,6 +32,7 @@ class TTSService:
         self.audiocachemax = 20
         self.cachelock = threading.Lock()
         self.speakgen = 0
+        self.current_playing_path = None
 
     def preload(self):
         self.ensure_voice_loaded()
@@ -48,6 +50,7 @@ class TTSService:
             self.stop()
             self.speakgen += 1
             self.speaking_cancelled.clear()
+            self.current_playing_path = cachedpath
             winsound.PlaySound(cachedpath, winsound.SND_FILENAME | winsound.SND_ASYNC)
             self.schedule_cleanup_timer()
             return
@@ -116,7 +119,11 @@ class TTSService:
                 while len(self.audiocacheorder) > self.audiocachemax:
                     viejo = self.audiocacheorder.pop(0)
                     pathviejo = self.audiocache.pop(viejo, None)
-                    if pathviejo and pathviejo != tmp_path:
+                    if (
+                        pathviejo
+                        and pathviejo != tmp_path
+                        and pathviejo != self.current_playing_path
+                    ):
                         try:
                             os.unlink(pathviejo)
                         except OSError:
@@ -125,6 +132,7 @@ class TTSService:
             if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
+            self.current_playing_path = tmp_path
             winsound.PlaySound(tmp_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
             # Programar limpieza con deduplicacion - cancelar temporizador existente primero
@@ -221,18 +229,29 @@ class TTSService:
                 pass
         self.voice = None
 
+    MAX_LOAD_RETRIES = 3
+
     def ensure_voice_loaded(self):
-        if self.voice or self.load_error:
+        if self.voice:
             return self.voice
+        if self.load_error and self.load_retries >= self.MAX_LOAD_RETRIES:
+            return None
 
         with self.load_lock:
-            if self.voice or self.load_error:
+            if self.voice:
                 return self.voice
+            if self.load_error and self.load_retries >= self.MAX_LOAD_RETRIES:
+                return None
             try:
                 self.voice = PiperVoice.load(
                     str(self.model_path), str(self.config_path)
                 )
+                self.load_error = None
             except (FileNotFoundError, OSError, RuntimeError, ValueError) as error:
+                self.load_retries += 1
                 self.load_error = error
-                print(f"Warning: Unable to load TTS voice: {error}")
+                print(
+                    f"Warning: Unable to load TTS voice "
+                    f"(attempt {self.load_retries}/{self.MAX_LOAD_RETRIES}): {error}"
+                )
         return self.voice
