@@ -54,6 +54,7 @@ class ReviewScreen:
         self.resize_job = self.definition_scroll_update_job = (
             self.definition_scroll_delayed_job
         ) = None
+        self.tts_debounce_job = None
         self.audio_enabled = True
 
         # Referencias de interfaz
@@ -439,9 +440,7 @@ class ReviewScreen:
         self.cached_image_path = None
         self.load_question_image()
 
-        self.tts.stop()
-        if self.audio_enabled and definition and definition != "No definition":
-            self.tts.speak(definition)
+        self._debounced_tts(definition)
 
         self.update_nav_buttons_state()
 
@@ -550,6 +549,27 @@ class ReviewScreen:
     def clear_image(self, text):
         self.image_label.configure(image=None, text=text)
         self.current_image = self.cached_original_image = self.cached_image_path = None
+
+    def _debounced_tts(self, definition):
+        """Debounce TTS so rapid navigation only speaks the final question."""
+        self.tts.stop()
+        if self.tts_debounce_job is not None:
+            try:
+                self.parent.after_cancel(self.tts_debounce_job)
+            except (ValueError, tk.TclError):
+                pass
+            self.tts_debounce_job = None
+
+        if self.audio_enabled and definition and definition != "No definition":
+            self.tts_debounce_job = self.parent.after(
+                300, self._speak_after_debounce, definition
+            )
+
+    def _speak_after_debounce(self, definition):
+        """Actually trigger TTS after the debounce delay."""
+        self.tts_debounce_job = None
+        if self.audio_enabled and definition:
+            self.tts.speak(definition)
 
     def next_question(self):
         if self.questions and self.current_index < len(self.questions) - 1:
@@ -970,6 +990,7 @@ class ReviewScreen:
             "resize_job",
             "definition_scroll_update_job",
             "definition_scroll_delayed_job",
+            "tts_debounce_job",
         ):
             self.cancel_job(job_attr)
 

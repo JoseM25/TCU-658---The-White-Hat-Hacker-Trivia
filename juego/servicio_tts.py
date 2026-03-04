@@ -1,6 +1,5 @@
 import io
 import logging
-import os
 import threading
 import wave
 from pathlib import Path
@@ -130,12 +129,6 @@ class TTSService:
                     self._play_sound(sound)
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
-            try:
-                if pygame is not None:
-                    pygame.error
-            except:
-                pass  # ignore if pygame not imported
-
             logging.exception("Failed to synthesize speech: %s", error)
         finally:
             if wav_file is not None:
