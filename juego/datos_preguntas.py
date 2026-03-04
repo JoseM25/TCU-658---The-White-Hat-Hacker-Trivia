@@ -41,12 +41,12 @@ def load_questions_file(path):
             raw_data = json.load(file)
 
     except FileNotFoundError:
-        # Expected behavior during first run or if file is missing before creation
+        # Comportamiento esperado en la primera ejecución o si el archivo falta antes de crearse
         return []
 
     except json.JSONDecodeError as e:
-        # Critical: File exists but is corrupted.
-        # Letting this fail silently confuses users who see "No Questions".
+        # Crítico: El archivo existe pero está corrupto.
+        # Dejar que falle en silencio confunde a los usuarios que ven "Sin Preguntas".
         title = "Data Corruption Error"
         msg = (
             f"The questions file is corrupted and cannot be read.\n"
@@ -58,7 +58,7 @@ def load_questions_file(path):
         return []
 
     except OSError as e:
-        # Critical: Permission error or other OS level read failure.
+        # Crítico: Error de permisos u otro fallo de lectura a nivel del sistema operativo.
         title = "File Read Error"
         msg = (
             f"Could not read the questions file due to a system error.\n"

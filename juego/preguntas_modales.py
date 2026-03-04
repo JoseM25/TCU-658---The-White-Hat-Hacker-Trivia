@@ -149,7 +149,7 @@ class BaseModal:
             self.modal.lift()
             self.modal.focus_force()
 
-    def close_from_event(self, _event=None):
+    def close_from_event(self):
         self.close()
 
 
@@ -347,7 +347,7 @@ class BaseQuestionModal(BaseModal):
         )
         return container
 
-    def handle_modal_event_callback(self, callback, _event=None):
+    def handle_modal_event_callback(self, callback):
         callback()
 
     def show_existing_modal(self):

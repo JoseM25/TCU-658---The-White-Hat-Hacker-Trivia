@@ -24,7 +24,7 @@ function Test-HasPip {
     try {
         & $PythonCommand -m pip --version *> $null
     } catch {
-        # Ignore and report false below.
+        # Ignorar y reportar falso abajo.
     }
 
     return ($LASTEXITCODE -eq 0)
@@ -46,7 +46,7 @@ foreach ($candidate in $pythonCandidates) {
         try {
             & $candidate -m ensurepip --upgrade *> $null
         } catch {
-            # Ignore and continue trying interpreters.
+            # Ignorar y seguir intentando con otros intérpretes.
         }
     }
 

@@ -440,7 +440,7 @@ class ReviewScreen:
         self.cached_image_path = None
         self.load_question_image()
 
-        self._debounced_tts(definition)
+        self.debounced_tts(definition)
 
         self.update_nav_buttons_state()
 
@@ -550,8 +550,7 @@ class ReviewScreen:
         self.image_label.configure(image=None, text=text)
         self.current_image = self.cached_original_image = self.cached_image_path = None
 
-    def _debounced_tts(self, definition):
-        """Debounce TTS so rapid navigation only speaks the final question."""
+    def debounced_tts(self, definition):
         self.tts.stop()
         if self.tts_debounce_job is not None:
             try:
@@ -562,11 +561,10 @@ class ReviewScreen:
 
         if self.audio_enabled and definition and definition != "No definition":
             self.tts_debounce_job = self.parent.after(
-                300, self._speak_after_debounce, definition
+                300, self.speak_after_debounce, definition
             )
 
-    def _speak_after_debounce(self, definition):
-        """Actually trigger TTS after the debounce delay."""
+    def speak_after_debounce(self, definition):
         self.tts_debounce_job = None
         if self.audio_enabled and definition:
             self.tts.speak(definition)

@@ -377,12 +377,12 @@ class GameCompletionModal(ModalBase):
             return "Expert"
         return "Master"
 
-    def handle_previous(self, _event=None):
+    def handle_previous(self):
         self.close()
         if self.on_previous_callback:
             self.on_previous_callback()
 
-    def handle_close(self, _event=None):
+    def handle_close(self):
         self.close()
         if self.on_close_callback:
             self.on_close_callback()
@@ -639,17 +639,17 @@ class QuestionSummaryModal(ModalBase):
             "modal_scale": m_scale,
         }
 
-    def handle_next(self, _event=None):
+    def handle_next(self):
         self.close()
         if self.on_next_callback:
             self.on_next_callback()
 
-    def handle_close(self, _event=None):
+    def handle_close(self):
         self.close()
         if self.on_close_callback:
             self.on_close_callback()
 
-    def handle_previous(self, _event=None):
+    def handle_previous(self):
         self.close()
         if self.on_previous_callback:
             self.on_previous_callback()
@@ -773,10 +773,10 @@ class SkipConfirmationModal(ModalBase):
             "border_w": sv(3, 2, 5),
         }
 
-    def handle_skip(self, _event=None):
+    def handle_skip(self):
         self.close()
         if self.on_skip_callback:
             self.on_skip_callback()
 
-    def handle_close(self, _event=None):
+    def handle_close(self):
         self.close()

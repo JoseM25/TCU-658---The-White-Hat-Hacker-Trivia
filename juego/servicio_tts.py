@@ -31,12 +31,11 @@ class TTSService:
         self.cachelock = threading.Lock()
         self.speakgen = 0
 
-        # Audio Playback State
+        # Estado de reproducción de audio
         self.current_channel = None
         self.playback_lock = threading.Lock()
 
-    def _play_sound(self, sound):
-        """Helper to play pygame Sound object."""
+    def play_sound(self, sound):
         if pygame is None or sound is None:
             return
 
@@ -68,7 +67,7 @@ class TTSService:
             self.stop()
             self.speakgen += 1
             self.speaking_cancelled.clear()
-            self._play_sound(cached_sound)
+            self.play_sound(cached_sound)
             return
 
         if not self.ensure_voice_loaded():
@@ -113,7 +112,7 @@ class TTSService:
             if self.speaking_cancelled.is_set() or gen != self.speakgen:
                 return
 
-            # Create sound directly from memory buffer
+            # Crear sonido directamente desde el búfer de memoria
             buffer.seek(0)
             if pygame is not None:
                 sound = pygame.mixer.Sound(file=buffer)
@@ -126,7 +125,7 @@ class TTSService:
                         self.audiocache.pop(viejo, None)
 
                 if not self.speaking_cancelled.is_set() and gen == self.speakgen:
-                    self._play_sound(sound)
+                    self.play_sound(sound)
 
         except (OSError, wave.Error, RuntimeError, ValueError) as error:
             logging.exception("Failed to synthesize speech: %s", error)

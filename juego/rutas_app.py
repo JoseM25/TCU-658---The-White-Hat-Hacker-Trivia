@@ -48,8 +48,8 @@ def get_data_root():
     if base:
         return Path(base) / APP_NAME
 
-    # Fallback to user home directory to ensure write permissions
-    # (Avoids crashing if installed in read-only Program Files)
+    # Respaldo al directorio home del usuario para asegurar permisos de escritura
+    # (Evita fallos si está instalado en Program Files de solo lectura)
     return Path.home() / f".{APP_NAME.replace(' ', '_')}"
 
 
@@ -65,7 +65,7 @@ def get_docs_dir():
     return get_data_root() / "docs"
 
 
-def _copy_missing_tree(source, destination):
+def copy_missing_tree(source, destination):
     if not source.exists():
         return
 
@@ -82,8 +82,7 @@ def _copy_missing_tree(source, destination):
             shutil.copy2(src, dst)
 
 
-def _merge_default_questions(default_path, user_path):
-    """Merges new questions from default_path into user_path without overwriting."""
+def merge_default_questions(default_path, user_path):
     try:
         with open(default_path, "r", encoding="utf-8") as f:
             default_data = json.load(f)
@@ -93,7 +92,6 @@ def _merge_default_questions(default_path, user_path):
             user_data = json.load(f)
             user_questions = user_data.get("questions", [])
 
-        # Create a set of existing titles for checking duplicates (case-insensitive)
         existing_titles = {q.get("title", "").strip().lower() for q in user_questions}
 
         added_count = 0
@@ -109,7 +107,7 @@ def _merge_default_questions(default_path, user_path):
                 json.dump(user_data, f, indent=2, ensure_ascii=False)
 
     except (OSError, json.JSONDecodeError):
-        # If there's corruption or IO error, we skip merging to avoid making things worse
+        # Si hay corrupción o error de E/S, se omite la fusión para no empeorar las cosas
         pass
 
 
@@ -123,9 +121,9 @@ def ensure_user_data():
     images_dir.mkdir(parents=True, exist_ok=True)
 
     if is_frozen():
-        _copy_missing_tree(bundle_root / "recursos", data_root / "recursos")
-        _copy_missing_tree(bundle_root / "datos", data_root / "datos")
-        _copy_missing_tree(bundle_root / "docs", data_root / "docs")
+        copy_missing_tree(bundle_root / "recursos", data_root / "recursos")
+        copy_missing_tree(bundle_root / "datos", data_root / "datos")
+        copy_missing_tree(bundle_root / "docs", data_root / "docs")
 
     if not questions_path.exists():
         questions_path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,7 +132,7 @@ def ensure_user_data():
         else:
             questions_path.write_text('{"questions": []}\n', encoding="utf-8")
     elif default_questions.exists():
-        # Attempt to merge any new default questions into the user file
-        _merge_default_questions(default_questions, questions_path)
+        # Intentar fusionar las preguntas predeterminadas nuevas en el archivo del usuario
+        merge_default_questions(default_questions, questions_path)
 
     return data_root

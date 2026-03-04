@@ -183,7 +183,6 @@ class ScoringSystem:
         )
 
     def apply_wildcard_bonus(self, base_points, multiplier):
-        """Apply wildcard multiplier bonus to total_score only (not raw points)."""
         if multiplier <= 1:
             return base_points
         bonus = base_points * (multiplier - 1)
