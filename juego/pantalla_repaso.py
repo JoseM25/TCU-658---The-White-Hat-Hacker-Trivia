@@ -1,10 +1,10 @@
-import json
 import tkinter as tk
 
 import customtkinter as ctk
 from PIL import Image
 
 from juego.ayudantes_responsivos import ResponsiveScaler, get_logical_dimensions
+from juego.datos_preguntas import load_questions_file
 from juego.manejador_imagenes import ImageHandler
 from juego.pantalla_juego_config import (
     GAME_BASE_DIMENSIONS,
@@ -150,15 +150,13 @@ class ReviewScreen:
         # Mostrar primera pregunta
         if self.questions:
             self.show_question(0)
+        else:
+            self.set_definition_text("No questions available!")
+            self.clear_image("No Image")
+            self.update_nav_buttons_state()
 
     def load_questions(self):
-        try:
-            with open(self.questions_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.questions = data.get("questions", [])
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"Error loading questions: {e}")
-            self.questions = []
+        self.questions = load_questions_file(self.questions_path)
 
     def build_ui(self):
         for widget in self.parent.winfo_children():
@@ -565,7 +563,12 @@ class ReviewScreen:
         if not self.questions:
             self.prev_button.configure(state="disabled")
             self.next_button.configure(state="disabled")
+            if self.nav_buttons_frame and self.nav_buttons_frame.winfo_exists():
+                self.nav_buttons_frame.grid_remove()
             return
+
+        if self.nav_buttons_frame and self.nav_buttons_frame.winfo_exists():
+            self.nav_buttons_frame.grid()
 
         is_first = self.current_index <= 0
         p_cfg = (

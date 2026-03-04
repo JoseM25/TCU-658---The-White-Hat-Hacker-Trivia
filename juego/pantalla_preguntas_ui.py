@@ -301,7 +301,7 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
 
         self.detail_image_label = ctk.CTkLabel(
             self.detail_content_frame,
-            text="Image placeholder",
+            text="No image",
             font=self.search_font,
             text_color=c["text_light"],
             fg_color="transparent",

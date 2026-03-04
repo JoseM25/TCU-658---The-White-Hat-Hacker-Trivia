@@ -76,6 +76,9 @@ class GameUIBuilderMixin:
             row=0, column=2, sticky="e", padx=(0, self.BASE_SIZES["header_pad_x"])
         )
 
+        # Acceso rápido al menú principal (visible solo en estado sin preguntas)
+        self.build_empty_state_menu_button()
+
         # Construir sección del temporizador
         self.build_timer_section()
 
@@ -84,6 +87,28 @@ class GameUIBuilderMixin:
 
         # Construir control de audio
         self.build_audio_section()
+
+    def build_empty_state_menu_button(self):
+        icon_size = self.BASE_SIZES["audio_icon_base"]
+        self.back_arrow_icon = self.load_icon("arrow", icon_size)
+
+        self.back_button = ctk.CTkButton(
+            self.header_left_container,
+            text="Menu",
+            font=self.header_button_font or self.button_font,
+            text_color="white",
+            image=self.back_arrow_icon,
+            compound="left",
+            fg_color="transparent",
+            hover_color=self.COLORS["header_hover"],
+            corner_radius=8,
+            width=110,
+            height=44,
+            anchor="w",
+            command=self.return_to_menu,
+        )
+        self.back_button.grid(row=0, column=0, sticky="w")
+        self.back_button.grid_remove()
 
     def build_timer_section(self):
         self.timer_container = ctk.CTkFrame(

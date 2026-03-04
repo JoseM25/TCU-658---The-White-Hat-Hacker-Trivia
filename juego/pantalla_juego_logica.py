@@ -109,6 +109,7 @@ class GameScreenLogic(GameScreenBase):
         self.tts.stop()
         self.hide_feedback()
         self.processing_correct_answer = False
+        self.set_empty_questions_mode(False)
         self.wildcard_manager.reset_for_new_question()
         self.update_wildcard_buttons_state()
         self.reset_timer_visuals()
@@ -119,7 +120,10 @@ class GameScreenLogic(GameScreenBase):
         self.cached_image_path = None
 
         if not self.questions:
+            self.current_question = None
+            self.current_answer = ""
             self.set_definition_text("No questions available!")
+            self.set_empty_questions_mode(True)
             return
 
         if not self.available_questions:

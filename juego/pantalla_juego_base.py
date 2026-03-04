@@ -1,10 +1,10 @@
-import json
 import tkinter as tk
 
 import customtkinter as ctk
 
 from juego.ayudantes_responsivos import ResponsiveScaler, get_logical_dimensions
 from juego.comodines import WildcardManager
+from juego.datos_preguntas import load_questions_file
 from juego.logica import ScoringSystem
 from juego.manejador_imagenes import ImageHandler
 from juego.pantalla_juego_config import (
@@ -89,6 +89,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.timer_frozen_visually = False
         self.double_points_visually_active = False
         self.ultimo_tam_imagen = 0
+        self.empty_questions_mode = False
         self.cached_original_image = None
         self.cached_image_path = None
 
@@ -220,6 +221,7 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         self.timer_frozen_visually = False
         self.double_points_visually_active = False
         self.ultimo_tam_imagen = 0
+        self.empty_questions_mode = False
 
     def init_ui_references(self):
         # Diseño principal
@@ -407,19 +409,10 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
         )
 
     def load_questions(self):
-        try:
-            with open(self.questions_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.questions = data.get("questions", [])
-                self.available_questions = list(self.questions)
-                self.scoring_system = ScoringSystem(len(self.questions))
-                self.wildcard_manager.reset_game()
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"Error loading questions: {e}")
-            self.questions = []
-            self.available_questions = []
-            self.scoring_system = ScoringSystem(1)
-            self.wildcard_manager.reset_game()
+        self.questions = load_questions_file(self.questions_path)
+        self.available_questions = list(self.questions)
+        self.scoring_system = ScoringSystem(len(self.questions) or 1)
+        self.wildcard_manager.reset_game()
 
     # =========================================================================
     # Manejo de Barra de Desplazamiento de Definición
@@ -754,6 +747,33 @@ class GameScreenBase(GameIconsMixin, GameUIBuilderMixin):
             self.score_label.configure(text_color="white")
         if self.multiplier_label:
             self.multiplier_label.grid_remove()
+
+    def set_empty_questions_mode(self, enabled):
+        self.empty_questions_mode = bool(enabled)
+
+        if self.back_button and self.back_button.winfo_exists():
+            if self.empty_questions_mode:
+                self.back_button.grid()
+            else:
+                self.back_button.grid_remove()
+
+        if self.timer_container and self.timer_container.winfo_exists():
+            if self.empty_questions_mode:
+                self.timer_container.grid_remove()
+            else:
+                self.timer_container.grid()
+
+        # Ocultar controles interactivos cuando no hay preguntas disponibles.
+        for widget in (
+            self.keyboard_frame,
+            self.action_buttons_frame,
+            self.wildcards_frame,
+        ):
+            if widget and widget.winfo_exists():
+                if self.empty_questions_mode:
+                    widget.grid_remove()
+                else:
+                    widget.grid()
 
     # =========================================================================
     # Métodos Abstractos (a ser sobrescritos en subclases)

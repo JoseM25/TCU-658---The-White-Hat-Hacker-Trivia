@@ -148,7 +148,7 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
         if self.detail_image_label and self.detail_image_label.winfo_exists():
             try:
                 self.detail_image_label.configure(
-                    image=self.detail_image_placeholder, text="Image placeholder"
+                    image=self.detail_image_placeholder, text="No image"
                 )
             except tk.TclError:
                 pass
@@ -172,7 +172,7 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
 
         fallback_text = ""
         if not detail_image:
-            fallback_text = "Image not available" if image_path else "Image placeholder"
+            fallback_text = "Image not available" if image_path else "No image"
 
         try:
             self.detail_image_label.configure(
@@ -218,6 +218,7 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
         list_frame = self.create_list_frame_container(is_scrollable)
 
         if not questions:
+            self.clear_detail_panel()
             self.show_empty_list_state(list_frame, search_query.strip())
             return
 

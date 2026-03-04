@@ -238,6 +238,13 @@ class GameScreen(GameScreenLogic):
         if self.header_center_container and self.header_center_container.winfo_exists():
             self.header_center_container.grid_configure(pady=pad_y)
 
+        if self.back_button and self.back_button.winfo_exists():
+            self.back_button.configure(
+                width=self.scale_value(130, scale, 80, 280),
+                height=self.scale_value(44, scale, 30, 88),
+                corner_radius=self.scale_value(8, scale, 6, 18),
+            )
+
         # Actualizar iconos del encabezado
         self.update_header_icons()
 
@@ -261,6 +268,11 @@ class GameScreen(GameScreenLogic):
         if self.freeze_icon:
             sz = sizes["timer_icon"]
             self.freeze_icon.configure(size=(sz, sz))
+
+        # Icono de menú (estado sin preguntas)
+        if self.back_arrow_icon:
+            sz = sizes["audio_icon"]
+            self.back_arrow_icon.configure(size=(sz, sz))
 
     def update_audio_button(self, scale):
         sizes = self.size_state

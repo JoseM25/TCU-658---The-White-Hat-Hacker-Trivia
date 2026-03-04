@@ -1,5 +1,5 @@
 import json
-import shutil
+import os
 import tempfile
 from pathlib import Path
 
@@ -220,13 +220,12 @@ class QuestionFileStorage:
 
     def save_questions(self, questions):
         payload = {"questions": questions}
-        backup_path = self.json_path.with_suffix(".json.bak")
         tmp_path = None
 
         try:
             self.json_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Escribir primero en archivo temporal
+            # Escribir primero en archivo temporal (mismo directorio para reemplazo atómico)
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 suffix=".json",
@@ -234,57 +233,26 @@ class QuestionFileStorage:
                 delete=False,
                 encoding="utf-8",
             ) as tmp:
-                json.dump(payload, tmp, ensure_ascii=False, indent=2)
                 tmp_path = Path(tmp.name)
+                json.dump(payload, tmp, ensure_ascii=False, indent=2)
+                tmp.write("\n")
+                tmp.flush()
+                os.fsync(tmp.fileno())
 
-            # Crear respaldo del archivo existente (Windows requiere eliminar destino primero)
-            backup_ok = False
-            if self.json_path.exists():
-                try:
-                    if backup_path.exists():
-                        backup_path.unlink()
-                    self.json_path.rename(backup_path)
-                    backup_ok = True
-                except OSError:
-                    # Si el respaldo falla, eliminar el original para que
-                    # el rename del temporal no falle y evitar sobreescritura
-                    try:
-                        self.json_path.unlink()
-                    except OSError:
-                        pass
+            # Reemplazo atómico: si falla, el archivo anterior queda intacto.
+            os.replace(tmp_path, self.json_path)
+            tmp_path = None
 
-            # Mover temporal al destino (atómico en mismo sistema de archivos)
-            try:
-                tmp_path.rename(self.json_path)
-            except OSError:
-                # En Windows entre unidades, usar copiar + eliminar
-
-                shutil.copy2(str(tmp_path), str(self.json_path))
-                tmp_path.unlink()
-
-            # Eliminar respaldo si todo salió bien
-            try:
-                if backup_path.exists():
-                    backup_path.unlink()
-            except OSError:
-                pass
-
-        except OSError as error:
-            # Intentar restaurar desde respaldo si falló el guardado
-            if backup_path.exists() and not self.json_path.exists():
-                try:
-                    backup_path.rename(self.json_path)
-                except OSError:
-                    pass
-            # Limpiar archivo temporal si existe
+        except (OSError, TypeError, ValueError) as error:
+            raise QuestionPersistenceError(
+                f"Unable to write {self.json_path}: {error}"
+            ) from error
+        finally:
             if tmp_path and tmp_path.exists():
                 try:
                     tmp_path.unlink()
                 except OSError:
                     pass
-            raise QuestionPersistenceError(
-                f"Unable to write {self.json_path}: {error}"
-            ) from error
 
 
 class QuestionRepository:
