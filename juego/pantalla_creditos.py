@@ -145,12 +145,12 @@ class CreditsScreen:
 
 
             
-            Carried out under the guidance of Professor Daniela María Barrantes Torres, Coordinator of TCU-658
+            It was carried out under the guidance of Professor Daniela María Barrantes Torres, Coordinator of TCU-658
             and Professor at the School of Modern Languages at UCR.
 
             
             
-            All resources used follow Public Domain License
+            All resources used follow Public Domain License or Creative Commons 0 License.
         """
 
         self.body_label = ctk.CTkLabel(
