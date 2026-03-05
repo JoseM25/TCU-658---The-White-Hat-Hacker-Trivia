@@ -49,6 +49,9 @@ class SFXService:
             if not mixer.get_init():
                 mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
             mixer.set_num_channels(16)
+            # Reserve channels 0-2 so auto-allocation never touches them:
+            # 0 = hover, 1 = click, 2 = TTS (see servicio_tts.py)
+            mixer.set_reserved(3)
             self.channels["hover"] = mixer.Channel(0)
             self.channels["click"] = mixer.Channel(1)
             return True

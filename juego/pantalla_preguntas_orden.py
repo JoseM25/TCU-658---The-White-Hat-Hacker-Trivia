@@ -458,6 +458,8 @@ class QuestionScreenLayoutMixin:
 
         if needs_render:
             self.render_question_list()
+        if hasattr(self, "queue_list_scroll_update"):
+            self.queue_list_scroll_update()
 
         self.resize_current_modal()
         self.resize_job = None

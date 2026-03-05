@@ -197,12 +197,9 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
 
         titulos = tuple(q.get("title", "") for q in questions)
         actual = self.current_question.get("title", "") if self.current_question else ""
-        firma = (titulos, actual, search_query)
+        firma = (titulos, actual, search_query, self.render_metric_snapshot)
         if self.lastrender == firma and self.list_outer_frame.winfo_children():
             return
-
-        for child in self.list_outer_frame.winfo_children():
-            child.destroy()
 
         selected_visible = (
             any(q is self.current_question for q in questions)
@@ -212,14 +209,14 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
         if not selected_visible and self.current_question:
             self.clear_detail_panel()
 
-        is_scrollable = len(questions) > s.get(
-            "max_questions", self.SIZES["max_questions"]
-        )
-        list_frame = self.create_list_frame_container(is_scrollable)
+        self._clear_list_frame_content()
+        list_frame = self.list_frame
 
         if not questions:
             self.clear_detail_panel()
             self.show_empty_list_state(list_frame, search_query.strip())
+            self.lastrender = firma
+            self.queue_list_scroll_update()
             return
 
         button_config = {
@@ -234,17 +231,15 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
         self.selected_question_button = None
         first_button = None
 
+        offset = s.get("scrollbar_offset", 22)
+        btn_padx = (button_margin, button_margin + offset)
+
         for index, question in enumerate(questions, start=0):
             is_selected = selected_visible and question is self.current_question
 
             button = self.create_question_button(
                 list_frame, question, is_selected, button_config
             )
-
-            btn_padx = button_margin
-            if is_scrollable:
-                offset = s.get("scrollbar_offset", 22)
-                btn_padx = (button_margin, button_margin + offset)
 
             button.grid(
                 row=index,
@@ -261,6 +256,7 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
                 self.selected_question_button = button
 
         if not self.current_question and first_button:
+            self.queue_list_scroll_update()
             self.on_question_selected(questions[0], first_button)
             return
 
@@ -273,6 +269,101 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
                 self.current_question, self.selected_question_button
             )
         self.lastrender = firma
+        self.queue_list_scroll_update()
+
+    def queue_list_scroll_update(self):
+        if not self.parent or not self.parent.winfo_exists():
+            return
+        if self.list_scroll_update_job:
+            try:
+                self.parent.after_cancel(self.list_scroll_update_job)
+            except tk.TclError:
+                pass
+            self.list_scroll_update_job = None
+        try:
+            self.list_scroll_update_job = self.parent.after_idle(
+                self.update_list_scrollbar_visibility
+            )
+        except tk.TclError:
+            self.list_scroll_update_job = None
+            self.update_list_scrollbar_visibility()
+
+    def update_list_scrollbar_visibility(self):
+        self.list_scroll_update_job = None
+        list_frame = self.list_frame
+        if not list_frame or not list_frame.winfo_exists():
+            return
+
+        scrollbar = self.get_scrollbar_widget(list_frame)
+        if not scrollbar or not scrollbar.winfo_exists():
+            return
+
+        canvas = getattr(list_frame, "_parent_canvas", None)
+        if not canvas or not canvas.winfo_exists():
+            return
+
+        try:
+            list_frame.update_idletasks()
+            canvas.update_idletasks()
+            bbox = canvas.bbox("all")
+        except tk.TclError:
+            return
+
+        if not bbox:
+            needs_scroll = False
+        else:
+            content_height = max(0, bbox[3] - bbox[1])
+            viewport_height = canvas.winfo_height()
+            if viewport_height <= 1:
+                viewport_height = canvas.winfo_reqheight()
+            # Allow 1px tolerance to avoid false positives from geometry rounding.
+            needs_scroll = content_height > (viewport_height + 1)
+
+        self.set_list_scrollbar_visible(needs_scroll)
+
+    def set_list_scrollbar_visible(self, visible):
+        if self.list_scrollbar_visible is visible:
+            return
+
+        scrollbar = self.get_scrollbar_widget(self.list_frame)
+        if not scrollbar or not scrollbar.winfo_exists():
+            return
+
+        manager = self.list_scrollbar_manager or scrollbar.winfo_manager()
+        if not manager:
+            manager = "grid"
+        self.list_scrollbar_manager = manager
+
+        if visible:
+            if manager == "grid":
+                scrollbar.grid()
+            elif manager == "pack":
+                scrollbar.pack()
+            elif manager == "place":
+                scrollbar.place()
+        else:
+            if manager == "grid":
+                scrollbar.grid_remove()
+            elif manager == "pack":
+                scrollbar.pack_forget()
+            elif manager == "place":
+                scrollbar.place_forget()
+
+        self.list_scrollbar_visible = visible
+
+    def get_scrollbar_widget(self, scrollable):
+        if not scrollable:
+            return None
+        for attr in (
+            "_scrollbar",
+            "_scrollbar_vertical",
+            "_y_scrollbar",
+            "_scrollbar_y",
+        ):
+            scrollbar = getattr(scrollable, attr, None)
+            if scrollbar:
+                return scrollbar
+        return None
 
     def queue_detail_scroll_update(self):
         if not self.parent or not self.parent.winfo_exists():
@@ -598,6 +689,12 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
             except tk.TclError:
                 pass
             self.detail_scroll_update_job = None
+        if self.list_scroll_update_job:
+            try:
+                self.parent.after_cancel(self.list_scroll_update_job)
+            except tk.TclError:
+                pass
+            self.list_scroll_update_job = None
         # Cerrar cualquier modal abierto
         if self.current_modal and hasattr(self.current_modal, "close"):
             try:

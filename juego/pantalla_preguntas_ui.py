@@ -14,6 +14,11 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         self.search_entry = None
         self.list_container = None
         self.list_outer_frame = None
+        self.list_frame = None
+        self.list_is_scrollable = None
+        self.list_scrollbar_visible = None
+        self.list_scrollbar_manager = None
+        self.list_scroll_update_job = None
         self.detail_container = None
         self.detail_title_label = None
         self.detail_definition_textbox = None
@@ -225,6 +230,26 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         )
         self.list_outer_frame.grid_columnconfigure(0, weight=1)
         self.list_outer_frame.grid_rowconfigure(0, weight=1)
+        self.list_outer_frame.grid_propagate(False)
+
+        self.list_frame = ctk.CTkScrollableFrame(
+            self.list_outer_frame,
+            fg_color="transparent",
+            scrollbar_fg_color="transparent",
+            border_width=0,
+            corner_radius=0,
+        )
+        self.list_frame.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=4,
+            pady=4,
+        )
+        self.list_frame.grid_columnconfigure(0, weight=1)
+        self.list_scrollbar_visible = None
+        self.list_scrollbar_manager = None
+        self.list_is_scrollable = True
 
         self.render_question_list()
 
@@ -379,32 +404,27 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         self.detail_definition_textbox.configure(state="disabled")
         self.queue_detail_scroll_update()
 
-    def create_list_frame_container(self, is_scrollable):
-        frame_config = {
-            "fg_color": "transparent",
-            "border_width": 0,
-            "corner_radius": 0,
-        }
-        frame_class = ctk.CTkScrollableFrame if is_scrollable else ctk.CTkFrame
-        list_frame = frame_class(self.list_outer_frame, **frame_config)
+    def _clear_list_frame_content(self):
+        if self.list_frame and self.list_frame.winfo_exists():
+            self.list_frame.destroy()
 
-        inner_padding = 4
-        list_frame.grid(
+        self.list_frame = ctk.CTkScrollableFrame(
+            self.list_outer_frame,
+            fg_color="transparent",
+            scrollbar_fg_color="transparent",
+            border_width=0,
+            corner_radius=0,
+        )
+        self.list_frame.grid(
             row=0,
             column=0,
             sticky="nsew",
-            padx=inner_padding,
-            pady=inner_padding,
+            padx=4,
+            pady=4,
         )
-        list_frame.grid_columnconfigure(0, weight=1)
-        inner_frame = getattr(list_frame, "_scrollable_frame", None)
-        if inner_frame:
-            try:
-                inner_frame.grid_columnconfigure(0, weight=1)
-            except tk.TclError:
-                pass
-
-        return list_frame
+        self.list_frame.grid_columnconfigure(0, weight=1)
+        self.list_scrollbar_visible = None
+        self.list_scrollbar_manager = None
 
     def show_empty_list_state(self, list_frame, has_search_query):
         c = self.COLORS

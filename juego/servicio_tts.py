@@ -31,8 +31,8 @@ class TTSService:
         self.cachelock = threading.Lock()
         self.speakgen = 0
 
-        # Estado de reproducción de audio
-        self.current_channel = None
+        # Dedicated channel for TTS (channel 2, reserved by SFXService)
+        self.tts_channel = None
         self.playback_lock = threading.Lock()
 
     def play_sound(self, sound):
@@ -43,10 +43,12 @@ class TTSService:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
 
+            if self.tts_channel is None:
+                self.tts_channel = pygame.mixer.Channel(2)
+
             with self.playback_lock:
-                if self.current_channel:
-                    self.current_channel.stop()
-                self.current_channel = sound.play()
+                self.tts_channel.stop()
+                self.tts_channel.play(sound)
 
         except (pygame.error, OSError, RuntimeError) as e:
             logging.error("TTS Playback failed: %s", e)
@@ -140,9 +142,8 @@ class TTSService:
         self.speaking_cancelled.set()
         try:
             with self.playback_lock:
-                if self.current_channel:
-                    self.current_channel.stop()
-                    self.current_channel = None
+                if self.tts_channel:
+                    self.tts_channel.stop()
         except (RuntimeError, OSError):
             pass
 
