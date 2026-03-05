@@ -13,6 +13,7 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         self.detail_visible = False
         self.search_entry = None
         self.list_container = None
+        self.list_outer_frame = None
         self.detail_container = None
         self.detail_title_label = None
         self.detail_definition_textbox = None
@@ -202,10 +203,28 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         self.handle_search()
 
     def build_question_list_container(self, parent):
+        c = self.COLORS
         self.list_container = ctk.CTkFrame(parent, fg_color="transparent")
         self.list_container.grid(row=1, column=0, sticky="nsew", pady=(20, 0))
         self.list_container.grid_columnconfigure(0, weight=1)
         self.list_container.grid_rowconfigure(0, weight=1)
+
+        self.list_outer_frame = ctk.CTkFrame(
+            self.list_container,
+            fg_color=c["bg_light"],
+            border_width=1,
+            border_color=c["border_light"],
+            corner_radius=self.list_frame_corner_radius,
+        )
+        self.list_outer_frame.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=self.list_frame_padding,
+            pady=self.list_frame_padding,
+        )
+        self.list_outer_frame.grid_columnconfigure(0, weight=1)
+        self.list_outer_frame.grid_rowconfigure(0, weight=1)
 
         self.render_question_list()
 
@@ -352,7 +371,7 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
             text_color=c["text_medium"],
             fg_color="transparent",
             wrap="word",
-            height=100,
+            height=120,
             activate_scrollbars=False,
             border_width=0,
         )
@@ -361,32 +380,13 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
         self.queue_detail_scroll_update()
 
     def create_list_frame_container(self, is_scrollable):
-        c = self.COLORS
-
-        outer_frame = ctk.CTkFrame(
-            self.list_container,
-            fg_color=c["bg_light"],
-            border_width=1,
-            border_color=c["border_light"],
-            corner_radius=self.list_frame_corner_radius,
-        )
-        outer_frame.grid(
-            row=0,
-            column=0,
-            sticky="nsew",
-            padx=self.list_frame_padding,
-            pady=self.list_frame_padding,
-        )
-        outer_frame.grid_columnconfigure(0, weight=1)
-        outer_frame.grid_rowconfigure(0, weight=1)
-
         frame_config = {
             "fg_color": "transparent",
             "border_width": 0,
             "corner_radius": 0,
         }
         frame_class = ctk.CTkScrollableFrame if is_scrollable else ctk.CTkFrame
-        list_frame = frame_class(outer_frame, **frame_config)
+        list_frame = frame_class(self.list_outer_frame, **frame_config)
 
         inner_padding = 4
         list_frame.grid(

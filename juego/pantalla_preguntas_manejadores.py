@@ -188,7 +188,7 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
         self.update_detail_image(image_path)
 
     def render_question_list(self):
-        if not self.list_container or not self.list_container.winfo_exists():
+        if not self.list_outer_frame or not self.list_outer_frame.winfo_exists():
             return
 
         s = self.size_state
@@ -198,10 +198,10 @@ class QuestionScreenHandlersMixin(QuestionScreenUIMixin):
         titulos = tuple(q.get("title", "") for q in questions)
         actual = self.current_question.get("title", "") if self.current_question else ""
         firma = (titulos, actual, search_query)
-        if self.lastrender == firma and self.list_container.winfo_children():
+        if self.lastrender == firma and self.list_outer_frame.winfo_children():
             return
 
-        for child in self.list_container.winfo_children():
+        for child in self.list_outer_frame.winfo_children():
             child.destroy()
 
         selected_visible = (
