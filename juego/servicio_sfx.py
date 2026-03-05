@@ -262,7 +262,7 @@ class HoverSoundBinder:
     def find_button(self, widget):
         while widget is not None:
             try:
-                if widget.winfo_class() == "CTkButton":
+                if isinstance(widget, ctk.CTkButton):
                     return widget
             except (AttributeError, tk.TclError):
                 pass
