@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import shutil
@@ -130,6 +131,42 @@ def merge_default_questions(default_path, user_path):
         pass
 
 
+def _file_hash(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _sync_bundled_questions(default_questions, questions_path, data_root):
+    hash_file = data_root / ".preguntas_hash"
+
+    if not default_questions.exists():
+        return
+
+    bundled_hash = _file_hash(default_questions)
+
+    old_hash = None
+    if hash_file.exists():
+        try:
+            old_hash = hash_file.read_text(encoding="utf-8").strip()
+        except OSError:
+            pass
+
+    if old_hash is None or old_hash != bundled_hash:
+        # Nueva versión del EXE → reemplazar el JSON local con el incluido.
+        questions_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(default_questions, questions_path)
+    # Si old_hash == bundled_hash → misma versión, no se toca el archivo.
+
+    # Actualizar el hash almacenado.
+    try:
+        hash_file.write_text(bundled_hash, encoding="utf-8")
+    except OSError:
+        pass
+
+
 def ensure_user_data():
     data_root = get_data_root()
     images_dir = get_user_images_dir()
@@ -144,14 +181,11 @@ def ensure_user_data():
         copy_missing_tree(bundle_root / "datos", data_root / "datos")
         copy_missing_tree(bundle_root / "docs", data_root / "docs")
 
+    _sync_bundled_questions(default_questions, questions_path, data_root)
+
+    # Si el archivo aún no existe (no había bundle ni hash previo), crear uno vacío.
     if not questions_path.exists():
         questions_path.parent.mkdir(parents=True, exist_ok=True)
-        if default_questions.exists():
-            shutil.copy2(default_questions, questions_path)
-        else:
-            questions_path.write_text('{"questions": []}\n', encoding="utf-8")
-    elif default_questions.exists():
-        # Intentar fusionar las preguntas predeterminadas nuevas en el archivo del usuario
-        merge_default_questions(default_questions, questions_path)
+        questions_path.write_text('{"questions": []}\n', encoding="utf-8")
 
     return data_root
