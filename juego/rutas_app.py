@@ -92,22 +92,41 @@ def merge_default_questions(default_path, user_path):
             user_data = json.load(f)
             user_questions = user_data.get("questions", [])
 
-        existing_titles = {q.get("title", "").strip().lower() for q in user_questions}
+        user_by_title = {}
+        for q in user_questions:
+            title = q.get("title", "").strip().lower()
+            if title:
+                user_by_title[title] = q
 
-        added_count = 0
+        changed = False
         for q in default_questions:
             title = q.get("title", "").strip()
-            if title and title.lower() not in existing_titles:
+            if not title:
+                continue
+            key = title.lower()
+            if key in user_by_title:
+                existing = user_by_title[key]
+                for field in ("definition", "image"):
+                    new_val = q.get(field, "")
+                    if existing.get(field, "") != new_val:
+                        existing[field] = new_val
+                        changed = True
+            else:
                 user_questions.append(q)
-                added_count += 1
+                changed = True
 
-        if added_count > 0:
+        if changed:
             user_data["questions"] = user_questions
             with open(user_path, "w", encoding="utf-8") as f:
                 json.dump(user_data, f, indent=2, ensure_ascii=False)
 
-    except (OSError, json.JSONDecodeError):
-        # Si hay corrupción o error de E/S, se omite la fusión para no empeorar las cosas
+    except json.JSONDecodeError:
+        # El archivo del usuario está corrupto. Reemplazarlo con la copia predeterminada
+        try:
+            shutil.copy2(default_path, user_path)
+        except OSError:
+            pass
+    except OSError:
         pass
 
 
