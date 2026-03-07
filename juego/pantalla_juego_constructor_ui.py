@@ -253,7 +253,7 @@ class GameUIBuilderMixin:
         self.definition_scroll_wrapper = ctk.CTkFrame(
             self.definition_frame,
             fg_color="transparent",
-            height=45,
+            height=68,
         )
         self.definition_scroll_wrapper.grid(row=0, column=0, sticky="ew")
         self.definition_scroll_wrapper.grid_propagate(False)  # Forzar altura fija

@@ -1,7 +1,7 @@
 import tkinter as tk
 
 import customtkinter as ctk
-from PIL import Image
+from PIL import Image, ImageFile
 
 from juego.ayudantes_responsivos import ResponsiveScaler, get_logical_dimensions
 from juego.datos_preguntas import load_questions_file
@@ -29,6 +29,8 @@ from juego.rutas_app import (
 )
 from juego.servicio_tts import TTSService
 
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 
 class ReviewScreen:
     BASE_DIMENSIONS = GAME_BASE_DIMENSIONS
@@ -45,7 +47,6 @@ class ReviewScreen:
         self.on_return_callback = on_return_callback
         self.sfx = sfx_service
 
-        # Estado
         self.questions, self.answer_box_labels = [], []
         self.current_index, self.ultimo_tam_imagen = 0, 0
         self.current_question = self.current_image = self.cached_original_image = (
@@ -57,7 +58,6 @@ class ReviewScreen:
         self.tts_debounce_job = None
         self.audio_enabled = True
 
-        # Referencias de interfaz
         self.main = self.header_frame = self.header_left_container = (
             self.header_center_container
         ) = self.header_right_container = None
@@ -80,35 +80,20 @@ class ReviewScreen:
         self.nav_buttons_frame = self.prev_button = self.next_button = None
         self.menu_button = None
 
-        # Fuentes (se asignan con font_registry.attach_attributes)
-        self.timer_font = None
-        self.score_font = None
-        self.definition_font = None
-        self.keyboard_font = None
-        self.answer_box_font = None
-        self.button_font = None
-        self.header_button_font = None
-        self.header_label_font = None
-        self.feedback_font = None
-        self.wildcard_font = None
-        self.charges_font = None
-        self.multiplier_font = None
+        self.timer_font = self.score_font = self.definition_font = None
+        self.keyboard_font = self.answer_box_font = self.button_font = None
+        self.header_button_font = self.header_label_font = self.feedback_font = None
+        self.wildcard_font = self.charges_font = self.multiplier_font = None
 
-        # Rutas y servicios
-        resource_images_dir = get_resource_images_dir()
-        resource_audio_dir = get_resource_audio_dir()
-        data_root = get_data_root()
-        resource_root = get_resource_root()
-
-        self.images_dir = resource_images_dir
-        self.audio_dir = resource_audio_dir
+        self.images_dir = get_resource_images_dir()
+        self.audio_dir = get_resource_audio_dir()
         self.questions_path = get_data_questions_path()
 
         self.image_handler = ImageHandler(
             self.images_dir,
             user_images_dir=get_user_images_dir(),
-            data_root=data_root,
-            resource_root=resource_root,
+            data_root=get_data_root(),
+            resource_root=get_resource_root(),
         )
 
         self.tts = tts_service or TTSService(self.audio_dir)
@@ -116,7 +101,6 @@ class ReviewScreen:
         if self.sfx and hasattr(self.sfx, "is_muted"):
             self.audio_enabled = not self.sfx.is_muted()
 
-        # Sistema responsivo
         self.scaler = ResponsiveScaler(
             self.BASE_DIMENSIONS,
             self.SCALE_LIMITS,
@@ -133,22 +117,14 @@ class ReviewScreen:
         self.current_window_height = self.BASE_DIMENSIONS[1]
         self.size_state = {}
 
-        # Cargar preguntas y construir interfaz
         self.load_questions()
         self.build_ui()
-
-        # Vincular redimensionamiento
         self.parent.bind("<Configure>", self.on_resize)
-
-        # Vincular teclado para navegacion
         self.keypress_bind_id = self.parent.winfo_toplevel().bind(
             "<KeyPress>", self.on_key_press
         )
-
-        # Diseno inicial
         self.apply_responsive()
 
-        # Mostrar primera pregunta
         if self.questions:
             self.show_question(0)
         else:
@@ -300,7 +276,7 @@ class ReviewScreen:
 
         self.load_info_icon()
 
-        dsw = ctk.CTkFrame(df, fg_color="transparent", height=45)
+        dsw = ctk.CTkFrame(df, fg_color="transparent", height=68)
         dsw.grid(row=0, column=0, sticky="ew")
         dsw.grid_propagate(False)
         dsw.grid_rowconfigure(0, weight=1)
@@ -534,6 +510,7 @@ class ReviewScreen:
                 w, h = self.cached_original_image.size
                 if w > 0 and h > 0:
                     sc = min(max_sz / w, max_sz / h)
+                    self._clear_label_image()
                     self.current_image = ctk.CTkImage(
                         light_image=self.cached_original_image,
                         dark_image=self.cached_original_image,
@@ -542,22 +519,32 @@ class ReviewScreen:
                     self.image_label.configure(image=self.current_image, text="")
             else:
                 self.clear_image("Image Error")
-        except (IOError, OSError, ValueError) as e:
+        except (IOError, OSError, ValueError, tk.TclError) as e:
             print(f"Error loading image: {e}")
             self.clear_image("Error loading image")
 
+    def _clear_label_image(self):
+        try:
+            inner = getattr(self.image_label, "_label", None)
+            if inner is not None:
+                inner.configure(image="")
+        except (tk.TclError, AttributeError):
+            pass
+
     def clear_image(self, text):
-        self.image_label.configure(image=None, text=text)
+        self._clear_label_image()
+        try:
+            self.image_label.configure(image=None, text=text)
+        except tk.TclError:
+            try:
+                self.image_label.configure(text=text)
+            except tk.TclError:
+                pass
         self.current_image = self.cached_original_image = self.cached_image_path = None
 
     def debounced_tts(self, definition):
         self.tts.stop()
-        if self.tts_debounce_job is not None:
-            try:
-                self.parent.after_cancel(self.tts_debounce_job)
-            except (ValueError, tk.TclError):
-                pass
-            self.tts_debounce_job = None
+        self.cancel_job("tts_debounce_job")
 
         if self.audio_enabled and definition and definition != "No definition":
             self.tts_debounce_job = self.parent.after(
@@ -588,39 +575,33 @@ class ReviewScreen:
         if self.nav_buttons_frame and self.nav_buttons_frame.winfo_exists():
             self.nav_buttons_frame.grid()
 
-        is_first = self.current_index <= 0
-        p_cfg = (
-            {
-                "state": "disabled",
-                "fg_color": self.COLORS["border_medium"],
-                "border_color": self.COLORS["border_medium"],
-                "text_color": self.COLORS["text_light"],
-            }
-            if is_first
-            else {
-                "state": "normal",
-                "fg_color": self.COLORS["bg_light"],
-                "border_color": "black",
-                "text_color": "black",
-            }
-        )
-        self.prev_button.configure(**p_cfg)
-
-        is_last = self.current_index >= len(self.questions) - 1
-        n_cfg = (
-            {
-                "state": "disabled",
-                "fg_color": self.COLORS["border_medium"],
-                "hover_color": self.COLORS["border_medium"],
-            }
-            if is_last
-            else {
-                "state": "normal",
-                "fg_color": self.COLORS["primary_blue"],
-                "hover_color": self.COLORS["primary_hover"],
-            }
-        )
-        self.next_button.configure(**n_cfg)
+        colors = self.COLORS
+        if self.current_index <= 0:
+            self.prev_button.configure(
+                state="disabled",
+                fg_color=colors["border_medium"],
+                border_color=colors["border_medium"],
+                text_color=colors["text_light"],
+            )
+        else:
+            self.prev_button.configure(
+                state="normal",
+                fg_color=colors["bg_light"],
+                border_color="black",
+                text_color="black",
+            )
+        if self.current_index >= len(self.questions) - 1:
+            self.next_button.configure(
+                state="disabled",
+                fg_color=colors["border_medium"],
+                hover_color=colors["border_medium"],
+            )
+        else:
+            self.next_button.configure(
+                state="normal",
+                fg_color=colors["primary_blue"],
+                hover_color=colors["primary_hover"],
+            )
 
     def toggle_audio(self):
         self.audio_enabled = not self.audio_enabled
@@ -640,13 +621,16 @@ class ReviewScreen:
             self.on_return_callback()
 
     def on_key_press(self, event):
-        key_sym = event.keysym
-        if key_sym in ("Right", "Next"):
-            self.next_question()
-        elif key_sym in ("Left", "Prior"):
-            self.prev_question()
-        elif key_sym == "Escape":
-            self.return_to_menu()
+        actions = {
+            "Right": self.next_question,
+            "Next": self.next_question,
+            "Left": self.prev_question,
+            "Prior": self.prev_question,
+            "Escape": self.return_to_menu,
+        }
+        action = actions.get(event.keysym)
+        if action:
+            action()
 
     def safe_config(self, widget, **kwargs):
         if widget and widget.winfo_exists():
@@ -807,12 +791,12 @@ class ReviewScreen:
         max_height = sz.get("definition_height")
         if max_height is None:
             if sz.get("is_height_constrained", False):
-                max_height = self.scale_value(42, scale, 38, 50)
+                max_height = self.scale_value(63, scale, 57, 75)
             else:
                 max_height = (
-                    self.scale_value(70, scale, 50, 110)
+                    self.scale_value(105, scale, 75, 165)
                     if sz.get("window_height", 0) >= 1080
-                    else self.scale_value(50, scale, 42, 65)
+                    else self.scale_value(75, scale, 63, 98)
                 )
         self.safe_config(self.definition_scroll_wrapper, height=max_height)
         self.safe_config(self.definition_label, wraplength=sz["definition_wrap"])
@@ -915,56 +899,49 @@ class ReviewScreen:
             or not self.definition_scroll_wrapper.winfo_exists()
         ):
             return
-
-        content = (
-            self.def_inner
-            if self.def_inner and self.def_inner.winfo_exists()
-            else (
-                self.definition_label
-                if self.definition_label and self.definition_label.winfo_exists()
-                else None
-            )
+        content = next(
+            (
+                w
+                for w in (self.def_inner, self.definition_label)
+                if w and w.winfo_exists()
+            ),
+            None,
         )
         if not content:
             return
-
         try:
             content.update_idletasks()
             self.definition_scroll_wrapper.update_idletasks()
         except tk.TclError:
             return
-
-        wrapper_height = self.definition_scroll_wrapper.winfo_height()
-        if wrapper_height <= 1:
-            wrapper_height = self.definition_scroll_wrapper.winfo_reqheight()
-        content_height = content.winfo_reqheight()
-
-        self.set_definition_scrollbar_visible(content_height > wrapper_height)
+        wrapper_h = self.definition_scroll_wrapper.winfo_height()
+        if wrapper_h <= 1:
+            wrapper_h = self.definition_scroll_wrapper.winfo_reqheight()
+        self.set_definition_scrollbar_visible(content.winfo_reqheight() > wrapper_h)
 
     def set_definition_scrollbar_visible(self, visible):
         if self.definition_scrollbar_visible is visible:
             return
-
         scrollbar = self.get_scrollbar_widget(self.definition_scroll)
         if not scrollbar or not scrollbar.winfo_exists():
             return
-
         manager = (
             self.definition_scrollbar_manager or scrollbar.winfo_manager() or "grid"
         )
         self.definition_scrollbar_manager = manager
-
-        action_name = (
-            manager
-            if visible
-            else (
-                f"{manager}_forget" if manager in ("pack", "place") else "grid_remove"
-            )
-        )
-        action = getattr(scrollbar, action_name, None)
+        show = {
+            "grid": scrollbar.grid,
+            "pack": scrollbar.pack,
+            "place": scrollbar.place,
+        }
+        hide = {
+            "grid": scrollbar.grid_remove,
+            "pack": scrollbar.pack_forget,
+            "place": scrollbar.place_forget,
+        }
+        action = show.get(manager) if visible else hide.get(manager)
         if action:
             action()
-
         self.definition_scrollbar_visible = visible
 
     def get_scrollbar_widget(self, scrollable):

@@ -252,15 +252,15 @@ GAME_DEFINITION_WRAP_PROFILE = [
 
 # Perfil de altura de scroll de definición
 GAME_DEFINITION_HEIGHT_PROFILE = [
-    (720, 68),
-    (900, 76),
-    (1080, 86),
-    (1280, 96),
-    (1600, 118),
-    (1920, 140),
-    (2560, 162),
-    (3200, 182),
-    (3840, 200),
+    (720, 102),
+    (900, 114),
+    (1080, 129),
+    (1280, 144),
+    (1600, 177),
+    (1920, 210),
+    (2560, 243),
+    (3200, 273),
+    (3840, 300),
 ]
 
 # Perfiles de relleno del contenedor de definición

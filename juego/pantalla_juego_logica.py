@@ -3,7 +3,7 @@ import tkinter as tk
 from functools import partial
 
 import customtkinter as ctk
-from PIL import Image
+from PIL import Image, ImageFile
 
 from juego.pantalla_juego_base import GameScreenBase
 from juego.pantalla_juego_modales import (
@@ -11,6 +11,8 @@ from juego.pantalla_juego_modales import (
     QuestionSummaryModal,
     SkipConfirmationModal,
 )
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 class GameScreenLogic(GameScreenBase):
@@ -147,12 +149,22 @@ class GameScreenLogic(GameScreenBase):
         if self.audio_enabled and definition and definition != "No definition":
             self.tts.speak(definition)
 
+    def _clear_internal_label_image(self):
+        """Clear stale PhotoImage reference from underlying tkinter label."""
+        try:
+            inner = getattr(self.image_label, "_label", None)
+            if inner is not None:
+                inner.configure(image="")
+        except (tk.TclError, AttributeError):
+            pass
+
     def load_question_image(self):
         if not self.current_question:
             return
 
         image_path = self.current_question.get("image", "")
         if not image_path:
+            self._clear_internal_label_image()
             self.image_label.configure(image=None, text="No Image")
             self.current_image = None
             self.cached_original_image = None
@@ -181,6 +193,7 @@ class GameScreenLogic(GameScreenBase):
                         self.cached_original_image = img.convert("RGBA").copy()
                         self.cached_image_path = image_path
                 else:
+                    self._clear_internal_label_image()
                     self.image_label.configure(image=None, text="Image not found")
                     self.current_image = None
                     self.cached_original_image = None
@@ -194,6 +207,7 @@ class GameScreenLogic(GameScreenBase):
                 if w > 0 and h > 0:
                     sc = min(max_sz / w, max_sz / h)
 
+                    self._clear_internal_label_image()
                     self.current_image = ctk.CTkImage(
                         light_image=self.cached_original_image,
                         dark_image=self.cached_original_image,
@@ -201,12 +215,17 @@ class GameScreenLogic(GameScreenBase):
                     )
                     self.image_label.configure(image=self.current_image, text="")
             else:
+                self._clear_internal_label_image()
                 self.image_label.configure(image=None, text="Image Error")
                 self.current_image = None
 
-        except (FileNotFoundError, OSError, ValueError) as e:
+        except (FileNotFoundError, OSError, ValueError, tk.TclError) as e:
             print(f"Error loading image: {e}")
-            self.image_label.configure(image=None, text="Error loading image")
+            self._clear_internal_label_image()
+            try:
+                self.image_label.configure(image=None, text="Error loading image")
+            except tk.TclError:
+                pass
             self.current_image = None
 
     def reload_question_image(self):

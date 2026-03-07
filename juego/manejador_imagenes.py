@@ -3,7 +3,9 @@ from pathlib import Path
 from tkinter import messagebox
 
 import customtkinter as ctk
-from PIL import Image, ImageTk
+from PIL import Image, ImageFile, ImageTk
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 from tksvg import SvgImage as TkSvgImage
 
 

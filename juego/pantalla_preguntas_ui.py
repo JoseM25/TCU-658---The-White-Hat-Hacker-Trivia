@@ -396,8 +396,8 @@ class QuestionScreenUIMixin(QuestionScreenLayoutMixin):
             text_color=c["text_medium"],
             fg_color="transparent",
             wrap="word",
-            height=120,
-            activate_scrollbars=False,
+            height=180,
+            activate_scrollbars=True,
             border_width=0,
         )
         self.detail_definition_textbox.grid(row=0, column=1, sticky="nsew")
